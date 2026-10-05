@@ -10,6 +10,10 @@ import { createMergedDocument, loadPickedPdfs } from '../../src/workflows/mergeW
 
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 34, left: 0 }),
+}));
+jest.mock('expo-router/react-navigation', () => ({ useHeaderHeight: () => 0 }));
 jest.mock('expo-router', () => ({
   router: {
     back: (...args: unknown[]) => mockBack(...args),
@@ -146,5 +150,21 @@ describe('picked file cleanup', () => {
     expect(mockDeleteFiles).not.toHaveBeenCalled();
     await screen.unmount();
     expect(mockDeleteFiles).toHaveBeenCalledWith([a.uri, b.uri]);
+  });
+});
+
+describe('layout', () => {
+  test('name input does not grab focus (keyboard would cover the buttons)', async () => {
+    mockPick.mockResolvedValueOnce([{ uri: a.uri, name: a.name }]);
+    mockLoad.mockResolvedValueOnce({ loaded: [a, b], failed: [] });
+    await renderMerge();
+    expect(screen.getByLabelText('Tên tài liệu').props.autoFocus).toBeFalsy();
+  });
+
+  test('action row clears the bottom safe area', async () => {
+    mockPick.mockResolvedValueOnce([{ uri: a.uri, name: a.name }]);
+    mockLoad.mockResolvedValueOnce({ loaded: [a, b], failed: [] });
+    await renderMerge();
+    expect(screen.getByTestId('actions')).toHaveStyle({ paddingBottom: 16 + 34 });
   });
 });

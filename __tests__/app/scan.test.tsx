@@ -10,6 +10,10 @@ import { createScanDocument } from '../../src/workflows/scanWorkflow';
 
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 34, left: 0 }),
+}));
+jest.mock('expo-router/react-navigation', () => ({ useHeaderHeight: () => 0 }));
 jest.mock('expo-router', () => ({
   router: {
     back: (...args: unknown[]) => mockBack(...args),
@@ -182,5 +186,25 @@ describe('temporary image cleanup', () => {
     await renderScan();
     await fireEvent.press(screen.getByText('Tạo PDF'));
     expect(mockDeleteFiles).not.toHaveBeenCalled();
+  });
+});
+
+describe('layout', () => {
+  test('name input does not grab focus (keyboard would cover the buttons)', async () => {
+    mockScan.mockResolvedValueOnce(['a']);
+    await renderScan();
+    expect(screen.getByLabelText('Tên tài liệu').props.autoFocus).toBeFalsy();
+  });
+
+  test('action row clears the bottom safe area', async () => {
+    mockScan.mockResolvedValueOnce(['a']);
+    await renderScan();
+    expect(screen.getByTestId('actions')).toHaveStyle({ paddingBottom: 16 + 34 });
+  });
+
+  test('thumbnails are downsampled', async () => {
+    mockScan.mockResolvedValueOnce(['a']);
+    await renderScan();
+    expect(screen.getByTestId('thumb').props.resizeMethod).toBe('resize');
   });
 });

@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DocumentActions } from '../src/components/DocumentActions';
 import { DocumentRow } from '../src/components/DocumentRow';
 import { NameInput } from '../src/components/NameInput';
@@ -26,6 +27,7 @@ export default function Home() {
   const [renaming, setRenaming] = useState<DocumentMeta | null>(null);
   const [draft, setDraft] = useState('');
   const [menuDoc, setMenuDoc] = useState<DocumentMeta | null>(null);
+  const insets = useSafeAreaInsets();
 
   useFocusEffect(
     useCallback(() => {
@@ -101,7 +103,7 @@ export default function Home() {
           <Text style={styles.empty}>Chưa có tài liệu nào. Hãy scan hoặc gộp PDF để bắt đầu.</Text>
         }
       />
-      <View style={styles.actions}>
+      <View testID="actions" style={[styles.actions, { paddingBottom: 16 + insets.bottom }]}>
         <Pressable style={styles.button} onPress={() => router.push('/scan')}>
           <Text style={styles.buttonText}>Scan tài liệu</Text>
         </Pressable>
@@ -125,7 +127,7 @@ export default function Home() {
       >
         <View style={styles.backdrop}>
           <View style={styles.dialog}>
-            <NameInput value={draft} onChangeText={setDraft} />
+            <NameInput value={draft} onChangeText={setDraft} autoFocus />
             <View style={styles.dialogActions}>
               <Pressable onPress={() => setRenaming(null)}>
                 <Text style={styles.dialogButton}>Huỷ</Text>

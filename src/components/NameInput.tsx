@@ -4,9 +4,10 @@ type Props = {
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
+  autoFocus?: boolean;
 };
 
-export function NameInput({ value, onChangeText, placeholder }: Props) {
+export function NameInput({ value, onChangeText, placeholder, autoFocus = false }: Props) {
   return (
     <View>
       <Text style={styles.label}>Tên tài liệu</Text>
@@ -17,7 +18,7 @@ export function NameInput({ value, onChangeText, placeholder }: Props) {
         onChangeText={onChangeText}
         placeholder={placeholder}
         maxLength={100}
-        autoFocus
+        autoFocus={autoFocus}
         selectTextOnFocus
       />
     </View>

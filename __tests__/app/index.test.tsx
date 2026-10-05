@@ -6,6 +6,9 @@ import { createLibraryStore } from '../../src/library/libraryStore';
 import { createMemoryFs } from '../../src/library/memoryFs';
 
 const mockPush = jest.fn();
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 34, left: 0 }),
+}));
 jest.mock('expo-router', () => ({
   router: { push: (...args: unknown[]) => mockPush(...args) },
   useFocusEffect: (cb: () => void) => {
@@ -104,4 +107,17 @@ test('long-press on iOS uses the native action sheet', async () => {
   const callback = sheetSpy.mock.calls[0][1];
   await act(async () => callback(2));
   expect(alertSpy).toHaveBeenCalledWith('Xoá tài liệu này?', undefined, expect.any(Array));
+});
+
+test('action row clears the bottom safe area', async () => {
+  await renderHome(false);
+  expect(screen.getByTestId('actions')).toHaveStyle({ paddingBottom: 16 + 34 });
+});
+
+test('rename dialog focuses the name input', async () => {
+  jest.replaceProperty(Platform, 'OS', 'android');
+  await renderHome(true);
+  await fireEvent(screen.getByText('Hoa don'), 'longPress');
+  await fireEvent.press(screen.getByText('Đổi tên'));
+  expect(screen.getByLabelText('Tên tài liệu').props.autoFocus).toBe(true);
 });

@@ -3,7 +3,9 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
   Linking,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -11,6 +13,8 @@ import {
 } from 'react-native';
 import DraggableFlatList, { type RenderItemParams } from 'react-native-draggable-flatlist';
 import { router } from 'expo-router';
+import { useHeaderHeight } from 'expo-router/react-navigation';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NameInput } from '../src/components/NameInput';
 import { useLibrary } from '../src/library/LibraryContext';
 import { deleteFiles } from '../src/native/deleteFiles';
@@ -25,6 +29,8 @@ export default function Scan() {
   const { store, refresh } = useLibrary();
   const { items, append, remove, setOrder } = useOrderedList<string>();
   const busy = useBusy();
+  const insets = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
   const [name, setName] = useState(() => defaultName('scan', new Date()));
   const started = useRef(false);
   const count = useRef(0);
@@ -127,7 +133,12 @@ export default function Scan() {
       disabled={isActive}
     >
       <Text style={styles.pageLabel}>Trang {items.findIndex((i) => i.key === item.key) + 1}</Text>
-      <Image source={{ uri: item.value }} style={styles.thumb} />
+      <Image
+        source={{ uri: item.value }}
+        style={styles.thumb}
+        resizeMethod="resize"
+        testID="thumb"
+      />
       <Pressable onPress={() => removePage(item)}>
         <Text style={styles.delete}>Xoá</Text>
       </Pressable>
@@ -137,7 +148,11 @@ export default function Scan() {
   const createDisabled = items.length === 0 || busy.busy;
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={headerHeight}
+    >
       <View style={styles.header}>
         <NameInput value={name} onChangeText={setName} />
       </View>
@@ -149,7 +164,7 @@ export default function Scan() {
         containerStyle={styles.list}
       />
       {busy.busy && <ActivityIndicator style={styles.spinner} />}
-      <View style={styles.actions}>
+      <View testID="actions" style={[styles.actions, { paddingBottom: 16 + insets.bottom }]}>
         <Pressable
           style={[styles.button, busy.busy && styles.disabled]}
           disabled={busy.busy}
@@ -165,7 +180,7 @@ export default function Scan() {
           <Text style={styles.buttonText}>Tạo PDF</Text>
         </Pressable>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

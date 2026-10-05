@@ -1,7 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import DraggableFlatList, { type RenderItemParams } from 'react-native-draggable-flatlist';
 import { router } from 'expo-router';
+import { useHeaderHeight } from 'expo-router/react-navigation';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NameInput } from '../src/components/NameInput';
 import { useLibrary } from '../src/library/LibraryContext';
 import { pickPdfs } from '../src/native/pickPdfs';
@@ -20,6 +31,8 @@ export default function Merge() {
   const { store, refresh } = useLibrary();
   const { items, append, remove, setOrder } = useOrderedList<LoadedPdf>();
   const busy = useBusy();
+  const insets = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
   const [name, setName] = useState(() => defaultName('merge', new Date()));
   const started = useRef(false);
   const count = useRef(0);
@@ -125,7 +138,11 @@ export default function Merge() {
   const mergeDisabled = items.length < 2 || busy.busy;
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={headerHeight}
+    >
       <View style={styles.header}>
         <NameInput value={name} onChangeText={setName} />
         {items.length < 2 && <Text style={styles.hint}>Chọn ít nhất 2 file PDF</Text>}
@@ -138,7 +155,7 @@ export default function Merge() {
         containerStyle={styles.list}
       />
       {busy.busy && <ActivityIndicator style={styles.spinner} />}
-      <View style={styles.actions}>
+      <View testID="actions" style={[styles.actions, { paddingBottom: 16 + insets.bottom }]}>
         <Pressable
           role="button"
           style={[styles.button, busy.busy && styles.disabled]}
@@ -156,7 +173,7 @@ export default function Merge() {
           <Text style={styles.buttonText}>Gộp PDF</Text>
         </Pressable>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
