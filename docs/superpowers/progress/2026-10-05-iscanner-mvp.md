@@ -27,8 +27,8 @@ Durable record of plan execution, for resuming in later sessions.
 | 5 | Ordered list & busy hooks | ✅ done | `5f03d35` | review clean |
 | 6 | Scan & merge workflows | ✅ done | `9f4c91c` | review clean |
 | 7 | Library context & native wrappers | ✅ done | `23fad3b` | review clean |
-| 8 | Root layout & Home screen | ⏳ in progress | | |
-| 9 | Scan review screen | ⬜ | | |
+| 8 | Root layout & Home screen | ✅ done | `64aacd9` | review clean |
+| 9 | Scan review screen | ⏳ in progress | | |
 | 10 | Merge PDFs screen | ⬜ | | |
 | 11 | Viewer & final verification | ⬜ | | |
 
@@ -117,3 +117,13 @@ Durable record of plan execution, for resuming in later sessions.
 - Manual check needed on device: the scanner's permission-denied message matches `/permission/i`.
 - Tests: full suite 46/46.
 - Deferred minors: the context load has no `.catch`; `pickPdfs` and `share` are untested.
+
+### Task 8 — Layout & Home (✅ `64aacd9`)
+- `app/_layout.tsx` nests `GestureHandlerRootView` > `LibraryProvider` > `Stack`, with routes `index` (iScanner), `scan`, `merge` and `viewer/[id]`.
+- `app/index.tsx` is the library list with an empty state, the buttons `Scan tài liệu`/`Gộp PDF`, tap to open the viewer, and long-press for Đổi tên / Chia sẻ / Xoá. Rename uses a Modal. Errors show `Alert 'Có lỗi xảy ra'`.
+- Components:
+  - `src/components/DocumentRow.tsx` (meta line: `date · N trang · size`)
+  - `src/components/NameInput.tsx` (`{value, onChangeText, placeholder?}`, maxLength 100)
+- Testing note: in RNTL v14 `fireEvent` is async too and must be awaited.
+- Tests: 3 new; full suite 49/49.
+- Deferred minors: the Alert flows are untested; Pressables lack `accessibilityRole`.
