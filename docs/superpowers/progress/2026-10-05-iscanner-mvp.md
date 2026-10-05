@@ -29,8 +29,8 @@ Durable record of plan execution, for resuming in later sessions.
 | 7 | Library context & native wrappers | ✅ done | `23fad3b` | review clean |
 | 8 | Root layout & Home screen | ✅ done | `64aacd9` | review clean |
 | 9 | Scan review screen | ✅ done | `01a1e98` | review clean |
-| 10 | Merge PDFs screen | ⏳ in progress | | |
-| 11 | Viewer & final verification | ⬜ | | |
+| 10 | Merge PDFs screen | ✅ done | `8df0e86` | review clean |
+| 11 | Viewer & final verification | ⏳ in progress | | |
 
 ## Task details
 
@@ -144,3 +144,13 @@ Durable record of plan execution, for resuming in later sessions.
   - If `refresh()` fails after the PDF is created, the screen shows a "can't create" error, so the user may create a duplicate.
   - `findIndex` is called inside `renderItem`.
   - Some alert paths are untested.
+
+### Task 10 — Merge PDFs screen (✅ `8df0e86`)
+- `app/merge.tsx`:
+  - Picks files automatically once per mount, then runs `loadPickedPdfs` and appends the results.
+  - Files that fail to load trigger the Alert `Không đọc được file` with their names.
+  - Each row shows the file name, `N trang` and `Xoá`.
+  - `Gộp PDF` is enabled only when there are at least 2 files and the screen is not busy; otherwise the hint `Chọn ít nhất 2 file PDF` is shown.
+  - A merge failure shows `Không thể tạo PDF`. A `refresh()` failure after a successful merge is ignored and the app still navigates to the viewer, which avoids duplicate documents.
+- Tests: 4; full suite 58/58.
+- Deferred minors: the merge-failure path and the refresh-failure path are untested.
