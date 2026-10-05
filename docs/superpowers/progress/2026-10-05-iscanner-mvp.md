@@ -21,8 +21,8 @@ Durable record of plan execution, for resuming in later sessions.
 | # | Task | Status | Commits | Notes |
 |---|---|---|---|---|
 | 1 | Scaffold Expo project | ✅ done | `1e1029a` | review clean |
-| 2 | Format & name helpers | ⏳ in progress | | |
-| 3 | PDF create & merge | ⬜ | | |
+| 2 | Format & name helpers | ✅ done | `7657898` | review clean |
+| 3 | PDF create & merge | ⏳ in progress | | |
 | 4 | Library store | ⬜ | | |
 | 5 | Ordered list & busy hooks | ⬜ | | |
 | 6 | Scan & merge workflows | ⬜ | | |
@@ -42,3 +42,12 @@ Durable record of plan execution, for resuming in later sessions.
 - Gotchas: `react-dom@19.2.3` was installed explicitly to fix an npm ERESOLVE. `tsconfig.json` has `"types": ["jest","node"]`, because TS 6 no longer auto-includes @types, so add new ambient types there. `npx expo install … -- --save-dev` misplaces packages; check devDependencies afterwards.
 - Verification: jest 1/1, typecheck clean, expo-doctor 21/21.
 - Deferred minors: `@types/node` is not a direct devDependency; the template `AGENTS.md` is misleading (src/app, bun).
+
+### Task 2 — Format helpers (✅ `7657898`)
+- `src/utils/format.ts` provides four helpers:
+  - `formatDate(iso)` → `dd/MM/yyyy HH:mm`
+  - `defaultName('scan'|'merge', date)` → `Scan|Gộp dd-MM-yyyy HH.mm`
+  - `formatSize(bytes)` → `B/KB/MB` (1024 base, 1 decimal)
+  - `sanitizeName(input, fallback)` (trim, fallback, max 100)
+- Tests: `__tests__/utils/format.test.ts` (9 tests, local-time dates).
+- Deferred minors: the date padding code is duplicated; truncation may split emoji surrogate pairs; an invalid ISO string gives `NaN`; tests cover only happy paths.
