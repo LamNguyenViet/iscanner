@@ -213,3 +213,7 @@ Durable record of plan execution, for resuming in later sessions.
 - iOS (needs EAS and an Apple Developer account).
 - Camera-permission denial: Android ML Kit needs no runtime camera permission.
 - Real-paper scan quality: the emulator camera only shows a virtual scene.
+
+## iOS build (2026-10-05) — not started
+- The user asked for an IPA and then dropped it. On Windows an IPA can only be built through EAS Build, and it needs an Expo account. Ad-hoc and App Store builds also need a paid Apple Developer account; ad-hoc additionally needs each iPhone's UDID registered. A simulator build produces a `.app` that runs only on a Mac simulator.
+- To do it later: `npx eas-cli login`, then `npx eas-cli build --platform ios --profile preview` (ad-hoc, after `npx eas-cli device:create`) or `--profile production` (TestFlight). Profiles are in `eas.json`.
