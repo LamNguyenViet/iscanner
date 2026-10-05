@@ -30,7 +30,7 @@ Durable record of plan execution, for resuming in later sessions.
 | 8 | Root layout & Home screen | ✅ done | `64aacd9` | review clean |
 | 9 | Scan review screen | ✅ done | `01a1e98` | review clean |
 | 10 | Merge PDFs screen | ✅ done | `8df0e86` | review clean |
-| 11 | Viewer & final verification | ⏳ in progress | | |
+| 11 | Viewer & final verification | ✅ done | `9a2c701` | review clean |
 
 ## Task details
 
@@ -154,3 +154,14 @@ Durable record of plan execution, for resuming in later sessions.
   - A merge failure shows `Không thể tạo PDF`. A `refresh()` failure after a successful merge is ignored and the app still navigates to the viewer, which avoids duplicate documents.
 - Tests: 4; full suite 58/58.
 - Deferred minors: the merge-failure path and the refresh-failure path are untested.
+
+### Task 11 — Viewer & verification (✅ `9a2c701`)
+- `app/viewer/[id].tsx`:
+  - Shows an `ActivityIndicator` while loading.
+  - An unknown id shows `Không tìm thấy tài liệu` and a `Quay lại` button.
+  - A known id renders `react-native-pdf` with a `Chia sẻ` button in the header. Share errors show `Có lỗi xảy ra`.
+- `README.md` (Vietnamese) covers the features, dev build steps (Expo Go is not supported), and a manual test checklist that includes the device-only checks.
+- Final verification: jest 60/60, typecheck clean, expo-doctor 21/21, `expo export --platform android` bundle OK.
+
+## Final whole-branch review
+- ⏳ in progress
