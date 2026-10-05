@@ -14,7 +14,13 @@ Durable record of plan execution, for resuming in later sessions.
 - R2: `LibraryStore.remove(id)` with an unknown id is a no-op.
 - R3: Task 10 passes a thunk to `busy.run(() => createMergedDocument(...))`.
 - R4: Task 11 `expo export` writes to a scratch dir outside the repo.
-- R5: Routes live in root `app/` (not `src/app/`). The template `AGENTS.md` mentions `src/app/` and bun — ignore that guidance (to be fixed in final review).
+- R5: Routes live in root `app/` (not `src/app/`). AGENTS.md was rewritten in the final fix wave.
+- R6: The camera-permission error message is localized → the generic scan-error alert also offers `Mở Cài đặt` (no expo-camera added).
+- R7: Added `expo-dev-client` + `eas.json` (development/preview/production) and EAS/Apple account steps in the README.
+- R8: Long-press menu: iOS uses `ActionSheetIOS`, Android uses a custom Modal (`src/components/DocumentActions.tsx`).
+- R9: Scanned images and picked PDF copies are deleted after use (`src/native/deleteFiles.ts`).
+- R10: Not fixed yet (known issues): navigating away while busy; memory limits for very large scans (README note only); A4 page scaling (needs a spec change; pages currently match the image pixel size); web template leftovers (README notes Android/iOS only).
+- Parked: deleting files while a create/merge is still running (if the user leaves the screen or taps Xoá mid-run, it fails with no data loss; fix together with "navigating while busy"); cache copies still loading at unmount are not deleted.
 
 ## Tasks
 
@@ -163,5 +169,8 @@ Durable record of plan execution, for resuming in later sessions.
 - `README.md` (Vietnamese) covers the features, dev build steps (Expo Go is not supported), and a manual test checklist that includes the device-only checks.
 - Final verification: jest 60/60, typecheck clean, expo-doctor 21/21, `expo export --platform android` bundle OK.
 
-## Final whole-branch review
-- ⏳ in progress
+## Final whole-branch review (✅)
+- Opus review: **With fixes**. 1 Critical (DraggableFlatList with no `containerStyle` pushed the `Tạo PDF`/`Gộp PDF` buttons off-screen), 7 Important (Android 4-button alert could not be closed; scan showed a failure when refresh failed after create; temp image files leaked; permission text is localized; NameInput autoFocus; README/EAS; AGENTS.md).
+- Fix wave `ad4307e`..`3ab419b` (8 commits) fixed all 15 items; scoped re-review: all ADDRESSED, no new Critical/Important.
+- Verification (re-run by the controller): jest **86/86**, typecheck clean; implementer: expo-doctor 21/21, `expo export --platform android` OK.
+- **Status: the plan is complete.** Remaining: manual testing on real Android/iOS devices (checklist in README.md), then merge `feat/iscanner-mvp` → `master`.
