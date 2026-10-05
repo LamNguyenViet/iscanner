@@ -1,0 +1,4 @@
+sử dụng các skill trong plugin superpowers, các tính năng có thể giống camscaner.
+thời gian - 05/10/2026 - sequence 1: tạo 1 ứng dụng mobile android và ios có tính năng sau:
+1. truy cập camera của điện thoại, và scan hình ảnh + giấy tờ khi người dùng chụp ảnh, merge các ảnh của người dùng thành 1 file pdf duy nhất.
+2. truy cập thư mục lưu trữ, load các file pdf lên ứng dụng, và có chức năng merge các file pdf lại thành 1 file pdf duy nhất.
