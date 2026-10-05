@@ -22,8 +22,8 @@ Durable record of plan execution, for resuming in later sessions.
 |---|---|---|---|---|
 | 1 | Scaffold Expo project | ✅ done | `1e1029a` | review clean |
 | 2 | Format & name helpers | ✅ done | `7657898` | review clean |
-| 3 | PDF create & merge | ⏳ in progress | | |
-| 4 | Library store | ⬜ | | |
+| 3 | PDF create & merge | ✅ done | `2fd0fc2` | review clean |
+| 4 | Library store | ⏳ in progress | | |
 | 5 | Ordered list & busy hooks | ⬜ | | |
 | 6 | Scan & merge workflows | ⬜ | | |
 | 7 | Library context & native wrappers | ⬜ | | |
@@ -51,3 +51,16 @@ Durable record of plan execution, for resuming in later sessions.
   - `sanitizeName(input, fallback)` (trim, fallback, max 100)
 - Tests: `__tests__/utils/format.test.ts` (9 tests, local-time dates).
 - Deferred minors: the date padding code is duplicated; truncation may split emoji surrogate pairs; an invalid ISO string gives `NaN`; tests cover only happy paths.
+
+### Task 3 — PDF create & merge (✅ `2fd0fc2`)
+- `src/pdf/images.ts`:
+  - types `ImageMime`, `ImageInput`
+  - `detectImageType(bytes)` (magic bytes; throws `UNSUPPORTED_IMAGE`)
+- `src/pdf/createPdfFromImages.ts`: `createPdfFromImages(images)` creates one page per image, sized to the image's pixels. Throws `NO_IMAGES` on an empty list.
+- `src/pdf/mergePdfs.ts`:
+  - `PdfLoadError` (has `.index`, message `PDF_LOAD_FAILED`)
+  - `getPdfPageCount(pdf)`
+  - `mergePdfs(pdfs)` (throws `NO_PDFS`; encrypted or corrupt input → `PdfLoadError` with the input index)
+- Test fixtures: `__tests__/fixtures/images.ts` provides `makePng(w,h)` and `makeJpeg(w,h)`.
+- Tests: 9 pdf tests; full suite 19/19.
+- Deferred minors: `PdfLoadError` drops the original cause; the encrypted-PDF test uses a mock, not a real encrypted file.
