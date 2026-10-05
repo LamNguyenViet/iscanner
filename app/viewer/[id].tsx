@@ -49,7 +49,7 @@ export default function Viewer() {
         options={{
           title: doc.name,
           headerRight: () => (
-            <Pressable onPress={() => shareDocument(uri).catch(() => Alert.alert('Có lỗi xảy ra'))}>
+            <Pressable onPress={() => shareDocument(uri, doc.name).catch(() => Alert.alert('Có lỗi xảy ra'))}>
               <Text style={styles.share}>Chia sẻ</Text>
             </Pressable>
           ),

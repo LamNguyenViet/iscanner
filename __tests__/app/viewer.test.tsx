@@ -72,7 +72,7 @@ test('renders pdf for known id and shares it', async () => {
   expect(mockHeaderRight).toBeDefined();
   await render(<>{mockHeaderRight!()}</>);
   await fireEvent.press(screen.getByText('Chia sẻ'));
-  expect(mockShare).toHaveBeenCalledWith(uri);
+  expect(mockShare).toHaveBeenCalledWith(uri, 'Hoa don');
 });
 
 test('refreshes once when the id is not loaded yet', async () => {

@@ -50,7 +50,7 @@ export default function Home() {
     setRenaming(doc);
   };
 
-  const share = (doc: DocumentMeta) => shareDocument(store.fileUri(doc)).catch(showError);
+  const share = (doc: DocumentMeta) => shareDocument(store.fileUri(doc), doc.name).catch(showError);
 
   // Android's Alert keeps only 3 buttons (dropping "Huỷ"), so Android gets a custom menu.
   const openMenu = (doc: DocumentMeta) => {

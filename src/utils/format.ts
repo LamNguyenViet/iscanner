@@ -60,3 +60,20 @@ export function sanitizeName(input: string, fallback: string): string {
 
   return trimmed.substring(0, 100);
 }
+
+const SHARE_NAME_FALLBACK = 'tai-lieu';
+
+/**
+ * File name used when sharing a document: the document name made safe for file systems
+ * (reserved characters → "-", whitespace collapsed, trailing dots removed, max 100 chars) + ".pdf"
+ */
+export function shareFileName(name: string): string {
+  const base = name
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, (ch) => (/\s/.test(ch) ? ' ' : '-'))
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[.\s]+$/, '')
+    .substring(0, 100)
+    .trim();
+  return `${base || SHARE_NAME_FALLBACK}.pdf`;
+}

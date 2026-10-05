@@ -3,7 +3,31 @@ import {
   defaultName,
   formatSize,
   sanitizeName,
+  shareFileName,
 } from '../../src/utils/format';
+
+describe('shareFileName', () => {
+  test('keeps Vietnamese names and adds .pdf', () => {
+    expect(shareFileName('Hợp đồng tổng hợp')).toBe('Hợp đồng tổng hợp.pdf');
+  });
+
+  test('replaces characters not allowed in file names', () => {
+    expect(shareFileName('Hoá/đơn: 05\\10 *?"<>|')).toBe('Hoá-đơn- 05-10 ------.pdf');
+  });
+
+  test('collapses whitespace and strips trailing dots', () => {
+    expect(shareFileName('  Báo   cáo\n quý..  ')).toBe('Báo cáo quý.pdf');
+  });
+
+  test('falls back when nothing usable is left', () => {
+    expect(shareFileName('   ')).toBe('tai-lieu.pdf');
+    expect(shareFileName('...')).toBe('tai-lieu.pdf');
+  });
+
+  test('limits the base name to 100 characters', () => {
+    expect(shareFileName('a'.repeat(150))).toBe('a'.repeat(100) + '.pdf');
+  });
+});
 
 describe('formatDate', () => {
   test('formats ISO string to dd/MM/yyyy HH:mm in local time', () => {

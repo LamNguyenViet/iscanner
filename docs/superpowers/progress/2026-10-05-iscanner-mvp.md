@@ -206,8 +206,8 @@ Durable record of plan execution, for resuming in later sessions.
 - Rename and delete (with confirm `Xoá tài liệu này?`) work. The PDF file is removed from `files/pdfs`, and `library.json` stays consistent.
 - Temporary files: after create and merge, the app cache holds no leftover scan images or picked copies.
 
-### New finding
-- **The shared file name is the internal id** (e.g. `muupj3n46e1r08.pdf`), not the document name. Users would expect `Hop dong tong hop.pdf`. Suggested fix: before sharing, copy the file to cache as `<sanitized name>.pdf` and share that copy.
+### New finding — fixed
+- **The shared file name was the internal id** (e.g. `muupj3n46e1r08.pdf`). Fixed: `shareFileName(name)` in `src/utils/format.ts` builds a safe file name. It replaces ` / : * ? " < > |` and control characters with `-`, collapses whitespace, strips trailing dots, caps the length at 100, keeps Vietnamese diacritics, and falls back to `tai-lieu.pdf`. `shareDocument(uri, name)` copies the file to `cache/share/<name>.pdf` (the folder is cleared on each share) and shares that copy. Tests: 92/92. Verified on the emulator: the share sheet shows `Hop dong tong hop.pdf`.
 
 ### Not testable on the emulator
 - iOS (needs EAS and an Apple Developer account).
