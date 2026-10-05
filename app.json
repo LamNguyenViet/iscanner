@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "iScanner",
+    "slug": "iscanner",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dlbk.iscanner"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.dlbk.iscanner"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "react-native-document-scanner-plugin",
+        {
+          "cameraPermission": "Ứng dụng cần quyền camera để scan tài liệu."
+        }
+      ],
+      "expo-document-picker"
+    ],
+    "scheme": "iscanner"
+  }
+}
