@@ -10,7 +10,7 @@ export default function RootLayout() {
           <Stack.Screen name="index" options={{ title: 'iScanner' }} />
           <Stack.Screen name="scan" options={{ title: 'Scan tài liệu' }} />
           <Stack.Screen name="merge" options={{ title: 'Gộp PDF' }} />
-          <Stack.Screen name="viewer/[id]" />
+          <Stack.Screen name="viewer/[id]" options={{ title: 'Tài liệu' }} />
         </Stack>
       </LibraryProvider>
     </GestureHandlerRootView>

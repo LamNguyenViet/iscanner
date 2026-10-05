@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import Pdf from 'react-native-pdf';
@@ -6,9 +7,23 @@ import { shareDocument } from '../../src/native/share';
 
 export default function Viewer() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { documents, loading, store } = useLibrary();
+  const { documents, loading, store, refresh } = useLibrary();
+  const [pdfError, setPdfError] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshed = useRef(false);
+  const doc = documents.find((d) => d.id === id);
 
-  if (loading) {
+  // The document may have been added after the library loaded: refresh once before giving up.
+  useEffect(() => {
+    if (loading || doc || refreshed.current) return;
+    refreshed.current = true;
+    setRefreshing(true);
+    refresh()
+      .catch(() => {})
+      .finally(() => setRefreshing(false));
+  }, [loading, doc, refresh]);
+
+  if (loading || (!doc && (refreshing || !refreshed.current))) {
     return (
       <View style={styles.center}>
         <ActivityIndicator />
@@ -16,7 +31,6 @@ export default function Viewer() {
     );
   }
 
-  const doc = documents.find((d) => d.id === id);
   if (!doc) {
     return (
       <View style={styles.center}>
@@ -41,7 +55,13 @@ export default function Viewer() {
           ),
         }}
       />
-      <Pdf source={{ uri }} style={styles.pdf} />
+      {pdfError ? (
+        <View style={styles.center}>
+          <Text style={styles.text}>Không mở được tài liệu</Text>
+        </View>
+      ) : (
+        <Pdf source={{ uri }} style={styles.pdf} onError={() => setPdfError(true)} />
+      )}
     </View>
   );
 }

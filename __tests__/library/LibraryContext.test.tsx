@@ -55,4 +55,25 @@ describe('LibraryContext', () => {
     expect(await screen.findByText('Renamed')).toBeTruthy();
     expect(screen.queryByText('Receipt')).toBeNull();
   });
+
+  it('a failed initial load ends loading without an unhandled rejection', async () => {
+    const unhandled = jest.fn();
+    process.on('unhandledRejection', unhandled);
+    try {
+      const store = createLibraryStore({ fs: createMemoryFs() });
+      jest.spyOn(store, 'list').mockRejectedValue(new Error('io'));
+      await render(
+        <LibraryProvider store={store}>
+          <Consumer />
+        </LibraryProvider>,
+      );
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      });
+      expect(screen.getByTestId('loading').props.children).toBe('no');
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off('unhandledRejection', unhandled);
+    }
+  });
 });

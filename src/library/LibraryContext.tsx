@@ -44,6 +44,9 @@ export function LibraryProvider({
       .then((docs) => {
         if (active) setDocuments(docs);
       })
+      .catch(() => {
+        // keep the empty list; screens can retry with refresh()
+      })
       .finally(() => {
         if (active) setLoading(false);
       });

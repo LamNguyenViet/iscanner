@@ -74,3 +74,28 @@ test('renders pdf for known id and shares it', async () => {
   await fireEvent.press(screen.getByText('Chia sẻ'));
   expect(mockShare).toHaveBeenCalledWith(uri);
 });
+
+test('refreshes once when the id is not loaded yet', async () => {
+  const store = createLibraryStore({ fs: createMemoryFs(), newId: () => 'id1' });
+  await store.add(new Uint8Array(10), { name: 'Hoa don', pageCount: 1, source: 'scan' });
+  // the provider's initial load misses the document (e.g. created right before navigating)
+  const listSpy = jest.spyOn(store, 'list').mockResolvedValueOnce([]);
+  await render(
+    <LibraryProvider store={store}>
+      <Viewer />
+    </LibraryProvider>,
+  );
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  expect(listSpy).toHaveBeenCalledTimes(2);
+  expect(screen.queryByText('Không tìm thấy tài liệu')).toBeNull();
+  expect(mockPdfProps).toHaveBeenCalled();
+});
+
+test('shows an error when the pdf cannot be opened', async () => {
+  await renderViewer();
+  const { onError } = mockPdfProps.mock.calls.at(-1)![0];
+  await act(async () => onError(new Error('corrupt')));
+  expect(screen.getByText('Không mở được tài liệu')).toBeTruthy();
+});
