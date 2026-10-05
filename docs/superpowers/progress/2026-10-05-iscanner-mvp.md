@@ -24,8 +24,8 @@ Durable record of plan execution, for resuming in later sessions.
 | 2 | Format & name helpers | ✅ done | `7657898` | review clean |
 | 3 | PDF create & merge | ✅ done | `2fd0fc2` | review clean |
 | 4 | Library store | ✅ done | `a116414`, `4fca531` | 1 fix round (atomic writes) |
-| 5 | Ordered list & busy hooks | ⏳ in progress | | |
-| 6 | Scan & merge workflows | ⬜ | | |
+| 5 | Ordered list & busy hooks | ✅ done | `5f03d35` | review clean |
+| 6 | Scan & merge workflows | ⏳ in progress | | |
 | 7 | Library context & native wrappers | ⬜ | | |
 | 8 | Root layout & Home screen | ⬜ | | |
 | 9 | Scan review screen | ⬜ | | |
@@ -85,3 +85,11 @@ Durable record of plan execution, for resuming in later sessions.
   - Operations that read and then write the index are not serialised.
   - Index entries are not validated.
   - On iOS, move-with-overwrite has a small non-atomic window.
+
+### Task 5 — Hooks (✅ `5f03d35`)
+- `src/workflows/useOrderedList.ts` exports `Keyed<T> = {key, value}` and `useOrderedList<T>()`, which returns `{ items, append(values), remove(key), setOrder(items) }`. Keys come from a counter, so duplicate values get distinct keys.
+- `src/workflows/useBusy.ts`: `useBusy()` returns `{ busy, run(fn) }`.
+  - A synchronous ref guard makes a second call during an in-flight run return `undefined` without calling `fn`.
+  - Rejections are rethrown after busy is reset.
+- Testing note: in RNTL v14, `renderHook`, `render` and `act` are async, so always `await` them.
+- Tests: 5 new; full suite 33/33.
