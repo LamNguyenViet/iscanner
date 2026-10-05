@@ -13,6 +13,7 @@ import DraggableFlatList, { type RenderItemParams } from 'react-native-draggable
 import { router } from 'expo-router';
 import { NameInput } from '../src/components/NameInput';
 import { useLibrary } from '../src/library/LibraryContext';
+import { deleteFiles } from '../src/native/deleteFiles';
 import { readBytes } from '../src/native/readBytes';
 import { scanDocuments } from '../src/scanner/scanner';
 import { defaultName, sanitizeName } from '../src/utils/format';
@@ -28,6 +29,17 @@ export default function Scan() {
   const started = useRef(false);
   const count = useRef(0);
   count.current = items.length;
+  // Scanned images are temporary files: delete them once used or abandoned.
+  const pageUris = useRef<string[]>([]);
+  pageUris.current = items.map((i) => i.value);
+  const created = useRef(false);
+
+  useEffect(
+    () => () => {
+      if (!created.current) deleteFiles(pageUris.current);
+    },
+    [],
+  );
 
   const backIfEmpty = () => {
     if (count.current === 0) router.back();
@@ -96,9 +108,16 @@ export default function Scan() {
       return;
     }
     if (!meta) return;
+    created.current = true;
+    deleteFiles(items.map((i) => i.value));
     // The document already exists; a failed refresh must not look like a failed create.
     await refresh().catch(() => {});
     router.replace(`/viewer/${meta.id}`);
+  };
+
+  const removePage = (item: Keyed<string>) => {
+    remove(item.key);
+    deleteFiles([item.value]);
   };
 
   const renderItem = ({ item, drag, isActive }: RenderItemParams<Keyed<string>>) => (
@@ -109,7 +128,7 @@ export default function Scan() {
     >
       <Text style={styles.pageLabel}>Trang {items.findIndex((i) => i.key === item.key) + 1}</Text>
       <Image source={{ uri: item.value }} style={styles.thumb} />
-      <Pressable onPress={() => remove(item.key)}>
+      <Pressable onPress={() => removePage(item)}>
         <Text style={styles.delete}>Xoá</Text>
       </Pressable>
     </Pressable>

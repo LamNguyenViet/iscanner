@@ -4,6 +4,7 @@ import Scan from '../../app/scan';
 import { LibraryProvider } from '../../src/library/LibraryContext';
 import { createLibraryStore } from '../../src/library/libraryStore';
 import { createMemoryFs } from '../../src/library/memoryFs';
+import { deleteFiles } from '../../src/native/deleteFiles';
 import { scanDocuments } from '../../src/scanner/scanner';
 import { createScanDocument } from '../../src/workflows/scanWorkflow';
 
@@ -18,6 +19,9 @@ jest.mock('expo-router', () => ({
 jest.mock('../../src/scanner/scanner', () => ({ scanDocuments: jest.fn() }));
 jest.mock('../../src/workflows/scanWorkflow', () => ({ createScanDocument: jest.fn() }));
 jest.mock('../../src/native/readBytes', () => ({ readBytes: jest.fn() }));
+jest.mock('../../src/native/deleteFiles', () => ({
+  deleteFiles: jest.fn().mockResolvedValue(undefined),
+}));
 const mockDraggableProps = jest.fn();
 jest.mock('react-native-draggable-flatlist', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -36,6 +40,7 @@ jest.mock('react-native-draggable-flatlist', () => {
 
 const mockScan = scanDocuments as jest.Mock;
 const mockCreate = createScanDocument as jest.Mock;
+const mockDeleteFiles = deleteFiles as jest.Mock;
 
 async function renderScan() {
   const store = createLibraryStore({ fs: createMemoryFs(), newId: () => 'id1' });
@@ -142,4 +147,40 @@ test('generic scan error offers settings and goes back', async () => {
   });
   expect(mockBack).toHaveBeenCalledTimes(2);
   settingsSpy.mockRestore();
+});
+
+describe('temporary image cleanup', () => {
+  test('deletes a page image when the page is removed', async () => {
+    mockScan.mockResolvedValueOnce(['a', 'b']);
+    await renderScan();
+    await fireEvent.press(screen.getAllByText('Xoá')[0]);
+    expect(mockDeleteFiles).toHaveBeenCalledWith(['a']);
+    expect(screen.queryByText('Trang 2')).toBeNull();
+  });
+
+  test('deletes all page images after a successful create', async () => {
+    mockScan.mockResolvedValueOnce(['a', 'b']);
+    mockCreate.mockResolvedValueOnce({ id: 'id1' });
+    await renderScan();
+    await fireEvent.press(screen.getByText('Tạo PDF'));
+    expect(mockDeleteFiles).toHaveBeenCalledWith(['a', 'b']);
+    await screen.unmount();
+    expect(mockDeleteFiles).toHaveBeenCalledTimes(1);
+  });
+
+  test('deletes remaining page images when leaving without creating', async () => {
+    mockScan.mockResolvedValueOnce(['a', 'b']);
+    await renderScan();
+    expect(mockDeleteFiles).not.toHaveBeenCalled();
+    await screen.unmount();
+    expect(mockDeleteFiles).toHaveBeenCalledWith(['a', 'b']);
+  });
+
+  test('keeps page images when create fails', async () => {
+    mockScan.mockResolvedValueOnce(['a']);
+    mockCreate.mockRejectedValueOnce(new Error('boom'));
+    await renderScan();
+    await fireEvent.press(screen.getByText('Tạo PDF'));
+    expect(mockDeleteFiles).not.toHaveBeenCalled();
+  });
 });

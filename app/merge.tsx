@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { NameInput } from '../src/components/NameInput';
 import { useLibrary } from '../src/library/LibraryContext';
 import { pickPdfs } from '../src/native/pickPdfs';
+import { deleteFiles } from '../src/native/deleteFiles';
 import { readBytes } from '../src/native/readBytes';
 import { defaultName, sanitizeName } from '../src/utils/format';
 import {
@@ -23,6 +24,17 @@ export default function Merge() {
   const started = useRef(false);
   const count = useRef(0);
   count.current = items.length;
+  // Picked PDFs are copies in the app cache: delete them once used or abandoned.
+  const fileUris = useRef<string[]>([]);
+  fileUris.current = items.map((i) => i.value.uri);
+  const merged = useRef(false);
+
+  useEffect(
+    () => () => {
+      if (!merged.current) deleteFiles(fileUris.current);
+    },
+    [],
+  );
 
   const backIfEmpty = () => {
     if (count.current === 0) router.back();
@@ -33,7 +45,11 @@ export default function Merge() {
       const result = await busy.run(async () => {
         const picked = await pickPdfs();
         if (picked.length === 0) return null;
-        return loadPickedPdfs({ readBytes }, picked);
+        const loaded = await loadPickedPdfs({ readBytes }, picked);
+        const loadedUris = new Set(loaded.loaded.map((f) => f.uri));
+        const unusable = picked.filter((f) => !loadedUris.has(f.uri)).map((f) => f.uri);
+        if (unusable.length > 0) deleteFiles(unusable);
+        return loaded;
       });
       if (result === undefined) return;
       if (result === null) {
@@ -76,9 +92,18 @@ export default function Merge() {
       return;
     }
     if (!meta) return;
+    merged.current = true;
+    deleteFiles(items.map((i) => i.value.uri));
     // The document already exists; a failed refresh must not look like a failed merge.
     await refresh().catch(() => {});
     router.replace(`/viewer/${meta.id}`);
+  };
+
+  const removeFile = (item: Keyed<LoadedPdf>) => {
+    remove(item.key);
+    // The same copy may be listed twice; keep it while another entry still uses it.
+    const stillUsed = items.some((i) => i.key !== item.key && i.value.uri === item.value.uri);
+    if (!stillUsed) deleteFiles([item.value.uri]);
   };
 
   const renderItem = ({ item, drag, isActive }: RenderItemParams<Keyed<LoadedPdf>>) => (
@@ -91,7 +116,7 @@ export default function Merge() {
         {item.value.name}
       </Text>
       <Text style={styles.pages}>{item.value.pageCount} trang</Text>
-      <Pressable onPress={() => remove(item.key)}>
+      <Pressable onPress={() => removeFile(item)}>
         <Text style={styles.delete}>Xoá</Text>
       </Pressable>
     </Pressable>

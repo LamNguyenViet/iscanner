@@ -4,6 +4,7 @@ import Merge from '../../app/merge';
 import { LibraryProvider } from '../../src/library/LibraryContext';
 import { createLibraryStore } from '../../src/library/libraryStore';
 import { createMemoryFs } from '../../src/library/memoryFs';
+import { deleteFiles } from '../../src/native/deleteFiles';
 import { pickPdfs } from '../../src/native/pickPdfs';
 import { createMergedDocument, loadPickedPdfs } from '../../src/workflows/mergeWorkflow';
 
@@ -17,6 +18,9 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('../../src/native/pickPdfs', () => ({ pickPdfs: jest.fn() }));
 jest.mock('../../src/native/readBytes', () => ({ readBytes: jest.fn() }));
+jest.mock('../../src/native/deleteFiles', () => ({
+  deleteFiles: jest.fn().mockResolvedValue(undefined),
+}));
 jest.mock('../../src/workflows/mergeWorkflow', () => ({
   loadPickedPdfs: jest.fn(),
   createMergedDocument: jest.fn(),
@@ -40,6 +44,7 @@ jest.mock('react-native-draggable-flatlist', () => {
 const mockPick = pickPdfs as jest.Mock;
 const mockLoad = loadPickedPdfs as jest.Mock;
 const mockMerge = createMergedDocument as jest.Mock;
+const mockDeleteFiles = deleteFiles as jest.Mock;
 
 const a = { uri: 'file:///a.pdf', name: 'a.pdf', pageCount: 2 };
 const b = { uri: 'file:///b.pdf', name: 'b.pdf', pageCount: 3 };
@@ -101,4 +106,45 @@ test('file list is flex-constrained so the action row stays on screen', async ()
   await renderMerge();
   const { containerStyle } = mockDraggableProps.mock.calls.at(-1)![0];
   expect(containerStyle).toEqual(expect.objectContaining({ flex: 1 }));
+});
+
+describe('picked file cleanup', () => {
+  test('deletes the copy of a removed file', async () => {
+    mockPick.mockResolvedValueOnce([{ uri: a.uri, name: a.name }, { uri: b.uri, name: b.name }]);
+    mockLoad.mockResolvedValueOnce({ loaded: [a, b], failed: [] });
+    await renderMerge();
+    await fireEvent.press(screen.getAllByText('Xoá')[0]);
+    expect(mockDeleteFiles).toHaveBeenCalledWith([a.uri]);
+    expect(screen.queryByText('a.pdf')).toBeNull();
+  });
+
+  test('deletes copies of files that failed to load', async () => {
+    mockPick.mockResolvedValueOnce([
+      { uri: a.uri, name: a.name },
+      { uri: 'file:///x.pdf', name: 'x.pdf' },
+    ]);
+    mockLoad.mockResolvedValueOnce({ loaded: [a], failed: ['x.pdf'] });
+    await renderMerge();
+    expect(mockDeleteFiles).toHaveBeenCalledWith(['file:///x.pdf']);
+  });
+
+  test('deletes all copies after a successful merge', async () => {
+    mockPick.mockResolvedValueOnce([{ uri: a.uri, name: a.name }, { uri: b.uri, name: b.name }]);
+    mockLoad.mockResolvedValueOnce({ loaded: [a, b], failed: [] });
+    mockMerge.mockResolvedValueOnce({ id: 'id1' });
+    await renderMerge();
+    await fireEvent.press(screen.getByText('Gộp PDF'));
+    expect(mockDeleteFiles).toHaveBeenCalledWith([a.uri, b.uri]);
+    await screen.unmount();
+    expect(mockDeleteFiles).toHaveBeenCalledTimes(1);
+  });
+
+  test('deletes remaining copies when leaving without merging', async () => {
+    mockPick.mockResolvedValueOnce([{ uri: a.uri, name: a.name }, { uri: b.uri, name: b.name }]);
+    mockLoad.mockResolvedValueOnce({ loaded: [a, b], failed: [] });
+    await renderMerge();
+    expect(mockDeleteFiles).not.toHaveBeenCalled();
+    await screen.unmount();
+    expect(mockDeleteFiles).toHaveBeenCalledWith([a.uri, b.uri]);
+  });
 });
