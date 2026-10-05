@@ -4,7 +4,7 @@ Durable record of plan execution, for resuming in later sessions.
 
 - **Plan:** `docs/superpowers/plans/2026-10-05-iscanner-mvp.md`
 - **Spec:** `docs/superpowers/specs/2026-10-05-camscanner-mvp-design.md`
-- **Branch:** `feat/iscanner-mvp` (from `master` @ `3973cf2`)
+- **Branch:** `feat/iscanner-mvp` (from `master` @ `3973cf2`) — merged into `master` (fast-forward @ `4cfade1`) on 2026-10-05 and the branch deleted
 - **Execution method:** superpowers:subagent-driven-development (user's choice)
 - **Resume rule:** tasks marked ✅ are done — do not redo them; continue at the first task not marked ✅. Trust `git log` over memory.
 
@@ -173,4 +173,4 @@ Durable record of plan execution, for resuming in later sessions.
 - Opus review: **With fixes**. 1 Critical (DraggableFlatList with no `containerStyle` pushed the `Tạo PDF`/`Gộp PDF` buttons off-screen), 7 Important (Android 4-button alert could not be closed; scan showed a failure when refresh failed after create; temp image files leaked; permission text is localized; NameInput autoFocus; README/EAS; AGENTS.md).
 - Fix wave `ad4307e`..`3ab419b` (8 commits) fixed all 15 items; scoped re-review: all ADDRESSED, no new Critical/Important.
 - Verification (re-run by the controller): jest **86/86**, typecheck clean; implementer: expo-doctor 21/21, `expo export --platform android` OK.
-- **Status: the plan is complete.** Remaining: manual testing on real Android/iOS devices (checklist in README.md), then merge `feat/iscanner-mvp` → `master`.
+- **Status: the plan is complete.** Remaining: manual testing on real Android/iOS devices (checklist in README.md), merged into `master` on 2026-10-05 (jest 86/86, typecheck clean on master).
