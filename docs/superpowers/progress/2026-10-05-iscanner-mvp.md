@@ -26,8 +26,8 @@ Durable record of plan execution, for resuming in later sessions.
 | 4 | Library store | ✅ done | `a116414`, `4fca531` | 1 fix round (atomic writes) |
 | 5 | Ordered list & busy hooks | ✅ done | `5f03d35` | review clean |
 | 6 | Scan & merge workflows | ✅ done | `9f4c91c` | review clean |
-| 7 | Library context & native wrappers | ⏳ in progress | | |
-| 8 | Root layout & Home screen | ⬜ | | |
+| 7 | Library context & native wrappers | ✅ done | `23fad3b` | review clean |
+| 8 | Root layout & Home screen | ⏳ in progress | | |
 | 9 | Scan review screen | ⬜ | | |
 | 10 | Merge PDFs screen | ⬜ | | |
 | 11 | Viewer & final verification | ⬜ | | |
@@ -103,3 +103,17 @@ Durable record of plan execution, for resuming in later sessions.
   - `loadPickedPdfs({readBytes}, files)` returns `{loaded, failed: string[]}`. Bad files go to `failed` and the function never throws for them.
   - `createMergedDocument({readBytes, library}, files, name)` adds the result with `pageCount` = sum and `source:'merge'`.
 - Tests: 6 new; full suite 39/39.
+
+### Task 7 — Context & native wrappers (✅ `23fad3b`)
+- `src/library/LibraryContext.tsx`:
+  - `LibraryProvider({store?, children})` creates the default store lazily with `expoFs`.
+  - `useLibrary()` returns `{documents, loading, store, refresh, rename, remove}` and throws when used outside a provider.
+- Native wrappers:
+  - `src/scanner/scanner.ts`: `scanDocuments()` returns `string[]` (`[]` on cancel). Permission errors become `Error('CAMERA_PERMISSION')`.
+  - `src/native/pickPdfs.ts`: `pickPdfs()` returns `PickedPdf[]`.
+  - `src/native/share.ts`: `shareDocument(uri)`.
+  - `src/native/readBytes.ts`: `readBytes` via `new File(uri).bytes()`.
+- Testing note: mock `react-native-document-scanner-plugin` with a factory (`jest.mock(path, () => ({...}))`). A bare automock loads the real module, which throws.
+- Manual check needed on device: the scanner's permission-denied message matches `/permission/i`.
+- Tests: full suite 46/46.
+- Deferred minors: the context load has no `.catch`; `pickPdfs` and `share` are untested.
