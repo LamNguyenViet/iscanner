@@ -1,3 +1,4 @@
+import { ActionSheetIOS, Alert, Platform } from 'react-native';
 import { act, render, screen, fireEvent } from '@testing-library/react-native';
 import Home from '../../app/index';
 import { LibraryProvider } from '../../src/library/LibraryContext';
@@ -29,7 +30,14 @@ async function renderHome(withDoc: boolean) {
   });
 }
 
-beforeEach(() => mockPush.mockClear());
+let alertSpy: jest.SpyInstance;
+beforeEach(() => {
+  mockPush.mockClear();
+  alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+});
+afterEach(() => {
+  jest.restoreAllMocks();
+});
 
 test('shows empty state', async () => {
   await renderHome(false);
@@ -53,4 +61,47 @@ test('navigates', async () => {
   expect(mockPush).toHaveBeenCalledWith('/merge');
   await fireEvent.press(screen.getByText('Hoa don'));
   expect(mockPush).toHaveBeenCalledWith('/viewer/id1');
+});
+
+describe('long-press menu on Android', () => {
+  beforeEach(() => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+  });
+
+  test('opens a dismissable menu with all actions', async () => {
+    await renderHome(true);
+    await fireEvent(screen.getByText('Hoa don'), 'longPress');
+    for (const label of ['Đổi tên', 'Chia sẻ', 'Xoá', 'Huỷ']) {
+      expect(screen.getByText(label)).toBeTruthy();
+    }
+    await fireEvent.press(screen.getByText('Huỷ'));
+    expect(screen.queryByText('Đổi tên')).toBeNull();
+  });
+
+  test('Xoá asks for confirmation', async () => {
+    await renderHome(true);
+    await fireEvent(screen.getByText('Hoa don'), 'longPress');
+    await fireEvent.press(screen.getByText('Xoá'));
+    expect(alertSpy).toHaveBeenCalledWith('Xoá tài liệu này?', undefined, expect.any(Array));
+    expect(screen.queryByText('Đổi tên')).toBeNull();
+  });
+});
+
+test('long-press on iOS uses the native action sheet', async () => {
+  const sheetSpy = jest
+    .spyOn(ActionSheetIOS, 'showActionSheetWithOptions')
+    .mockImplementation(() => {});
+  await renderHome(true);
+  await fireEvent(screen.getByText('Hoa don'), 'longPress');
+  expect(sheetSpy).toHaveBeenCalledWith(
+    expect.objectContaining({
+      options: ['Đổi tên', 'Chia sẻ', 'Xoá', 'Huỷ'],
+      destructiveButtonIndex: 2,
+      cancelButtonIndex: 3,
+    }),
+    expect.any(Function),
+  );
+  const callback = sheetSpy.mock.calls[0][1];
+  await act(async () => callback(2));
+  expect(alertSpy).toHaveBeenCalledWith('Xoá tài liệu này?', undefined, expect.any(Array));
 });

@@ -1,6 +1,17 @@
 import { useCallback, useState } from 'react';
-import { Alert, FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActionSheetIOS,
+  Alert,
+  FlatList,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
+import { DocumentActions } from '../src/components/DocumentActions';
 import { DocumentRow } from '../src/components/DocumentRow';
 import { NameInput } from '../src/components/NameInput';
 import { useLibrary } from '../src/library/LibraryContext';
@@ -14,6 +25,7 @@ export default function Home() {
   const { documents, store, refresh, rename, remove } = useLibrary();
   const [renaming, setRenaming] = useState<DocumentMeta | null>(null);
   const [draft, setDraft] = useState('');
+  const [menuDoc, setMenuDoc] = useState<DocumentMeta | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -31,22 +43,39 @@ export default function Home() {
       { text: 'Huỷ', style: 'cancel' },
     ]);
 
-  const openMenu = (doc: DocumentMeta) =>
-    Alert.alert(doc.name, undefined, [
+  const startRename = (doc: DocumentMeta) => {
+    setDraft(doc.name);
+    setRenaming(doc);
+  };
+
+  const share = (doc: DocumentMeta) => shareDocument(store.fileUri(doc)).catch(showError);
+
+  // Android's Alert keeps only 3 buttons (dropping "Huỷ"), so Android gets a custom menu.
+  const openMenu = (doc: DocumentMeta) => {
+    if (Platform.OS !== 'ios') {
+      setMenuDoc(doc);
+      return;
+    }
+    ActionSheetIOS.showActionSheetWithOptions(
       {
-        text: 'Đổi tên',
-        onPress: () => {
-          setDraft(doc.name);
-          setRenaming(doc);
-        },
+        title: doc.name,
+        options: ['Đổi tên', 'Chia sẻ', 'Xoá', 'Huỷ'],
+        destructiveButtonIndex: 2,
+        cancelButtonIndex: 3,
       },
-      {
-        text: 'Chia sẻ',
-        onPress: () => shareDocument(store.fileUri(doc)).catch(showError),
+      (index) => {
+        if (index === 0) startRename(doc);
+        else if (index === 1) share(doc);
+        else if (index === 2) confirmRemove(doc);
       },
-      { text: 'Xoá', style: 'destructive', onPress: () => confirmRemove(doc) },
-      { text: 'Huỷ', style: 'cancel' },
-    ]);
+    );
+  };
+
+  const fromMenu = (action: (doc: DocumentMeta) => void) => () => {
+    const doc = menuDoc;
+    setMenuDoc(null);
+    if (doc) action(doc);
+  };
 
   const saveRename = () => {
     const doc = renaming;
@@ -80,6 +109,14 @@ export default function Home() {
           <Text style={styles.buttonText}>Gộp PDF</Text>
         </Pressable>
       </View>
+      <DocumentActions
+        visible={menuDoc !== null}
+        title={menuDoc?.name ?? ''}
+        onRename={fromMenu(startRename)}
+        onShare={fromMenu(share)}
+        onDelete={fromMenu(confirmRemove)}
+        onClose={() => setMenuDoc(null)}
+      />
       <Modal
         visible={renaming !== null}
         transparent
