@@ -28,8 +28,8 @@ Durable record of plan execution, for resuming in later sessions.
 | 6 | Scan & merge workflows | ✅ done | `9f4c91c` | review clean |
 | 7 | Library context & native wrappers | ✅ done | `23fad3b` | review clean |
 | 8 | Root layout & Home screen | ✅ done | `64aacd9` | review clean |
-| 9 | Scan review screen | ⏳ in progress | | |
-| 10 | Merge PDFs screen | ⬜ | | |
+| 9 | Scan review screen | ✅ done | `01a1e98` | review clean |
+| 10 | Merge PDFs screen | ⏳ in progress | | |
 | 11 | Viewer & final verification | ⬜ | | |
 
 ## Task details
@@ -127,3 +127,20 @@ Durable record of plan execution, for resuming in later sessions.
 - Testing note: in RNTL v14 `fireEvent` is async too and must be awaited.
 - Tests: 3 new; full suite 49/49.
 - Deferred minors: the Alert flows are untested; Pressables lack `accessibilityRole`.
+
+### Task 9 — Scan review screen (✅ `01a1e98`)
+- `app/scan.tsx`:
+  - Scans automatically once per mount (ref guard).
+  - Shows a DraggableFlatList with `Trang N`, a 64×88 thumbnail and a `Xoá` button per page.
+  - Buttons: `+ Chụp thêm` and `Tạo PDF`. Both scanning and creating go through `busy.run`, so the buttons are disabled while busy.
+  - Errors:
+    - `CAMERA_PERMISSION` shows an Alert with `Mở Cài đặt`/`Huỷ`.
+    - Any other scan error shows `Không thể scan tài liệu`.
+    - Back-navigation happens only when no pages have been collected.
+  - On success it calls `refresh()` then `router.replace('/viewer/<id>')`.
+- Tests: 5 (the 4 from the plan plus permission → Huỷ goes back); full suite 54/54.
+- Manual checks needed on device: real drag-to-reorder, and page renumbering after a delete or reorder.
+- Deferred minors:
+  - If `refresh()` fails after the PDF is created, the screen shows a "can't create" error, so the user may create a duplicate.
+  - `findIndex` is called inside `renderItem`.
+  - Some alert paths are untested.
