@@ -214,6 +214,8 @@ Durable record of plan execution, for resuming in later sessions.
 - Camera-permission denial: Android ML Kit needs no runtime camera permission.
 - Real-paper scan quality: the emulator camera only shows a virtual scene.
 
-## iOS build (2026-10-05) — not started
+## iOS build (2026-10-05)
 - The user asked for an IPA and then dropped it. On Windows an IPA can only be built through EAS Build, and it needs an Expo account. Ad-hoc and App Store builds also need a paid Apple Developer account; ad-hoc additionally needs each iPhone's UDID registered. A simulator build produces a `.app` that runs only on a Mac simulator.
 - To do it later: `npx eas-cli login`, then `npx eas-cli build --platform ios --profile preview` (ad-hoc, after `npx eas-cli device:create`) or `--profile production` (TestFlight). Profiles are in `eas.json`.
+- **Free path chosen (no Apple Developer):** the code was pushed to the private repo https://github.com/LamNguyenViet/iscanner (local `master` tracks `origin/main`). The remote's initial README was merged, keeping the project README. Workflow `.github/workflows/ios-unsigned-ipa.yml` runs on `macos-latest` with latest-stable Xcode: `npm ci`, tests and typecheck, `expo prebuild --platform ios`, `pod install`, then a Release `xcodebuild` with signing disabled. It packages artifact `iScanner-unsigned-ipa` (kept 14 days). It runs on push to `main` (docs/md ignored) or manually via Run workflow. Install on an iPhone with Sideloadly and a free Apple ID; the app expires after 7 days. Steps are in README.md.
+- The first run was triggered by the push of `3f47437`. Its result has not been checked yet: the repo is private, so its status can only be seen in the GitHub Actions tab.
