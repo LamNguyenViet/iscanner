@@ -219,3 +219,11 @@ Durable record of plan execution, for resuming in later sessions.
 - To do it later: `npx eas-cli login`, then `npx eas-cli build --platform ios --profile preview` (ad-hoc, after `npx eas-cli device:create`) or `--profile production` (TestFlight). Profiles are in `eas.json`.
 - **Free path chosen (no Apple Developer):** the code was pushed to the private repo https://github.com/LamNguyenViet/iscanner (local `master` tracks `origin/main`). The remote's initial README was merged, keeping the project README. Workflow `.github/workflows/ios-unsigned-ipa.yml` runs on `macos-latest` with latest-stable Xcode: `npm ci`, tests and typecheck, `expo prebuild --platform ios`, `pod install`, then a Release `xcodebuild` with signing disabled. It packages artifact `iScanner-unsigned-ipa` (kept 14 days). It runs on push to `main` (docs/md ignored) or manually via Run workflow. Install on an iPhone with Sideloadly and a free Apple ID; the app expires after 7 days. Steps are in README.md.
 - The first run was triggered by the push of `3f47437`. Its result has not been checked yet: the repo is private, so its status can only be seen in the GitHub Actions tab.
+
+## Android release APK (2026-10-05)
+- Build command: `cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a` (needs JAVA_HOME and ANDROID_HOME as in the emulator section). It took about 19 minutes.
+- Output: `dist/iScanner-1.0.0.apk` (about 63 MB; `dist/` is gitignored).
+  - Package `com.dlbk.iscanner`, version 1.0.0 (versionCode 1), target SDK 36.
+  - ARM only. It will not install on the x86_64 emulator.
+  - The JS bundle is embedded, so no Metro is needed.
+- It is signed with the **debug keystore**, which is fine for sideloading and testing. Google Play needs a real release keystore (or EAS-managed signing).
