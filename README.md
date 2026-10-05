@@ -53,6 +53,17 @@ npx expo run:android
 
 Lệnh này build, cài app và khởi động Metro; các lần sau chỉ cần `npx expo start --dev-client`.
 
+### Cài lên iPhone thật không cần Apple Developer (IPA chưa ký + Apple ID miễn phí)
+
+GitHub Actions (`.github/workflows/ios-unsigned-ipa.yml`) build bản **Release chưa ký** trên máy macOS của GitHub (JS đã nhúng sẵn, không cần Metro). Workflow chạy khi push lên `main` hoặc bấm **Run workflow** trong tab **Actions**.
+
+1. Vào tab **Actions** → run mới nhất của *iOS unsigned IPA* → tải artifact `iScanner-unsigned-ipa` (giải nén ra `iScanner-unsigned.ipa`).
+2. Trên Windows cài **Apple Devices** (hoặc iTunes) và **[Sideloadly](https://sideloadly.io)**.
+3. Cắm iPhone qua USB, mở Sideloadly, kéo file `.ipa` vào, nhập Apple ID (tài khoản thường, miễn phí) → **Start**. Sideloadly ký lại bằng Apple ID của bạn và cài app.
+4. Trên iPhone: **Cài đặt → Quyền riêng tư & Bảo mật → Chế độ nhà phát triển** → bật (máy khởi động lại); rồi **Cài đặt → Cài đặt chung → VPN & Quản lý thiết bị** → tin cậy Apple ID của bạn.
+
+Giới hạn của Apple ID miễn phí: app hết hạn sau **7 ngày** (cài lại bằng Sideloadly để gia hạn), tối đa 3 app sideload cùng lúc.
+
 ## Danh sách kiểm thử thủ công (trên thiết bị, dev build)
 
 - [ ] Quét 3 trang -> sắp xếp lại -> PDF có 3 trang theo thứ tự mới.

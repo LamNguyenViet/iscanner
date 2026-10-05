@@ -1,0 +1,89 @@
+# Builds an UNSIGNED iOS .ipa (Release, JS bundle embedded — no Metro needed).
+# Install it on an iPhone by re-signing with a free Apple ID (e.g. Sideloadly / AltStore on Windows).
+name: iOS unsigned IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+
+concurrency:
+  group: ios-unsigned-ipa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Unit tests and typecheck
+        run: |
+          npm test -- --ci
+          npm run typecheck
+
+      - name: Generate native iOS project
+        run: npx expo prebuild --platform ios --clean --no-install
+
+      - name: Install CocoaPods
+        working-directory: ios
+        run: pod install
+
+      - name: Build Release (unsigned)
+        working-directory: ios
+        run: |
+          WORKSPACE=$(ls -d *.xcworkspace | head -1)
+          SCHEME="${WORKSPACE%.xcworkspace}"
+          echo "Workspace: $WORKSPACE  Scheme: $SCHEME"
+          set -o pipefail
+          xcodebuild \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build | tee xcodebuild.log | grep -E '^(\*\*|error:|.*error:)' || true
+          test -d "build/Build/Products/Release-iphoneos/$SCHEME.app"
+
+      - name: Package .ipa
+        working-directory: ios
+        run: |
+          APP=$(ls -d build/Build/Products/Release-iphoneos/*.app | head -1)
+          rm -rf Payload && mkdir Payload
+          cp -R "$APP" Payload/
+          zip -qry ../iScanner-unsigned.ipa Payload
+          ls -lh ../iScanner-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iScanner-unsigned-ipa
+          path: iScanner-unsigned.ipa
+          retention-days: 14
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: ios/xcodebuild.log
+          if-no-files-found: ignore
