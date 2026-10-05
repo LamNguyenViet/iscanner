@@ -1,4 +1,4 @@
-# CamScanner MVP — Design Spec
+# iScanner MVP — Design Spec
 
 - **Date:** 2026-10-05 (sequence 1)
 - **Source:** `requirement/requirement.txt`
@@ -142,7 +142,7 @@ Thin wrapper over `DocumentScanner.scanDocument({ croppedImageQuality: 90 })`; n
 
 - `app.json` plugins: `react-native-document-scanner-plugin` with iOS `NSCameraUsageDescription` ("Ứng dụng cần quyền camera để scan tài liệu."), `expo-document-picker`, `expo-router`.
 - Android: ML Kit scanner needs no runtime camera permission from our app; picker uses SAF (no storage permission).
-- App name "CamScanner Lite", slug `camscanner-lite`, bundle id / package `com.example.camscannerlite` (placeholder, change before release).
+- App name "iScanner", slug `iscanner`, iOS bundle identifier and Android package `com.dlbk.iscanner`.
 
 ## 7. Error handling
 
