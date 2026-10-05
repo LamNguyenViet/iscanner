@@ -174,3 +174,42 @@ Durable record of plan execution, for resuming in later sessions.
 - Fix wave `ad4307e`..`3ab419b` (8 commits) fixed all 15 items; scoped re-review: all ADDRESSED, no new Critical/Important.
 - Verification (re-run by the controller): jest **86/86**, typecheck clean; implementer: expo-doctor 21/21, `expo export --platform android` OK.
 - **Status: the plan is complete.** Remaining: manual testing on real Android/iOS devices (checklist in README.md), merged into `master` on 2026-10-05 (jest 86/86, typecheck clean on master).
+
+## Android emulator test (2026-10-05)
+
+### Environment setup (reuse in later sessions)
+- Android SDK is at `D:\Android\Sdk`. It was installed with command-line tools **13114758**. The newest version (16111833) runs "Android CLI" with a bundled JRE that Windows Application Control blocks, so do not upgrade.
+- Packages installed: platform-tools, emulator, platforms;android-36, build-tools;36.0.0 (Gradle added 35.0.0 itself), ndk;27.1.12297006, cmake 3.22.1, system-images;android-35;google_apis_playstore;x86_64.
+- The AVD is `iscanner_pixel` (Pixel 7, Android 15, Google Play, 4GB RAM, back camera = virtualscene). Acceleration is WHPX.
+- Environment variables: `JAVA_HOME=/c/Users/hdlyn/.jwmv/candidates/java/17.0.20.1-ms`, `ANDROID_HOME='D:\Android\Sdk'`.
+- Start the emulator: `D:/Android/Sdk/emulator/emulator.exe -avd iscanner_pixel -no-snapshot-save`.
+- Build and install: `npx expo run:android --no-bundler --device iscanner_pixel`. The first build took about 22 minutes. `android/` is gitignored and prebuild changed the `android`/`ios` scripts in `package.json` to `expo run:*`.
+- Metro: `npx expo start --dev-client`, then `adb reverse tcp:8081 tcp:8081`.
+- Gotchas:
+  - In Git Bash, `export MSYS_NO_PATHCONV=1` is needed before `adb shell` commands that take paths.
+  - adb taps trigger Gboard's "Try out your stylus" tutorial. Turn it off with `adb shell settings put secure stylus_handwriting_enabled 0`.
+  - The dev-client floating gear button covers the `Chia sẻ` header button. It is dev-only; drag it aside.
+
+### Results — all PASS
+- Library: empty state, Vietnamese copy, row meta line (`date · N trang · size`).
+- Scan:
+  - ML Kit scanner opens. On first use, Google Play services downloads the module, which takes a few seconds.
+  - Auto-capture and edge crop work. Multiple pages can be added.
+  - The review screen shows the default name, thumbnails, and `Xoá` per page.
+- Scan with 10 pages: the list scrolls and the `Tạo PDF` button stays reachable (confirms the final-review Critical fix). Deleting a page renumbers the rest. The resulting PDF has 9 pages.
+- Merge:
+  - The system picker multi-selects from Downloads. Page counts show (1 and 2).
+  - **Drag-to-reorder works** (draggable-flatlist with Reanimated 4). The merged PDF follows the new order (B1, B2, A1).
+- Viewer: react-native-pdf renders all pages, and the title is the document name.
+- Share: the Android share sheet opens (Quick Share, Drive, Messages, Bluetooth, Print).
+- Long-press menu (Android Modal): shows Đổi tên / Chia sẻ / Xoá / Huỷ, and Back dismisses it (confirms the final-review fix).
+- Rename and delete (with confirm `Xoá tài liệu này?`) work. The PDF file is removed from `files/pdfs`, and `library.json` stays consistent.
+- Temporary files: after create and merge, the app cache holds no leftover scan images or picked copies.
+
+### New finding
+- **The shared file name is the internal id** (e.g. `muupj3n46e1r08.pdf`), not the document name. Users would expect `Hop dong tong hop.pdf`. Suggested fix: before sharing, copy the file to cache as `<sanitized name>.pdf` and share that copy.
+
+### Not testable on the emulator
+- iOS (needs EAS and an Apple Developer account).
+- Camera-permission denial: Android ML Kit needs no runtime camera permission.
+- Real-paper scan quality: the emulator camera only shows a virtual scene.
