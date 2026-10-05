@@ -21,12 +21,14 @@ jest.mock('../../src/workflows/mergeWorkflow', () => ({
   loadPickedPdfs: jest.fn(),
   createMergedDocument: jest.fn(),
 }));
+const mockDraggableProps = jest.fn();
 jest.mock('react-native-draggable-flatlist', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { FlatList } = require('react-native');
   return {
     __esModule: true,
-    default: ({ renderItem, ...rest }: any) => (
+    default: ({ renderItem, containerStyle, ...rest }: any) => (
+      mockDraggableProps({ containerStyle }),
       <FlatList
         {...rest}
         renderItem={({ item }: any) => renderItem({ item, drag: jest.fn(), isActive: false })}
@@ -91,4 +93,12 @@ test('merges and opens viewer', async () => {
   await fireEvent.press(screen.getByText('Gộp PDF'));
   expect(mockMerge).toHaveBeenCalledWith(expect.anything(), [a, b], expect.any(String));
   expect(mockReplace).toHaveBeenCalledWith('/viewer/id1');
+});
+
+test('file list is flex-constrained so the action row stays on screen', async () => {
+  mockPick.mockResolvedValueOnce([{ uri: a.uri, name: a.name }]);
+  mockLoad.mockResolvedValueOnce({ loaded: [a, b], failed: [] });
+  await renderMerge();
+  const { containerStyle } = mockDraggableProps.mock.calls.at(-1)![0];
+  expect(containerStyle).toEqual(expect.objectContaining({ flex: 1 }));
 });

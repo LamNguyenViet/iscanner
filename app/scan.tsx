@@ -114,6 +114,7 @@ export default function Scan() {
         keyExtractor={(i) => i.key}
         onDragEnd={({ data }) => setOrder(data)}
         renderItem={renderItem}
+        containerStyle={styles.list}
       />
       {busy.busy && <ActivityIndicator style={styles.spinner} />}
       <View style={styles.actions}>
@@ -151,6 +152,7 @@ const styles = StyleSheet.create({
   pageLabel: { flex: 1, fontSize: 16 },
   thumb: { width: 64, height: 88, backgroundColor: '#eee' },
   delete: { color: '#d1242f', fontSize: 15, fontWeight: '600', padding: 8 },
+  list: { flex: 1 },
   spinner: { margin: 8 },
   actions: { flexDirection: 'row', gap: 12, padding: 16 },
   button: {

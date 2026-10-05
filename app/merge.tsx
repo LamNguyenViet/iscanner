@@ -110,6 +110,7 @@ export default function Merge() {
         keyExtractor={(i) => i.key}
         onDragEnd={({ data }) => setOrder(data)}
         renderItem={renderItem}
+        containerStyle={styles.list}
       />
       {busy.busy && <ActivityIndicator style={styles.spinner} />}
       <View style={styles.actions}>
@@ -150,6 +151,7 @@ const styles = StyleSheet.create({
   fileName: { flex: 1, fontSize: 16 },
   pages: { color: '#666', fontSize: 14 },
   delete: { color: '#d1242f', fontSize: 15, fontWeight: '600', padding: 8 },
+  list: { flex: 1 },
   spinner: { margin: 8 },
   actions: { flexDirection: 'row', gap: 12, padding: 16 },
   button: {

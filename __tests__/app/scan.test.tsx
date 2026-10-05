@@ -18,12 +18,14 @@ jest.mock('expo-router', () => ({
 jest.mock('../../src/scanner/scanner', () => ({ scanDocuments: jest.fn() }));
 jest.mock('../../src/workflows/scanWorkflow', () => ({ createScanDocument: jest.fn() }));
 jest.mock('../../src/native/readBytes', () => ({ readBytes: jest.fn() }));
+const mockDraggableProps = jest.fn();
 jest.mock('react-native-draggable-flatlist', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { FlatList } = require('react-native');
   return {
     __esModule: true,
-    default: ({ renderItem, ...rest }: any) => (
+    default: ({ renderItem, containerStyle, ...rest }: any) => (
+      mockDraggableProps({ containerStyle }),
       <FlatList
         {...rest}
         renderItem={({ item }: any) => renderItem({ item, drag: jest.fn(), isActive: false })}
@@ -99,4 +101,11 @@ test('camera permission alert on first scan goes back on cancel', async () => {
     buttons.find((b: any) => b.text === 'Huỷ').onPress();
   });
   expect(mockBack).toHaveBeenCalled();
+});
+
+test('page list is flex-constrained so the action row stays on screen', async () => {
+  mockScan.mockResolvedValueOnce(['a']);
+  await renderScan();
+  const { containerStyle } = mockDraggableProps.mock.calls.at(-1)![0];
+  expect(containerStyle).toEqual(expect.objectContaining({ flex: 1 }));
 });
