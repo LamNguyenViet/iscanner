@@ -23,8 +23,8 @@ Durable record of plan execution, for resuming in later sessions.
 | 1 | Scaffold Expo project | ✅ done | `1e1029a` | review clean |
 | 2 | Format & name helpers | ✅ done | `7657898` | review clean |
 | 3 | PDF create & merge | ✅ done | `2fd0fc2` | review clean |
-| 4 | Library store | ⏳ in progress | | |
-| 5 | Ordered list & busy hooks | ⬜ | | |
+| 4 | Library store | ✅ done | `a116414`, `4fca531` | 1 fix round (atomic writes) |
+| 5 | Ordered list & busy hooks | ⏳ in progress | | |
 | 6 | Scan & merge workflows | ⬜ | | |
 | 7 | Library context & native wrappers | ⬜ | | |
 | 8 | Root layout & Home screen | ⬜ | | |
@@ -64,3 +64,24 @@ Durable record of plan execution, for resuming in later sessions.
 - Test fixtures: `__tests__/fixtures/images.ts` provides `makePng(w,h)` and `makeJpeg(w,h)`.
 - Tests: 9 pdf tests; full suite 19/19.
 - Deferred minors: `PdfLoadError` drops the original cause; the encrypted-PDF test uses a mock, not a real encrypted file.
+
+### Task 4 — Library store (✅ `a116414`, fix `4fca531`)
+- `src/library/types.ts` defines:
+  - `DocumentSource`
+  - `DocumentMeta` (`id`, `name`, `fileName`, `createdAt`, `pageCount`, `sizeBytes`, `source`)
+  - `FsAdapter` (`readText` / `writeText` / `writeBytes` / `readBytes` / `delete` / `ensureDir` / `uri`)
+  - `LibraryStore`
+- `src/library/libraryStore.ts`: `createLibraryStore({ fs, now?, newId? })`.
+  - Files are stored at `pdfs/<id>.pdf`, with the index at `library.json` `{version:1, documents}`.
+  - A corrupt index or one with the wrong version is backed up to `library.json.bak` and the library starts empty.
+  - `add` writes the PDF first, then the index, and deletes the PDF if the index write fails.
+  - `remove` writes the index first, then deletes the file. An unknown id is a no-op.
+  - `rename` throws `NOT_FOUND` for an unknown id; an empty name keeps the current name.
+- `src/library/memoryFs.ts`: `createMemoryFs()` with `.files` (Map) and `failNextWrite(path)`, for tests.
+- `src/library/expoFs.ts`: SDK 57 `File`/`Directory`/`Paths.document`. Writes go to `<path>.tmp`, then `moveSync(target, {overwrite:true})`. Not unit-tested.
+- Tests: libraryStore 9/9; full suite 28/28.
+- Deferred minors:
+  - If the backup write fails, `list()` throws.
+  - Operations that read and then write the index are not serialised.
+  - Index entries are not validated.
+  - On iOS, move-with-overwrite has a small non-atomic window.
