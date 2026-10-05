@@ -1,4 +1,4 @@
-import { Alert } from 'react-native';
+import { Alert, Linking } from 'react-native';
 import { act, render, screen, fireEvent } from '@testing-library/react-native';
 import Scan from '../../app/scan';
 import { LibraryProvider } from '../../src/library/LibraryContext';
@@ -47,6 +47,7 @@ async function renderScan() {
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
+  return store;
 }
 
 let alertSpy: jest.SpyInstance;
@@ -108,4 +109,37 @@ test('page list is flex-constrained so the action row stays on screen', async ()
   await renderScan();
   const { containerStyle } = mockDraggableProps.mock.calls.at(-1)![0];
   expect(containerStyle).toEqual(expect.objectContaining({ flex: 1 }));
+});
+
+test('a failed refresh after a successful create still opens the viewer', async () => {
+  mockScan.mockResolvedValueOnce(['a']);
+  mockCreate.mockResolvedValueOnce({ id: 'id1' });
+  const store = await renderScan();
+  jest.spyOn(store, 'list').mockRejectedValue(new Error('io'));
+  await fireEvent.press(screen.getByText('Tạo PDF'));
+  expect(mockReplace).toHaveBeenCalledWith('/viewer/id1');
+  expect(alertSpy).not.toHaveBeenCalled();
+});
+
+test('generic scan error offers settings and goes back', async () => {
+  const settingsSpy = jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
+  mockScan.mockRejectedValueOnce(new Error('Kamera nicht verfügbar'));
+  await renderScan();
+  expect(alertSpy).toHaveBeenCalledWith(
+    'Không thể scan tài liệu',
+    'Nếu bạn đã từ chối quyền camera, hãy cấp quyền trong Cài đặt.',
+    expect.any(Array),
+  );
+  const buttons = alertSpy.mock.calls[0][2];
+  expect(buttons.map((b: any) => b.text)).toEqual(['Mở Cài đặt', 'Đóng']);
+  await act(async () => {
+    buttons.find((b: any) => b.text === 'Mở Cài đặt').onPress();
+  });
+  expect(settingsSpy).toHaveBeenCalled();
+  expect(mockBack).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    buttons.find((b: any) => b.text === 'Đóng').onPress();
+  });
+  expect(mockBack).toHaveBeenCalledTimes(2);
+  settingsSpy.mockRestore();
 });

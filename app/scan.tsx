@@ -33,17 +33,28 @@ export default function Scan() {
     if (count.current === 0) router.back();
   };
 
+  const openSettings = () => {
+    Linking.openSettings().catch(() => {});
+    backIfEmpty();
+  };
+
   const showPermissionAlert = () =>
     Alert.alert('Cần quyền camera', undefined, [
-      {
-        text: 'Mở Cài đặt',
-        onPress: () => {
-          Linking.openSettings().catch(() => {});
-          backIfEmpty();
-        },
-      },
+      { text: 'Mở Cài đặt', onPress: openSettings },
       { text: 'Huỷ', style: 'cancel', onPress: backIfEmpty },
     ]);
+
+  // The scanner's permission error text may be localized, so the generic error
+  // also points to Settings.
+  const showScanErrorAlert = () =>
+    Alert.alert(
+      'Không thể scan tài liệu',
+      'Nếu bạn đã từ chối quyền camera, hãy cấp quyền trong Cài đặt.',
+      [
+        { text: 'Mở Cài đặt', onPress: openSettings },
+        { text: 'Đóng', style: 'cancel', onPress: backIfEmpty },
+      ],
+    );
 
   const scan = async () => {
     try {
@@ -58,8 +69,7 @@ export default function Scan() {
       if (e instanceof Error && e.message === 'CAMERA_PERMISSION') {
         showPermissionAlert();
       } else {
-        Alert.alert('Không thể scan tài liệu');
-        backIfEmpty();
+        showScanErrorAlert();
       }
     }
   };
@@ -72,20 +82,23 @@ export default function Scan() {
   }, []);
 
   const create = async () => {
+    let meta;
     try {
-      const meta = await busy.run(() =>
+      meta = await busy.run(() =>
         createScanDocument(
           { readBytes, library: store },
           items.map((i) => i.value),
           sanitizeName(name, defaultName('scan', new Date())),
         ),
       );
-      if (!meta) return;
-      await refresh();
-      router.replace(`/viewer/${meta.id}`);
     } catch {
       Alert.alert('Không thể tạo PDF');
+      return;
     }
+    if (!meta) return;
+    // The document already exists; a failed refresh must not look like a failed create.
+    await refresh().catch(() => {});
+    router.replace(`/viewer/${meta.id}`);
   };
 
   const renderItem = ({ item, drag, isActive }: RenderItemParams<Keyed<string>>) => (
