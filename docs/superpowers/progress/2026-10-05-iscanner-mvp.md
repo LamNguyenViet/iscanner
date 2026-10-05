@@ -25,8 +25,8 @@ Durable record of plan execution, for resuming in later sessions.
 | 3 | PDF create & merge | ✅ done | `2fd0fc2` | review clean |
 | 4 | Library store | ✅ done | `a116414`, `4fca531` | 1 fix round (atomic writes) |
 | 5 | Ordered list & busy hooks | ✅ done | `5f03d35` | review clean |
-| 6 | Scan & merge workflows | ⏳ in progress | | |
-| 7 | Library context & native wrappers | ⬜ | | |
+| 6 | Scan & merge workflows | ✅ done | `9f4c91c` | review clean |
+| 7 | Library context & native wrappers | ⏳ in progress | | |
 | 8 | Root layout & Home screen | ⬜ | | |
 | 9 | Scan review screen | ⬜ | | |
 | 10 | Merge PDFs screen | ⬜ | | |
@@ -93,3 +93,13 @@ Durable record of plan execution, for resuming in later sessions.
   - Rejections are rethrown after busy is reset.
 - Testing note: in RNTL v14, `renderHook`, `render` and `act` are async, so always `await` them.
 - Tests: 5 new; full suite 33/33.
+
+### Task 6 — Workflows (✅ `9f4c91c`)
+- `src/workflows/scanWorkflow.ts`:
+  - `type ReadBytes = (uri) => Promise<Uint8Array>`
+  - `createScanDocument({readBytes, library}, imageUris, name)` uses `detectImageType` per image, then `createPdfFromImages`, then `library.add` with `{pageCount: uris.length, source:'scan'}`. An empty list throws `NO_IMAGES`.
+- `src/workflows/mergeWorkflow.ts`:
+  - types `PickedPdf {uri,name}` and `LoadedPdf {uri,name,pageCount}`
+  - `loadPickedPdfs({readBytes}, files)` returns `{loaded, failed: string[]}`. Bad files go to `failed` and the function never throws for them.
+  - `createMergedDocument({readBytes, library}, files, name)` adds the result with `pageCount` = sum and `source:'merge'`.
+- Tests: 6 new; full suite 39/39.
