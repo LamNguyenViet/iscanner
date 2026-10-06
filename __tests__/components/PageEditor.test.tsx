@@ -187,6 +187,26 @@ test('cancelled retake keeps the current image', async () => {
   expect(onDone).toHaveBeenCalledWith({ uri: 'p1', align: 'center' });
 });
 
+test('a failed retake alerts and keeps the current image', async () => {
+  const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  const error = new Error('scanner crashed');
+  onRetake.mockRejectedValueOnce(error);
+  await renderEditor();
+  await press('Chụp lại');
+  expect(alertSpy).toHaveBeenCalledWith('Không xử lý được ảnh');
+  expect(warnSpy).toHaveBeenCalledWith('retake failed', error);
+  expect(mockDetect).toHaveBeenCalledTimes(1);
+  await press('Xong');
+  expect(onDone).toHaveBeenCalledWith({ uri: 'p1', align: 'center' });
+  warnSpy.mockRestore();
+});
+
+test('a cancelled retake does not alert', async () => {
+  await renderEditor();
+  await press('Chụp lại');
+  expect(alertSpy).not.toHaveBeenCalled();
+});
+
 test('cancel after retake keeps original and deletes retaken file', async () => {
   onRetake.mockResolvedValueOnce('p2');
   await renderEditor();

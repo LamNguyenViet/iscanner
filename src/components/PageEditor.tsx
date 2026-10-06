@@ -128,7 +128,10 @@ export function PageEditor({
     let uri: string | null = null;
     try {
       uri = await onRetake();
-    } catch {
+    } catch (e) {
+      // A cancelled scan resolves null; a throw is a real failure the user should hear about.
+      if (__DEV__) console.warn('retake failed', e);
+      Alert.alert(FAILED);
       uri = null;
     } finally {
       setBusy(false);
