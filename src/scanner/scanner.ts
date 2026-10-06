@@ -1,8 +1,12 @@
 import DocumentScanner from 'react-native-document-scanner-plugin';
 
-export async function scanDocuments(): Promise<string[]> {
+/** Captures pages; `maxPages` limits the count on Android (iOS ignores it). */
+export async function scanDocuments(options?: { maxPages?: number }): Promise<string[]> {
   try {
-    const result = await DocumentScanner.scanDocument({ croppedImageQuality: 90 });
+    const result = await DocumentScanner.scanDocument({
+      croppedImageQuality: 100,
+      ...(options?.maxPages !== undefined ? { maxNumDocuments: options.maxPages } : {}),
+    });
     return result.status === 'success' ? (result.scannedImages ?? []) : [];
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

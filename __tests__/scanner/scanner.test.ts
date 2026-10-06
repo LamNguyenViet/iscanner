@@ -12,7 +12,13 @@ describe('scanDocuments', () => {
   it('returns scanned images on success', async () => {
     scan.mockResolvedValue({ status: 'success', scannedImages: ['a', 'b'] });
     await expect(scanDocuments()).resolves.toEqual(['a', 'b']);
-    expect(scan).toHaveBeenCalledWith({ croppedImageQuality: 90 });
+    expect(scan).toHaveBeenCalledWith({ croppedImageQuality: 100 });
+  });
+
+  it('passes maxPages as maxNumDocuments', async () => {
+    scan.mockResolvedValue({ status: 'success', scannedImages: ['a'] });
+    await scanDocuments({ maxPages: 1 });
+    expect(scan).toHaveBeenCalledWith({ croppedImageQuality: 100, maxNumDocuments: 1 });
   });
 
   it('returns [] on cancel', async () => {
