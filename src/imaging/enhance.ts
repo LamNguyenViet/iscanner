@@ -71,24 +71,37 @@ export async function applyEdit(
 
 /**
  * Detects the document corners on a copy with long edge 800 px and returns them in the
- * original image's pixel coordinates. Falls back to the full image when nothing is found.
+ * original image's pixel coordinates. Detection is best-effort: when nothing is found or it
+ * fails, the full image is returned. Only a failure to decode the original propagates.
  */
 export async function detectPageQuad(
   uri: string,
 ): Promise<{ quad: Quad; size: ImageSize; detected: boolean }> {
   const image = await decode(uri);
   const size = { width: image.width, height: image.height };
-  const small = fitLongEdge(size, DETECT_EDGE);
+  const fallback = { quad: fullQuad(size.width, size.height), size, detected: false };
+  try {
+    const found = await detectOnSmallCopy(image, fitLongEdge(size, DETECT_EDGE));
+    if (!found) return fallback;
+    const quad = clampQuad(scaleQuad(found.quad, size.width / found.width), size.width, size.height);
+    return { quad, size, detected: true };
+  } catch {
+    return fallback;
+  }
+}
+
+async function detectOnSmallCopy(
+  image: ImageRef,
+  small: ImageSize,
+): Promise<{ quad: Quad; width: number } | null> {
   const copy = await (await resizeTo(image, small)).saveAsync({
     base64: true,
     compress: JPEG_QUALITY,
     format: SaveFormat.JPEG,
   });
   try {
-    const found = copy.base64 ? detectQuad(copy.base64, small.width, small.height) : null;
-    if (!found) return { quad: fullQuad(size.width, size.height), size, detected: false };
-    const quad = clampQuad(scaleQuad(found, size.width / small.width), size.width, size.height);
-    return { quad, size, detected: true };
+    const quad = copy.base64 ? detectQuad(copy.base64, small.width, small.height) : null;
+    return quad ? { quad, width: small.width } : null;
   } finally {
     try {
       new File(copy.uri).delete();

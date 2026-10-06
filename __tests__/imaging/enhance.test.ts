@@ -276,6 +276,22 @@ describe('detectPageQuad', () => {
     });
   });
 
+  it('falls back to the full image and removes the copy when detection throws', async () => {
+    givenInput(4000, 3000);
+    mockedDetect.mockImplementation(() => {
+      throw new Error('cvtColor: bad channel count');
+    });
+
+    const result = await detectPageQuad(INPUT);
+
+    expect(result).toEqual({
+      quad: fullQuad(4000, 3000),
+      size: { width: 4000, height: 3000 },
+      detected: false,
+    });
+    expect([...mockFiles.keys()]).toEqual([INPUT]);
+  });
+
   it('removes the detection copy', async () => {
     givenInput(4000, 3000);
     mockedDetect.mockReturnValue(null);
