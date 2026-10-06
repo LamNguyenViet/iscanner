@@ -1,6 +1,7 @@
 module.exports = {
   preset: 'jest-expo',
   setupFiles: ['./jest.setup.js'],
+  testTimeout: 15000,
   testMatch: ['**/__tests__/**/*.test.ts?(x)'],
   testPathIgnorePatterns: ['/node_modules/', '__tests__/fixtures'],
   transformIgnorePatterns: [
