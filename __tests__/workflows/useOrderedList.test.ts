@@ -30,4 +30,22 @@ describe('useOrderedList', () => {
     await act(async () => result.current.setOrder([items[1], items[0]]));
     expect(values(result.current.items)).toEqual(['b', 'a']);
   });
+
+  it('update replaces value in place', async () => {
+    const { result } = await renderHook(() => useOrderedList<string>());
+    await act(async () => result.current.append(['a', 'b', 'c']));
+    const keyOfB = result.current.items[1].key;
+    const keysBeforeUpdate = result.current.items.map((i) => i.key);
+    await act(async () => result.current.update(keyOfB, 'B'));
+    expect(values(result.current.items)).toEqual(['a', 'B', 'c']);
+    expect(result.current.items.map((i) => i.key)).toEqual(keysBeforeUpdate);
+  });
+
+  it('update unknown key is a no-op', async () => {
+    const { result } = await renderHook(() => useOrderedList<string>());
+    await act(async () => result.current.append(['a', 'b', 'c']));
+    const itemsBefore = result.current.items;
+    await act(async () => result.current.update('nonexistent-key', 'x'));
+    expect(result.current.items).toEqual(itemsBefore);
+  });
 });

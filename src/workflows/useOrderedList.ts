@@ -17,5 +17,9 @@ export function useOrderedList<T>() {
 
   const setOrder = useCallback((next: Keyed<T>[]) => setItems(next), []);
 
-  return { items, append, remove, setOrder };
+  const update = useCallback((key: string, value: T) => {
+    setItems((prev) => prev.map((item) => (item.key === key ? { ...item, value } : item)));
+  }, []);
+
+  return { items, append, remove, setOrder, update };
 }
