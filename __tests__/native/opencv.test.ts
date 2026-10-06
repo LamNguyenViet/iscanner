@@ -8,9 +8,12 @@ import type { Quad } from '../../src/imaging/geometry';
 type Obj = { released: boolean; release(): void };
 const created: Obj[] = [];
 const perspectiveCalls: { from: unknown[]; to: unknown[] }[] = [];
-// Contours that the mocked findContours reports; approxPolyDP returns each one unchanged.
+// Contours the mocked findContours reports, per binary image it is given: the dilated Canny
+// edges ("edges") or the Otsu-thresholded image ("otsu"). approxPolyDP returns each unchanged.
 type MockPoint = { x: number; y: number };
-const mockContours: MockPoint[][] = [];
+type MockMat = { tag?: string };
+const mockContours: Record<string, MockPoint[][]> = { edges: [], otsu: [] };
+const mockRetrievalModes: unknown[] = [];
 
 jest.mock('react-native-fast-opencv', () => {
   const track = <T extends object>(o: T): T & Obj => {
@@ -23,7 +26,7 @@ jest.mock('react-native-fast-opencv', () => {
     created.push(obj);
     return obj;
   };
-  const mat = () => track({ toBase64: () => 'sharpened-base64' });
+  const mat = () => track({ toBase64: () => 'sharpened-base64', tag: undefined as string | undefined });
   const pointVector = (points: MockPoint[] = []) =>
     track({
       points,
@@ -33,18 +36,22 @@ jest.mock('react-native-fast-opencv', () => {
       getAll: () => points.map((p) => track({ x: p.x, y: p.y })),
     });
   return {
-    BorderTypes: { BORDER_REPLICATE: 1 },
+    BorderTypes: { BORDER_CONSTANT: 0, BORDER_REPLICATE: 1 },
     ColorConversionCodes: {},
     ContourApproximationModes: {},
     DataTypes: { CV_8U: 0 },
     DecompTypes: { DECOMP_LU: 0 },
     InterpolationFlags: { INTER_LINEAR: 1 },
-    RetrievalModes: {},
+    MorphShapes: { MORPH_RECT: 0 },
+    MorphTypes: { MORPH_CLOSE: 3 },
+    RetrievalModes: { RETR_LIST: 1 },
+    ThresholdTypes: { THRESH_BINARY: 0, THRESH_OTSU: 8 },
     RotateFlags: { ROTATE_90_CLOCKWISE: 0, ROTATE_180: 1, ROTATE_90_COUNTERCLOCKWISE: 2 },
     OpenCV: {
       Mat: { create: mat, createFromBase64: mat },
       Size: { create: (width: number, height: number) => track({ width, height }) },
       Scalar: { create: (v: number) => track({ v }) },
+      Point: { create: (x: number, y: number) => track({ x, y }) },
       Point2f: {
         // Native Point2fFactory truncates to int.
         create: (x: number, y: number) => track({ x: Math.trunc(x), y: Math.trunc(y) }),
@@ -84,23 +91,34 @@ jest.mock('react-native-fast-opencv', () => {
         },
       },
       cvtColor: jest.fn(),
-      Canny: jest.fn(),
-      findContours: (_edges: unknown, contours: { items: unknown[] }) => {
-        for (const c of mockContours) contours.items.push(pointVector([...c]));
+      Canny: (_src: MockMat, dst: MockMat) => {
+        dst.tag = 'canny';
       },
-      arcLength: () => ({ value: 1000 }),
-      approxPolyDP: (contour: { points: MockPoint[] }, approx: { points: MockPoint[] }) => {
-        approx.points.push(...contour.points);
+      getStructuringElement: () => mat(),
+      dilate: (src: MockMat, dst: MockMat) => {
+        dst.tag = src.tag === 'canny' ? 'edges' : 'dilated-' + src.tag;
       },
-      // |shoelace| in the contour's own vertex order, like cv::contourArea.
-      contourArea: ({ points }: { points: MockPoint[] }) => {
+      threshold: (_src: MockMat, dst: MockMat) => {
+        dst.tag = 'otsu-raw';
+      },
+      morphologyEx: (src: MockMat, dst: MockMat) => {
+        dst.tag = src.tag === 'otsu-raw' ? 'otsu' : 'closed-' + src.tag;
+      },
+      findContours: (src: MockMat, contours: { items: unknown[] }, mode: unknown) => {
+        mockRetrievalModes.push(mode);
+        for (const c of mockContours[src.tag ?? ''] ?? []) contours.items.push(pointVector([...c]));
+      },
+      arcLength: ({ points }: { points: MockPoint[] }) => {
         let sum = 0;
         for (let i = 0; i < points.length; i++) {
           const a = points[i];
           const b = points[(i + 1) % points.length];
-          sum += a.x * b.y - b.x * a.y;
+          sum += Math.hypot(b.x - a.x, b.y - a.y);
         }
-        return { value: Math.abs(sum) / 2 };
+        return { value: sum };
+      },
+      approxPolyDP: (contour: { points: MockPoint[] }, approx: { points: MockPoint[] }) => {
+        approx.points.push(...contour.points);
       },
       warpPerspective: jest.fn(),
       rotate: jest.fn(),
@@ -110,10 +128,19 @@ jest.mock('react-native-fast-opencv', () => {
   };
 });
 
+let logSpy: jest.SpyInstance;
+
 beforeEach(() => {
-  mockContours.length = 0;
+  logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+  mockContours.edges = [];
+  mockContours.otsu = [];
+  mockRetrievalModes.length = 0;
   created.length = 0;
   perspectiveCalls.length = 0;
+});
+
+afterEach(() => {
+  logSpy.mockRestore();
 });
 
 describe('warpAndSharpen', () => {
@@ -177,7 +204,7 @@ describe('detectQuad', () => {
   ];
 
   it('returns the ordered page quad for a convex 4-vertex contour', () => {
-    mockContours.push(page);
+    mockContours.edges.push(page);
     expect(detectQuad('small-base64', 800, 600)).toEqual([
       { x: 200, y: 110 },
       { x: 600, y: 100 },
@@ -187,12 +214,12 @@ describe('detectQuad', () => {
   });
 
   it('ignores an out-and-back (degenerate) contour', () => {
-    mockContours.push(outAndBack);
+    mockContours.edges.push(outAndBack);
     expect(detectQuad('small-base64', 800, 600)).toBeNull();
   });
 
   it('prefers a real page over a larger-looking degenerate contour', () => {
-    mockContours.push(outAndBack, page);
+    mockContours.edges.push(outAndBack, page);
     expect(detectQuad('small-base64', 800, 600)).toEqual([
       { x: 200, y: 110 },
       { x: 600, y: 100 },
@@ -201,8 +228,45 @@ describe('detectQuad', () => {
     ]);
   });
 
+  it('accepts the true corners of an out-and-back trace listed in crossed order', () => {
+    mockContours.edges.push([page[0], page[2], page[1], page[3]]);
+    expect(detectQuad('small-base64', 800, 600)).toEqual([
+      { x: 200, y: 110 },
+      { x: 600, y: 100 },
+      { x: 610, y: 490 },
+      { x: 190, y: 500 },
+    ]);
+  });
+
+  it('lists all contours (RETR_LIST), so an inner border can be found too', () => {
+    mockContours.edges.push(page);
+    detectQuad('small-base64', 800, 600);
+    expect(mockRetrievalModes).toEqual([1]);
+  });
+
+  it('falls back to an Otsu-thresholded pass when the edges yield no page', () => {
+    mockContours.edges.push(outAndBack);
+    mockContours.otsu.push(page);
+    expect(detectQuad('small-base64', 800, 600)).toEqual([
+      { x: 200, y: 110 },
+      { x: 600, y: 100 },
+      { x: 610, y: 490 },
+      { x: 190, y: 500 },
+    ]);
+    expect(mockRetrievalModes).toEqual([1, 1]);
+  });
+
+  it('logs a detection summary in development', () => {
+    mockContours.edges.push(page);
+    detectQuad('small-base64', 800, 600);
+    expect(logSpy).toHaveBeenCalledWith(
+      '[detectQuad]',
+      expect.objectContaining({ imageArea: 480000, chosenArea: expect.any(Number) }),
+    );
+  });
+
   it('ignores a concave 4-vertex contour', () => {
-    mockContours.push([
+    mockContours.edges.push([
       { x: 50, y: 50 },
       { x: 750, y: 300 },
       { x: 50, y: 550 },
@@ -212,7 +276,7 @@ describe('detectQuad', () => {
   });
 
   it('releases every native object it creates', () => {
-    mockContours.push(outAndBack, page);
+    mockContours.edges.push(outAndBack, page);
     detectQuad('small-base64', 800, 600);
     expect(created.length).toBeGreaterThan(0);
     expect(created.every((o) => o.released)).toBe(true);

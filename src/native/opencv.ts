@@ -5,19 +5,15 @@ import {
   DataTypes,
   DecompTypes,
   InterpolationFlags,
+  MorphShapes,
+  MorphTypes,
   OpenCV,
   RetrievalModes,
   RotateFlags,
+  ThresholdTypes,
   type Mat,
 } from 'react-native-fast-opencv';
-import {
-  isConvexQuad,
-  isQuadUsable,
-  orderQuad,
-  warpSize,
-  type Point,
-  type Quad,
-} from '../imaging/geometry';
+import { pickPageQuad, warpSize, type Point, type Quad } from '../imaging/geometry';
 
 /** Clockwise rotation in degrees. */
 export type Rotation = 0 | 90 | 180 | 270;
@@ -25,7 +21,8 @@ export type Rotation = 0 | 90 | 180 | 270;
 const MIN_AREA_RATIO = 0.2;
 const CANNY_LOW = 75;
 const CANNY_HIGH = 200;
-const APPROX_EPSILON = 0.02;
+const GAP_KERNEL = 5; // px, on the ~800 px detection copy
+const APPROX_EPSILONS = [0.02, 0.04]; // × contour perimeter
 const SHARPEN_SIGMA = 1.0;
 
 type Releasable = { release(): void };
@@ -51,14 +48,13 @@ const emptyMat = (pool: Pool): Mat => pool.add(OpenCV.Mat.create(0, 0, DataTypes
 /**
  * Finds the document quadrilateral (TL, TR, BR, BL) in an image, in that image's pixel
  * coordinates. Callers pass a downscaled copy (long edge ~800 px) and scale the result back.
- * Returns null when no convex, non-degenerate 4-vertex contour covers at least 20 % of the image.
+ * Returns null when no usable quad (see `pickPageQuad`) covers at least 20 % of the image.
  *
- * Canny often leaves the page border as an OPEN curve (e.g. just the left + top edges). With
- * RETR_EXTERNAL, findContours traces such a curve out and back, so the contour has ~zero area,
- * yet approxPolyDP can still reduce it to 4 vertices, two of them (nearly) coinciding. Taken
- * in their native order those vertices do not form a convex polygon, and their contourArea is
- * ~0; only re-ordering them (orderQuad) makes them look like a big triangle. So candidates are
- * checked for convexity and ranked by contourArea in contour order, before ordering.
+ * Canny often leaves the page border as an OPEN curve with small gaps, which findContours
+ * traces out and back: approxPolyDP then yields too many vertices or two coinciding ones. So
+ * the edges are dilated first to close those gaps, and every contour (RETR_LIST, so the inner
+ * edge of a framed page counts too) is approximated at two tolerances. If that finds no page,
+ * an Otsu-binarized pass is tried.
  */
 export function detectQuad(base64Jpeg: string, width: number, height: number): Quad | null {
   const pool = createPool();
@@ -66,45 +62,90 @@ export function detectQuad(base64Jpeg: string, width: number, height: number): Q
     const src = pool.add(OpenCV.Mat.createFromBase64(base64Jpeg));
     const gray = emptyMat(pool);
     const blurred = emptyMat(pool);
-    const edges = emptyMat(pool);
     // JPEG decodes to 3-channel BGR.
     OpenCV.cvtColor(src, gray, ColorConversionCodes.COLOR_BGR2GRAY);
     OpenCV.GaussianBlur(gray, blurred, pool.add(OpenCV.Size.create(5, 5)), 0);
-    OpenCV.Canny(blurred, edges, CANNY_LOW, CANNY_HIGH);
-
-    const contours = pool.add(OpenCV.PointVectorOfVectors.create());
-    OpenCV.findContours(
-      edges,
-      contours,
-      RetrievalModes.RETR_EXTERNAL,
-      ContourApproximationModes.CHAIN_APPROX_SIMPLE,
+    const kernel = pool.add(
+      OpenCV.getStructuringElement(
+        MorphShapes.MORPH_RECT,
+        pool.add(OpenCV.Size.create(GAP_KERNEL, GAP_KERNEL)),
+      ),
     );
 
-    let best: Quad | null = null;
-    let bestArea = MIN_AREA_RATIO * width * height;
-    for (let i = 0; i < contours.length; i++) {
-      const contour = pool.add(contours.get(i));
-      const perimeter = OpenCV.arcLength(contour, true).value;
-      const approx = pool.add(OpenCV.PointVector.create());
-      OpenCV.approxPolyDP(contour, approx, APPROX_EPSILON * perimeter, true);
-      if (approx.length !== 4) continue;
+    const edges = emptyMat(pool);
+    const closedEdges = emptyMat(pool);
+    OpenCV.Canny(blurred, edges, CANNY_LOW, CANNY_HIGH);
+    OpenCV.dilate(
+      edges,
+      closedEdges,
+      kernel,
+      pool.add(OpenCV.Point.create(-1, -1)),
+      1,
+      BorderTypes.BORDER_CONSTANT,
+      pool.add(OpenCV.Scalar.create(0)),
+    );
+    const edgeCandidates = quadCandidates(pool, closedEdges, width, height);
+    let pass = 'edges';
+    let candidates = edgeCandidates.length;
+    let best = pickPageQuad(edgeCandidates, width, height);
 
-      const points = approx.getAll().map((p) => {
-        pool.add(p);
-        return { x: p.x, y: p.y };
-      }) as Quad;
-      if (!isConvexQuad(points)) continue;
-      const area = OpenCV.contourArea(approx).value;
-      if (area < bestArea) continue;
-      const quad = orderQuad(points);
-      if (!isQuadUsable(quad, width, height)) continue;
-      best = quad;
-      bestArea = area;
+    if (!best) {
+      const binary = emptyMat(pool);
+      const closedBinary = emptyMat(pool);
+      OpenCV.threshold(blurred, binary, 0, 255, ThresholdTypes.THRESH_BINARY | ThresholdTypes.THRESH_OTSU);
+      OpenCV.morphologyEx(binary, closedBinary, MorphTypes.MORPH_CLOSE, kernel);
+      const otsuCandidates = quadCandidates(pool, closedBinary, width, height);
+      pass = 'otsu';
+      candidates += otsuCandidates.length;
+      best = pickPageQuad(otsuCandidates, width, height);
     }
-    return best;
+
+    if (__DEV__) {
+      console.log('[detectQuad]', {
+        pass,
+        candidates,
+        chosenArea: best ? Math.round(best.area) : null,
+        imageArea: width * height,
+        quad: best?.quad ?? null,
+      });
+    }
+    return best ? best.quad : null;
   } finally {
     pool.releaseAll();
   }
+}
+
+/**
+ * All 4-vertex approximations of the contours in a binary image that are long enough to
+ * enclose 20 % of it (a quad of area A has perimeter ≥ 4·√A), in contour vertex order.
+ */
+function quadCandidates(pool: Pool, binary: Mat, width: number, height: number): Point[][] {
+  const contours = pool.add(OpenCV.PointVectorOfVectors.create());
+  OpenCV.findContours(
+    binary,
+    contours,
+    RetrievalModes.RETR_LIST,
+    ContourApproximationModes.CHAIN_APPROX_SIMPLE,
+  );
+  const minPerimeter = 4 * Math.sqrt(MIN_AREA_RATIO * width * height);
+  const result: Point[][] = [];
+  for (let i = 0; i < contours.length; i++) {
+    const contour = pool.add(contours.get(i));
+    const perimeter = OpenCV.arcLength(contour, true).value;
+    if (perimeter < minPerimeter) continue;
+    for (const epsilon of APPROX_EPSILONS) {
+      const approx = pool.add(OpenCV.PointVector.create());
+      OpenCV.approxPolyDP(contour, approx, epsilon * perimeter, true);
+      if (approx.length !== 4) continue;
+      result.push(
+        approx.getAll().map((p) => {
+          pool.add(p);
+          return { x: p.x, y: p.y };
+        }),
+      );
+    }
+  }
+  return result;
 }
 
 /**

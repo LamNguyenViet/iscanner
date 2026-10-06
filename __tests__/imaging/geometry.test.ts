@@ -9,6 +9,7 @@ import {
   isFullQuad,
   isQuadUsable,
   isConvexQuad,
+  pickPageQuad,
   scaleQuad,
 } from '../../src/imaging/geometry';
 
@@ -246,6 +247,35 @@ describe('geometry', () => {
     it('rejects a concave quad and a collinear corner', () => {
       expect(isConvexQuad([{ x: 0, y: 0 }, { x: 100, y: 50 }, { x: 0, y: 100 }, { x: 40, y: 50 }])).toBe(false);
       expect(isConvexQuad([{ x: 0, y: 0 }, { x: 50, y: 0 }, { x: 100, y: 0 }, { x: 0, y: 100 }])).toBe(false);
+    });
+  });
+
+  describe('pickPageQuad', () => {
+    const outer = [{ x: 700, y: 50 }, { x: 100, y: 60 }, { x: 90, y: 550 }, { x: 710, y: 540 }];
+    const inner = [{ x: 150, y: 110 }, { x: 650, y: 100 }, { x: 660, y: 490 }, { x: 140, y: 500 }];
+
+    it('returns the largest usable candidate, ordered TL, TR, BR, BL', () => {
+      expect(pickPageQuad([inner, outer], 800, 600)).toEqual({
+        quad: [{ x: 100, y: 60 }, { x: 700, y: 50 }, { x: 710, y: 540 }, { x: 90, y: 550 }],
+        area: quadArea(orderQuad(outer)),
+      });
+    });
+
+    it('accepts the true corners even when a contour lists them in crossed order', () => {
+      const crossed = [outer[1], outer[3], outer[0], outer[2]];
+      expect(pickPageQuad([crossed], 800, 600)?.quad).toEqual(orderQuad(outer));
+    });
+
+    it('skips degenerate candidates and prefers a smaller valid one', () => {
+      const triangle = [{ x: 20, y: 30 }, { x: 780, y: 25 }, { x: 21, y: 31 }, { x: 25, y: 570 }];
+      expect(pickPageQuad([triangle, inner], 800, 600)?.quad).toEqual(orderQuad(inner));
+    });
+
+    it('ignores candidates below 20 % of the image, non-quads and the image frame itself', () => {
+      const small = [{ x: 300, y: 200 }, { x: 500, y: 200 }, { x: 500, y: 400 }, { x: 300, y: 400 }];
+      const frame = [{ x: 0, y: 0 }, { x: 799, y: 0 }, { x: 799, y: 599 }, { x: 0, y: 599 }];
+      expect(pickPageQuad([small, outer.slice(0, 3), frame], 800, 600)).toBeNull();
+      expect(pickPageQuad([], 800, 600)).toBeNull();
     });
   });
 

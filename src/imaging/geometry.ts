@@ -214,6 +214,33 @@ export function isQuadUsable(q: Quad, w: number, h: number): boolean {
   return true;
 }
 
+const PAGE_MIN_AREA_RATIO = 0.2;
+const FRAME_TOLERANCE_RATIO = 0.02; // of the image's short edge
+
+/**
+ * Chooses the page among detected 4-vertex candidates (w×h image coordinates, any vertex
+ * order): each is ordered, must pass `isQuadUsable`, cover at least 20 % of the image and not
+ * be the image frame itself; the largest wins. Vertex order is deliberately ignored, because a
+ * contour traced out and back along an open border can list the true corners in crossed order.
+ */
+export function pickPageQuad(
+  candidates: readonly (readonly Point[])[],
+  w: number,
+  h: number,
+): { quad: Quad; area: number } | null {
+  const frameTolerance = Math.max(2, FRAME_TOLERANCE_RATIO * Math.min(w, h));
+  let best: { quad: Quad; area: number } | null = null;
+  for (const points of candidates) {
+    if (points.length !== 4) continue;
+    const quad = orderQuad([...points]);
+    const area = quadArea(quad);
+    if (area < PAGE_MIN_AREA_RATIO * w * h || (best && area <= best.area)) continue;
+    if (!isQuadUsable(quad, w, h) || isFullQuad(quad, w, h, frameTolerance)) continue;
+    best = { quad, area };
+  }
+  return best;
+}
+
 /**
  * Scales all coordinates of a quad by a factor
  */
