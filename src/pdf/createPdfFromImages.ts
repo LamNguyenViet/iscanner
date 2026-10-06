@@ -1,7 +1,15 @@
 import { PDFDocument } from 'pdf-lib';
 import type { ImageInput } from './images';
+import { computePlacement, type Align, type PageLayout } from './layout';
 
-export async function createPdfFromImages(images: ImageInput[]): Promise<Uint8Array> {
+export type PageImage = ImageInput & { align: Align };
+
+const IMAGE_LAYOUT: PageLayout = { pageSize: 'image', margin: 'none' };
+
+export async function createPdfFromImages(
+  images: PageImage[],
+  layout: PageLayout = IMAGE_LAYOUT,
+): Promise<Uint8Array> {
   if (images.length === 0) throw new Error('NO_IMAGES');
   const doc = await PDFDocument.create();
   for (const input of images) {
@@ -9,8 +17,13 @@ export async function createPdfFromImages(images: ImageInput[]): Promise<Uint8Ar
       input.mimeType === 'image/png'
         ? await doc.embedPng(input.bytes)
         : await doc.embedJpg(input.bytes);
-    const page = doc.addPage([img.width, img.height]);
-    page.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
+    const { pageWidth, pageHeight, x, y, width, height } = computePlacement(
+      { width: img.width, height: img.height },
+      layout,
+      input.align,
+    );
+    const page = doc.addPage([pageWidth, pageHeight]);
+    page.drawImage(img, { x, y, width, height });
   }
   return doc.save();
 }

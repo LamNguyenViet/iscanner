@@ -3,7 +3,7 @@ import { createPdfFromImages } from '../../src/pdf/createPdfFromImages';
 import { getPdfPageCount, mergePdfs, PdfLoadError } from '../../src/pdf/mergePdfs';
 import { makePng } from '../fixtures/images';
 
-const img = (n: number) => ({ bytes: makePng(n, n), mimeType: 'image/png' as const });
+const img = (n: number) => ({ bytes: makePng(n, n), mimeType: 'image/png' as const, align: 'center' as const });
 
 async function widths(bytes: Uint8Array) {
   const doc = await PDFDocument.load(bytes);

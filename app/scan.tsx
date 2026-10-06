@@ -19,6 +19,7 @@ import { NameInput } from '../src/components/NameInput';
 import { useLibrary } from '../src/library/LibraryContext';
 import { deleteFiles } from '../src/native/deleteFiles';
 import { readBytes } from '../src/native/readBytes';
+import { DEFAULT_LAYOUT } from '../src/pdf/layout';
 import { scanDocuments } from '../src/scanner/scanner';
 import { defaultName, sanitizeName } from '../src/utils/format';
 import { useBusy } from '../src/workflows/useBusy';
@@ -105,8 +106,9 @@ export default function Scan() {
       meta = await busy.run(() =>
         createScanDocument(
           { readBytes, library: store },
-          items.map((i) => i.value),
+          items.map((i) => ({ uri: i.value, align: 'center' as const })),
           sanitizeName(name, defaultName('scan', new Date())),
+          DEFAULT_LAYOUT,
         ),
       );
     } catch {

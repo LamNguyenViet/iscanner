@@ -6,6 +6,7 @@ import { createLibraryStore } from '../../src/library/libraryStore';
 import { createMemoryFs } from '../../src/library/memoryFs';
 import { deleteFiles } from '../../src/native/deleteFiles';
 import { scanDocuments } from '../../src/scanner/scanner';
+import { DEFAULT_LAYOUT } from '../../src/pdf/layout';
 import { createScanDocument } from '../../src/workflows/scanWorkflow';
 
 const mockBack = jest.fn();
@@ -89,7 +90,15 @@ test('creates pdf and opens viewer', async () => {
   mockCreate.mockResolvedValueOnce({ id: 'id1' });
   await renderScan();
   await fireEvent.press(screen.getByText('Tạo PDF'));
-  expect(mockCreate).toHaveBeenCalledWith(expect.anything(), ['a', 'b'], expect.any(String));
+  expect(mockCreate).toHaveBeenCalledWith(
+    expect.anything(),
+    [
+      { uri: 'a', align: 'center' },
+      { uri: 'b', align: 'center' },
+    ],
+    expect.any(String),
+    DEFAULT_LAYOUT,
+  );
   expect(mockReplace).toHaveBeenCalledWith('/viewer/id1');
 });
 
