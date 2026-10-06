@@ -116,3 +116,22 @@ Durable record of plan execution, for resuming in later sessions.
   - The alignment labels are duplicated.
   - The act() warning is intermittent in the index/merge suites.
 - Tests: 176/176.
+
+### Task 7 — Device verification (⏳ partially done)
+- Build: the emulator could not run at the same time as Gradle (16 GB RAM), so the x86_64 debug APK was built first and the emulator started afterwards. The APK contains `libopencv_java4.so` (~53 MB per ABI).
+- **Bugs found on the device and fixed (unit tests could not catch them because OpenCV is mocked):**
+  1. `ebeee9e`: `Point2fVector.create(points)` in fast-opencv 1.0.1 **ignores its argument** and returns an empty vector, so every `getPerspectiveTransform` call failed. Fix: create the vector, then `push` the points.
+  2. `6a94e76`: the PageEditor Modal drew under the status bar, so Huỷ/Xong could not be tapped. Fix: its own `SafeAreaProvider` with insets, `statusBarTranslucent`/`navigationBarTranslucent`, and 44dp buttons.
+  3. `5a13e54`: detection sometimes returned a **degenerate quad** (two corners merged) and produced a smeared image. Fix: `isQuadUsable` now requires a convex quad, corners ≥ 2% of the diagonal apart, and angles between 15° and 165°.
+  4. `d1bd43c`, `c328411`: after fix 3, detection became too weak. On small images (~370×320) a 5×5 dilate welds the board to the background. Fix: try dilate 3×3, then 5×5, then Otsu, using RETR_LIST and approxPolyDP at 0.02/0.04. Verified on the emulator: the board was found tightly in 3 of 3 scans.
+- **Verified on the emulator:**
+  - normalizePage writes a new file and deletes the raw one.
+  - The review screen shows Khổ giấy / Lề, the alignment label and Sửa.
+  - The editor: auto-detection, dragging a corner, rotating (image and overlay rotate together), alignment plus preview, Xong / Huỷ.
+  - The PDF page is A4 595.28×841.89 with margins and the image aligned to the top.
+  - Full quad + 90° rotation gives a correct, sharp image.
+- **Not yet verified:**
+  - The 1920 px downscale with a large image (the emulator camera only produces 368×304).
+  - Release APK 1.1.0 and its size.
+- Dev-only note: Fast Refresh unmounts the review screen and deletes the page files. Scan again after a hot reload.
+- The emulator and Metro were stopped by Claude Code because the machine was low on memory.
