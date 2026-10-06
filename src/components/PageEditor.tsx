@@ -30,13 +30,14 @@ import {
   isFullQuad,
   isQuadUsable,
   orderQuad,
+  warpSize,
   type Quad,
 } from '../imaging/geometry';
 import { deleteFiles } from '../native/deleteFiles';
 import type { Align, PageLayout } from '../pdf/layout';
 import {
-  containRect,
   CornerHandles,
+  editorImageRect,
   RotatedImage,
   rotatedSize,
   type Size,
@@ -179,7 +180,13 @@ export function PageEditor({
   };
 
   const displaySize = size ? rotatedSize(size, rotation) : null;
-  const rect = displaySize ? containRect(displaySize, canvas) : null;
+  const rect = displaySize ? editorImageRect(displaySize, canvas) : null;
+  // The mini PDF preview shows the page as it will be cropped: the warped quad size when the
+  // quad can be cropped to, otherwise the whole image.
+  const previewSize =
+    size && quad && isQuadUsable(quad, size.width, size.height)
+      ? rotatedSize(warpSize(orderQuad(quad)), rotation)
+      : displaySize;
 
   return (
     <Modal
@@ -275,11 +282,11 @@ export function PageEditor({
                 />
               ))}
             </View>
-            {displaySize && (
+            {previewSize && (
               <PagePreview
                 layout={layout}
                 align={align}
-                imageSize={displaySize}
+                imageSize={previewSize}
                 width={72}
               />
             )}

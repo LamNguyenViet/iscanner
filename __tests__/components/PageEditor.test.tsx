@@ -297,3 +297,42 @@ describe('PageEditor system bar insets', () => {
     expect(row.paddingBottom).toBeGreaterThanOrEqual(24);
   });
 });
+
+describe('mini PDF preview aspect', () => {
+  // A landscape crop (1000 × 400) out of the portrait 1000 × 1500 image.
+  const wideQuad: Quad = [
+    { x: 0, y: 500 },
+    { x: 1000, y: 500 },
+    { x: 1000, y: 900 },
+    { x: 0, y: 900 },
+  ];
+  const previewRatio = () => {
+    const style = StyleSheet.flatten(screen.getByTestId('page-preview-image').props.style);
+    return style.width / style.height;
+  };
+
+  it('uses the cropped (warped) size of a usable quad', async () => {
+    mockDetect.mockResolvedValue(detectResult(wideQuad, true));
+    await renderEditor();
+    expect(previewRatio()).toBeCloseTo(1000 / 400, 1);
+  });
+
+  it('swaps the cropped size when rotated by 90°', async () => {
+    mockDetect.mockResolvedValue(detectResult(wideQuad, true));
+    await renderEditor();
+    await press('Xoay ⟳');
+    expect(previewRatio()).toBeCloseTo(400 / 1000, 1);
+  });
+
+  it('falls back to the full image size when the quad is not usable', async () => {
+    const sliver: Quad = [
+      { x: 0, y: 0 },
+      { x: 1000, y: 0 },
+      { x: 1000, y: 5 },
+      { x: 0, y: 5 },
+    ];
+    mockDetect.mockResolvedValue(detectResult(sliver, true));
+    await renderEditor();
+    expect(previewRatio()).toBeCloseTo(1000 / 1500, 1);
+  });
+});

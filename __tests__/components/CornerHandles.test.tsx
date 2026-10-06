@@ -1,4 +1,11 @@
-import { containRect, imageToScreen, rotatedSize, screenToImage } from '../../src/components/CornerHandles';
+import {
+  containRect,
+  editorImageRect,
+  HANDLE,
+  imageToScreen,
+  rotatedSize,
+  screenToImage,
+} from '../../src/components/CornerHandles';
 
 const SIZE = { width: 1000, height: 1500 };
 
@@ -56,5 +63,33 @@ test('screenToImage on an empty rect returns origin instead of NaN', () => {
   expect(screenToImage({ x: 3, y: 4 }, SIZE, 0, { x: 0, y: 0, width: 0, height: 0 })).toEqual({
     x: 0,
     y: 0,
+  });
+});
+
+describe('handles', () => {
+  test('are 44 dp touch targets', () => {
+    expect(HANDLE).toBe(44);
+  });
+
+  test('editorImageRect keeps every image corner at least HANDLE/2 inside the canvas', () => {
+    const canvas = { width: 360, height: 500 };
+    for (const content of [SIZE, { width: 1500, height: 1000 }, { width: 1000, height: 1000 }]) {
+      const r = editorImageRect(content, canvas);
+      expect(r.x).toBeGreaterThanOrEqual(HANDLE / 2 - 1e-9);
+      expect(r.y).toBeGreaterThanOrEqual(HANDLE / 2 - 1e-9);
+      expect(r.x + r.width).toBeLessThanOrEqual(canvas.width - HANDLE / 2 + 1e-9);
+      expect(r.y + r.height).toBeLessThanOrEqual(canvas.height - HANDLE / 2 + 1e-9);
+      // Still the largest fit with the content's aspect ratio inside the inset box.
+      expect(r.width / r.height).toBeCloseTo(content.width / content.height);
+      expect(
+        Math.abs(r.width - (canvas.width - HANDLE)) < 1e-6 ||
+          Math.abs(r.height - (canvas.height - HANDLE)) < 1e-6,
+      ).toBe(true);
+    }
+  });
+
+  test('editorImageRect of an unmeasured or too small canvas is empty', () => {
+    expect(editorImageRect(SIZE, { width: 0, height: 0 })).toEqual({ x: 0, y: 0, width: 0, height: 0 });
+    expect(editorImageRect(SIZE, { width: 40, height: 40 })).toEqual({ x: 0, y: 0, width: 0, height: 0 });
   });
 });

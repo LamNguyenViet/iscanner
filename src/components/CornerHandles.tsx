@@ -7,7 +7,8 @@ import type { Rotation } from '../imaging/enhance';
 export type Size = { width: number; height: number };
 export type Rect = { x: number; y: number; width: number; height: number };
 
-const HANDLE = 32; // touch target (dp)
+export const HANDLE = 44; // touch target (dp)
+const HANDLE_HIT_SLOP = 8; // extra touch area around a handle (dp)
 const MAGNIFIER = 96; // magnifier diameter (dp)
 const ZOOM = 2;
 
@@ -25,6 +26,20 @@ export function containRect(content: Size, box: Size): Rect {
   const width = content.width * scale;
   const height = content.height * scale;
   return { x: (box.width - width) / 2, y: (box.height - height) / 2, width, height };
+}
+
+/**
+ * Where the editor draws the image: the contain-fit of `content` inside `canvas` inset by
+ * HANDLE/2 on every side, so handles on the image's edges and corners stay fully inside the
+ * canvas (and touchable). Empty when the canvas is not measured yet or too small.
+ */
+export function editorImageRect(content: Size, canvas: Size): Rect {
+  const inner = containRect(content, {
+    width: canvas.width - HANDLE,
+    height: canvas.height - HANDLE,
+  });
+  if (inner.width <= 0 || inner.height <= 0) return inner;
+  return { ...inner, x: inner.x + HANDLE / 2, y: inner.y + HANDLE / 2 };
 }
 
 /**
@@ -181,6 +196,7 @@ function Handle({
       Gesture.Pan()
         .runOnJS(true)
         .minDistance(0)
+        .hitSlop(HANDLE_HIT_SLOP)
         .onBegin(() => {
           const { quad, imageSize, rotation, imageRect } = latest.current;
           start.current = imageToScreen(quad[index], imageSize, rotation, imageRect);
@@ -205,7 +221,6 @@ function Handle({
       <View
         testID={`corner-${index}`}
         accessibilityLabel={`Góc ${index + 1}`}
-        hitSlop={8}
         style={[styles.handle, { left: point.x - HANDLE / 2, top: point.y - HANDLE / 2 }]}
       >
         <View style={[styles.handleDot, active && styles.handleDotActive]} />
