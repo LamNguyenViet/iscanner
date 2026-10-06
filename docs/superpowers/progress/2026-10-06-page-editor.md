@@ -24,6 +24,7 @@ Durable record of plan execution, for resuming in later sessions.
 - R6: Task 1 top/bottom test uses a 1000×1100 image (the plan's 1000×500 is landscape).
 - R7: Task 1 RED not recorded; the reviewer confirmed the tests are meaningful.
 - R8: `orderQuad` uses a centroid + atan2 clockwise sort starting at min(x+y) instead of the plan's sum/diff formula, which crosses on ~45° pages.
+- R9: the editor takes the image size from `detectPageQuad(uri).size` instead of `Image.getSize`.
 
 ## Tasks
 
@@ -32,8 +33,8 @@ Durable record of plan execution, for resuming in later sessions.
 | 1 | Page layout math + layout-aware PDF | ✅ done | `4c69862` | review clean |
 | 2 | Quad geometry helpers | ✅ done | `1020aab`, `904aa2d` | 1 fix round (orderQuad) |
 | 3 | OpenCV + Full HD normalization wrappers | ✅ done | `7ffde3c`, `8d8a429` | 1 fix round (detect fallback) |
-| 4 | Ordered list `update` | ⏳ in progress | | |
-| 5 | Page editor component | ⬜ | | |
+| 4 | Ordered list `update` | ✅ done | `2bb745f` | review clean |
+| 5 | Page editor component | ⏳ in progress | | |
 | 6 | Scan review integration | ⬜ | | |
 | 7 | Device verification + APK 1.1.0 | ⬜ | | |
 
@@ -74,3 +75,6 @@ Durable record of plan execution, for resuming in later sessions.
   - Double JPEG encode.
   - `warpAndSharpen` does not run `orderQuad` itself.
 - Tests: 132/132. Not yet run on a device.
+
+### Task 4 — List update (✅ `2bb745f`)
+- `useOrderedList<T>().update(key, value)` replaces a value in place and keeps the key and order. An unknown key is a no-op. Tests: 134/134.
