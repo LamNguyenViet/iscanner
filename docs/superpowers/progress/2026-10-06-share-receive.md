@@ -20,8 +20,8 @@
 | # | Task | Status | Commits | Notes |
 |---|---|---|---|---|
 | 1 | Classify / plan / pending store | ✅ | `b586789` | review clean |
-| 2 | Import to cache + payload wrapper | ⏳ | | |
-| 3 | app.json + native-intent + incoming screen | ⬜ | | |
+| 2 | Import to cache + payload wrapper | ✅ | `26cf873` | review clean |
+| 3 | app.json + native-intent + incoming screen | ⏳ | | |
 | 4 | Merge/scan consume pending files | ⬜ | | |
 | 5 | Device verification + docs | ⬜ | | |
 
@@ -33,3 +33,12 @@
 - `plan.ts` decides the flow: none, single-pdf (with images), merge (with images), or scan. Order is preserved.
 - `incomingStore.ts`: `setPending` returns the dropped files; `takePdfs` and `takeImages` read once; there are also `hasPendingImages` and `clearPending`.
 - Tests: 246/246.
+
+### Task 2 (✅ `26cf873`)
+- `src/share/importIncoming.ts`:
+  - `importIncoming(sources)` reads `new File(uri).bytes()` and writes `Paths.cache/incoming/<id>.<pdf|jpg|png>`.
+  - The size is checked before (`size`) and after reading (100 MB limit).
+  - A bad file is put in `skipped` (unsupported, too-large or unreadable) and the import continues.
+- `src/native/sharedPayloads.ts`: `readSharedFiles()` (Android only, file/image payloads, name from `originalName`) and `clearSharedFiles()`.
+- Reading `content://` with `expo-file-system` is supported; confirmed in `FileSystemPath.kt` and `ContentProviderFile.kt`.
+- Tests: 253/253.
