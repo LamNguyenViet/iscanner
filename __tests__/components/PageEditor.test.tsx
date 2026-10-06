@@ -1,4 +1,4 @@
-import { Alert } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { PageEditor, type ScanPage } from '../../src/components/PageEditor';
 import { applyEdit, detectPageQuad } from '../../src/imaging/enhance';
@@ -6,6 +6,11 @@ import { fullQuad, orderQuad, type Quad } from '../../src/imaging/geometry';
 import { deleteFiles } from '../../src/native/deleteFiles';
 import type { PageLayout } from '../../src/pdf/layout';
 
+jest.mock('react-native-safe-area-context', () => ({
+  initialWindowMetrics: null,
+  SafeAreaProvider: ({ children }: { children: unknown }) => children,
+  useSafeAreaInsets: () => ({ top: 40, right: 0, bottom: 24, left: 0 }),
+}));
 jest.mock('../../src/imaging/enhance', () => ({
   detectPageQuad: jest.fn(),
   applyEdit: jest.fn(),
@@ -260,4 +265,15 @@ test('preview uses the rotated image size after rotate', async () => {
   await press('Xoay ⟳');
   const landscape = Object.assign({}, ...[screen.getByTestId('page-preview-image').props.style].flat());
   expect(landscape.width).toBeGreaterThan(landscape.height);
+});
+
+describe('PageEditor system bar insets', () => {
+  it('pads the header by the top inset and the align row by the bottom inset', async () => {
+    await renderEditor();
+    await flush();
+    const header = StyleSheet.flatten(screen.getByTestId('editor-header').props.style);
+    const row = StyleSheet.flatten(screen.getByTestId('editor-align-row').props.style);
+    expect(header.paddingTop).toBeGreaterThanOrEqual(40);
+    expect(row.paddingBottom).toBeGreaterThanOrEqual(24);
+  });
 });
