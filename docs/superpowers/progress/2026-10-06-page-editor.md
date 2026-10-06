@@ -21,14 +21,17 @@ Durable record of plan execution, for resuming in later sessions.
 - R3: `Rotation` is exported from `src/native/opencv.ts` and re-exported by `src/imaging/enhance.ts`.
 - R4: `warpAndSharpen` output is written to a temp file before expo-image-manipulator processes it.
 - R5: Task 7 (native build and emulator checks) is run by the controller directly.
+- R6: Task 1 top/bottom test uses a 1000×1100 image (the plan's 1000×500 is landscape).
+- R7: Task 1 RED not recorded; the reviewer confirmed the tests are meaningful.
+- R8: `orderQuad` uses a centroid + atan2 clockwise sort starting at min(x+y) instead of the plan's sum/diff formula, which crosses on ~45° pages.
 
 ## Tasks
 
 | # | Task | Status | Commits | Notes |
 |---|---|---|---|---|
 | 1 | Page layout math + layout-aware PDF | ✅ done | `4c69862` | review clean |
-| 2 | Quad geometry helpers | ⏳ in progress | | |
-| 3 | OpenCV + Full HD normalization wrappers | ⬜ | | |
+| 2 | Quad geometry helpers | ✅ done | `1020aab`, `904aa2d` | 1 fix round (orderQuad) |
+| 3 | OpenCV + Full HD normalization wrappers | ⏳ in progress | | |
 | 4 | Ordered list `update` | ⬜ | | |
 | 5 | Page editor component | ⬜ | | |
 | 6 | Scan review integration | ⬜ | | |
@@ -44,3 +47,12 @@ Durable record of plan execution, for resuming in later sessions.
 - `createScanDocument(deps, pages: {uri, align}[], name, layout)`. For now `app/scan.tsx` passes `align:'center'` and `DEFAULT_LAYOUT`; the UI comes in Task 6.
 - Ruling R6: the plan's top/bottom test used a landscape image, so the test was switched to 1000×1100. Ruling R7: the RED step was not recorded; the reviewer confirmed the tests are meaningful.
 - Tests: 101/101.
+
+### Task 2 — Geometry (✅ `1020aab`, fix `904aa2d`)
+- `src/imaging/geometry.ts`:
+  - types `Point`, `Quad`
+  - `orderQuad` (centroid + atan2, clockwise TL→TR→BR→BL; throws `QUAD_NEEDS_4_POINTS`)
+  - `fullQuad`, `clampQuad`, `quadArea`, `warpSize`, `isFullQuad`, `isQuadUsable` (≥ 5% of the image), `scaleQuad`
+- Review caught that the plan's formula crossed the quad on ~45° pages; fixed per R8.
+- Repo hygiene: the implementer twice restored `.gitignore` and dropped the `.claude/settings.local.json` line, so the controller committed it (`6410554`).
+- Tests: 117/117.
