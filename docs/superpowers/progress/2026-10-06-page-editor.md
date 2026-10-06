@@ -31,8 +31,8 @@ Durable record of plan execution, for resuming in later sessions.
 |---|---|---|---|---|
 | 1 | Page layout math + layout-aware PDF | ✅ done | `4c69862` | review clean |
 | 2 | Quad geometry helpers | ✅ done | `1020aab`, `904aa2d` | 1 fix round (orderQuad) |
-| 3 | OpenCV + Full HD normalization wrappers | ⏳ in progress | | |
-| 4 | Ordered list `update` | ⬜ | | |
+| 3 | OpenCV + Full HD normalization wrappers | ✅ done | `7ffde3c`, `8d8a429` | 1 fix round (detect fallback) |
+| 4 | Ordered list `update` | ⏳ in progress | | |
 | 5 | Page editor component | ⬜ | | |
 | 6 | Scan review integration | ⬜ | | |
 | 7 | Device verification + APK 1.1.0 | ⬜ | | |
@@ -56,3 +56,21 @@ Durable record of plan execution, for resuming in later sessions.
 - Review caught that the plan's formula crossed the quad on ~45° pages; fixed per R8.
 - Repo hygiene: the implementer twice restored `.gitignore` and dropped the `.claude/settings.local.json` line, so the controller committed it (`6410554`).
 - Tests: 117/117.
+
+### Task 3 — OpenCV + Full HD (✅ `7ffde3c`, fix `8d8a429`)
+- Installed `expo-image-manipulator` 57.0.20 and `react-native-fast-opencv` 1.0.1. expo-doctor 21/21 with no warnings.
+- `src/native/opencv.ts` (JSI, not unit-tested):
+  - `detectQuad(base64, w, h)`: Canny(75,200), approxPolyDP 0.02, area ≥ 20%.
+  - `warpAndSharpen(base64, quad, rotation)`: warp, then rotate, then unsharp 1.5/−0.5 σ1.
+  - Every Mat is released in `finally`. Exports `Rotation`.
+- `src/imaging/enhance.ts`:
+  - `targetSize` keeps long edge ≤ 1920 and never upscales.
+  - `normalizePage(uri)` and `applyEdit(uri, {quad, rotation})` both end with JPEG 0.95 and return a new uri; the input file is kept.
+  - `detectPageQuad(uri)` works on an 800 px copy and scales the quad back. On null **or an exception** it falls back to `fullQuad` (fixed in the review round).
+- `scanDocuments({maxPages?})` now uses `croppedImageQuality: 100`.
+- Deferred minors for the final review:
+  - **Manipulator `ImageRef`s are not released (OOM risk with 12MP images).**
+  - Possible EXIF orientation mismatch.
+  - Double JPEG encode.
+  - `warpAndSharpen` does not run `orderQuad` itself.
+- Tests: 132/132. Not yet run on a device.
