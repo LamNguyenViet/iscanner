@@ -10,7 +10,7 @@ import {
   RotateFlags,
   type Mat,
 } from 'react-native-fast-opencv';
-import { orderQuad, quadArea, warpSize, type Quad } from '../imaging/geometry';
+import { orderQuad, quadArea, warpSize, type Point, type Quad } from '../imaging/geometry';
 
 /** Clockwise rotation in degrees. */
 export type Rotation = 0 | 90 | 180 | 270;
@@ -92,6 +92,19 @@ export function detectQuad(base64Jpeg: string, width: number, height: number): Q
   }
 }
 
+/**
+ * Builds a native Point2fVector. In react-native-fast-opencv 1.0.1 `Point2fVector.create`
+ * ignores its (typed) `points` argument and always returns an empty vector, so points must be
+ * `push`ed. `Point2f.create` truncates to int natively, so coordinates are rounded first.
+ */
+function point2fVector(pool: Pool, points: readonly Point[]) {
+  const vector = pool.add(OpenCV.Point2fVector.create());
+  for (const p of points) {
+    vector.push(pool.add(OpenCV.Point2f.create(Math.round(p.x), Math.round(p.y))));
+  }
+  return vector;
+}
+
 const ROTATE_FLAGS: Record<Exclude<Rotation, 0>, RotateFlags> = {
   90: RotateFlags.ROTATE_90_CLOCKWISE,
   180: RotateFlags.ROTATE_180,
@@ -109,17 +122,13 @@ export function warpAndSharpen(base64Jpeg: string, quad: Quad, rotation: Rotatio
     const src = pool.add(OpenCV.Mat.createFromBase64(base64Jpeg));
     const { width, height } = warpSize(quad);
 
-    const from = pool.add(
-      OpenCV.Point2fVector.create(quad.map((p) => pool.add(OpenCV.Point2f.create(p.x, p.y)))),
-    );
-    const to = pool.add(
-      OpenCV.Point2fVector.create([
-        pool.add(OpenCV.Point2f.create(0, 0)),
-        pool.add(OpenCV.Point2f.create(width, 0)),
-        pool.add(OpenCV.Point2f.create(width, height)),
-        pool.add(OpenCV.Point2f.create(0, height)),
-      ]),
-    );
+    const from = point2fVector(pool, quad);
+    const to = point2fVector(pool, [
+      { x: 0, y: 0 },
+      { x: width, y: 0 },
+      { x: width, y: height },
+      { x: 0, y: height },
+    ]);
     const transform = pool.add(OpenCV.getPerspectiveTransform(from, to, DecompTypes.DECOMP_LU));
 
     const warped = emptyMat(pool);
