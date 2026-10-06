@@ -1,0 +1,65 @@
+import { incomingUriParam, redirectIncomingPath } from '../../src/share/redirect';
+
+/** What expo-router does to a query param before `useLocalSearchParams` hands it to the screen:
+ * URLSearchParams decodes it once (getStateFromPath), then useLocalSearchParams decodes it again. */
+function routerParam(href: string, name: string): string {
+  const raw = new URL(href, 'http://x').searchParams.get(name)!;
+  return decodeURIComponent(raw);
+}
+
+describe('redirectIncomingPath', () => {
+  test('file URL goes to the incoming screen', () => {
+    const href = redirectIncomingPath('file:///a/b.pdf');
+    expect(href.startsWith('/incoming?uri=')).toBe(true);
+    expect(incomingUriParam(routerParam(href, 'uri'))).toBe('file:///a/b.pdf');
+  });
+
+  test('content URI goes to the incoming screen', () => {
+    const href = redirectIncomingPath('content://com.zing.zalo/x');
+    expect(href.startsWith('/incoming?uri=')).toBe(true);
+    expect(incomingUriParam(routerParam(href, 'uri'))).toBe('content://com.zing.zalo/x');
+  });
+
+  test('percent-escapes in the URI survive expo-router decoding the param twice', () => {
+    const uri = 'content://com.android.providers.downloads.documents/document/msf%3A12%20a+b';
+    const href = redirectIncomingPath(uri);
+    expect(incomingUriParam(routerParam(href, 'uri'))).toBe(uri);
+  });
+
+  test('expo-sharing share link goes to the incoming screen', () => {
+    expect(redirectIncomingPath('iscanner://expo-sharing')).toBe('/incoming');
+    expect(redirectIncomingPath('iscanner:///expo-sharing')).toBe('/incoming');
+    expect(redirectIncomingPath('/expo-sharing')).toBe('/incoming');
+    expect(redirectIncomingPath('expo-sharing')).toBe('/incoming');
+  });
+
+  test('leaves other paths unchanged', () => {
+    for (const p of ['/', '/scan', 'iscanner://viewer/abc', 'iscanner:///', '/expo-sharing-x']) {
+      expect(redirectIncomingPath(p)).toBe(p);
+    }
+  });
+
+  test('garbage and empty input are returned unchanged', () => {
+    expect(redirectIncomingPath('')).toBe('');
+    expect(redirectIncomingPath('%%%')).toBe('%%%');
+    expect(redirectIncomingPath(undefined as unknown as string)).toBe(undefined);
+    expect(redirectIncomingPath(42 as unknown as string)).toBe(42);
+  });
+});
+
+describe('incomingUriParam', () => {
+  test('returns a decoded URI as is', () => {
+    expect(incomingUriParam('content://p/doc%3A1')).toBe('content://p/doc%3A1');
+  });
+
+  test('decodes a param that is still encoded', () => {
+    expect(incomingUriParam(encodeURIComponent('content://p/doc%3A1'))).toBe('content://p/doc%3A1');
+  });
+
+  test('missing or invalid param gives undefined', () => {
+    expect(incomingUriParam(undefined)).toBeUndefined();
+    expect(incomingUriParam('')).toBeUndefined();
+    expect(incomingUriParam(['a', 'b'])).toBeUndefined();
+    expect(incomingUriParam('%E0%A4%A')).toBeUndefined();
+  });
+});

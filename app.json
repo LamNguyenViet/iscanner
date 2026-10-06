@@ -9,7 +9,28 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.dlbk.iscanner",
-      "buildNumber": "2"
+      "buildNumber": "2",
+      "infoPlist": {
+        "CFBundleDocumentTypes": [
+          {
+            "CFBundleTypeName": "PDF",
+            "LSItemContentTypes": [
+              "com.adobe.pdf"
+            ],
+            "LSHandlerRank": "Alternate",
+            "CFBundleTypeRole": "Viewer"
+          },
+          {
+            "CFBundleTypeName": "Image",
+            "LSItemContentTypes": [
+              "public.image"
+            ],
+            "LSHandlerRank": "Alternate",
+            "CFBundleTypeRole": "Viewer"
+          }
+        ],
+        "LSSupportsOpeningDocumentsInPlace": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -20,7 +41,26 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.dlbk.iscanner",
-      "versionCode": 2
+      "versionCode": 2,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "category": [
+            "DEFAULT",
+            "BROWSABLE"
+          ],
+          "data": [
+            {
+              "scheme": "content",
+              "mimeType": "application/pdf"
+            },
+            {
+              "scheme": "content",
+              "mimeType": "image/*"
+            }
+          ]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -33,7 +73,28 @@
           "cameraPermission": "Ứng dụng cần quyền camera để scan tài liệu."
         }
       ],
-      "expo-document-picker"
+      "expo-document-picker",
+      [
+        "expo-sharing",
+        {
+          "ios": {
+            "enabled": false
+          },
+          "android": {
+            "enabled": true,
+            "singleShareMimeTypes": [
+              "application/pdf",
+              "image/*",
+              "application/octet-stream"
+            ],
+            "multipleShareMimeTypes": [
+              "application/pdf",
+              "image/*",
+              "application/octet-stream"
+            ]
+          }
+        }
+      ]
     ],
     "scheme": "iscanner"
   }

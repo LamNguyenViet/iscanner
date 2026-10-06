@@ -11,6 +11,7 @@ export default function RootLayout() {
           <Stack.Screen name="scan" options={{ title: 'Scan tài liệu' }} />
           <Stack.Screen name="merge" options={{ title: 'Gộp PDF' }} />
           <Stack.Screen name="viewer/[id]" options={{ title: 'Tài liệu' }} />
+          <Stack.Screen name="incoming" options={{ title: 'Nhận file' }} />
         </Stack>
       </LibraryProvider>
     </GestureHandlerRootView>
