@@ -228,7 +228,12 @@ export default function Scan() {
         <Text style={styles.pageLabel}>Trang {items.findIndex((i) => i.key === item.key) + 1}</Text>
         <Text style={styles.alignLabel}>{ALIGN_LABELS[item.value.align]}</Text>
       </View>
-      <Pressable accessibilityLabel="Sửa trang" onPress={() => setEditingKey(item.key)}>
+      {/* Inner Pressables become the touch responder, so each must start the drag itself. */}
+      <Pressable
+        accessibilityLabel="Sửa trang"
+        onPress={() => setEditingKey(item.key)}
+        onLongPress={drag}
+      >
         <Image
           source={{ uri: item.value.uri }}
           style={styles.thumb}
@@ -236,10 +241,10 @@ export default function Scan() {
           testID="thumb"
         />
       </Pressable>
-      <Pressable onPress={() => setEditingKey(item.key)}>
+      <Pressable onPress={() => setEditingKey(item.key)} onLongPress={drag}>
         <Text style={styles.edit}>Sửa</Text>
       </Pressable>
-      <Pressable onPress={() => removePage(item)}>
+      <Pressable onPress={() => removePage(item)} onLongPress={drag}>
         <Text style={styles.delete}>Xoá</Text>
       </Pressable>
     </Pressable>

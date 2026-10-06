@@ -34,6 +34,8 @@ jest.mock('../../src/native/deleteFiles', () => ({
   deleteFiles: jest.fn().mockResolvedValue(undefined),
 }));
 const mockDraggableProps = jest.fn();
+// The `drag` callback DraggableFlatList hands to every row.
+const mockDrag = jest.fn();
 jest.mock('react-native-draggable-flatlist', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { FlatList } = require('react-native');
@@ -46,7 +48,7 @@ jest.mock('react-native-draggable-flatlist', () => {
         // Every test page fits the initial render window; keep the list's deferred
         // re-render timer (default 50 ms) from firing outside act mid-test.
         updateCellsBatchingPeriod={60_000}
-        renderItem={({ item }: any) => renderItem({ item, drag: jest.fn(), isActive: false })}
+        renderItem={({ item }: any) => renderItem({ item, drag: mockDrag, isActive: false })}
       />
     ),
   };
@@ -325,6 +327,14 @@ describe('layout controls', () => {
 
 describe('page editor', () => {
   const lastEditorProps = () => mockEditorProps.mock.calls.at(-1)![0];
+  // Props of the Pressable that owns a host element. On device the innermost Pressable becomes
+  // the touch responder, so a long-press only drags if THAT Pressable handles it (fireEvent
+  // would bubble to the row and hide the bug).
+  const ownPressableProps = (element: { unstable_fiber?: any }) => {
+    let fiber = element.unstable_fiber;
+    while (fiber && typeof fiber.memoizedProps?.onPress !== 'function') fiber = fiber.return;
+    return fiber.memoizedProps;
+  };
 
   test('rows show the alignment label and edit button', async () => {
     mockScan.mockResolvedValueOnce(['a', 'b']);
@@ -351,6 +361,39 @@ describe('page editor', () => {
     await fireEvent.press(screen.getAllByLabelText('Sửa trang')[0]);
     expect(lastEditorProps().page.uri).toBe('a-n');
     expect(lastEditorProps().pageNumber).toBe(1);
+  });
+
+  test('long-pressing the thumbnail starts a drag and does not open the editor', async () => {
+    mockScan.mockResolvedValueOnce(['a', 'b']);
+    await renderScan();
+    mockDrag.mockClear();
+    await fireEvent(screen.getAllByLabelText('Sửa trang')[0], 'longPress');
+    expect(mockDrag).toHaveBeenCalledTimes(1);
+    expect(ownPressableProps(screen.getAllByLabelText('Sửa trang')[0]).onLongPress).toBe(mockDrag);
+    expect(mockEditorProps.mock.calls.every((c) => !c[0].visible)).toBe(true);
+  });
+
+  test('long-pressing Sửa or Xoá starts a drag instead of editing or deleting', async () => {
+    mockScan.mockResolvedValueOnce(['a', 'b']);
+    await renderScan();
+    mockDrag.mockClear();
+    await fireEvent(screen.getAllByText('Sửa')[0], 'longPress');
+    await fireEvent(screen.getAllByText('Xoá')[0], 'longPress');
+    expect(mockDrag).toHaveBeenCalledTimes(2);
+    expect(ownPressableProps(screen.getAllByText('Sửa')[0]).onLongPress).toBe(mockDrag);
+    expect(ownPressableProps(screen.getAllByText('Xoá')[0]).onLongPress).toBe(mockDrag);
+    expect(mockEditorProps.mock.calls.every((c) => !c[0].visible)).toBe(true);
+    expect(screen.getAllByText('Xoá')).toHaveLength(2);
+  });
+
+  test('a failed retake scan rejects so the editor can report it', async () => {
+    mockScan.mockResolvedValueOnce(['a']);
+    await renderScan();
+    await fireEvent.press(screen.getByText('Sửa'));
+    mockScan.mockRejectedValueOnce(new Error('scanner crashed'));
+    await act(async () => {
+      await expect(lastEditorProps().onRetake()).rejects.toThrow('scanner crashed');
+    });
   });
 
   test('cancel closes the editor without changes', async () => {
