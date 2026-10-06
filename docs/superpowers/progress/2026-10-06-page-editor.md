@@ -25,6 +25,7 @@ Durable record of plan execution, for resuming in later sessions.
 - R7: Task 1 RED not recorded; the reviewer confirmed the tests are meaningful.
 - R8: `orderQuad` uses a centroid + atan2 clockwise sort starting at min(x+y) instead of the plan's sum/diff formula, which crosses on ~45° pages.
 - R9: the editor takes the image size from `detectPageQuad(uri).size` instead of `Image.getSize`.
+- R10: the corner handles use `Gesture.Pan().runOnJS(true)` with React state instead of reanimated shared values. Smoothness is to be checked on the emulator.
 
 ## Tasks
 
@@ -34,8 +35,8 @@ Durable record of plan execution, for resuming in later sessions.
 | 2 | Quad geometry helpers | ✅ done | `1020aab`, `904aa2d` | 1 fix round (orderQuad) |
 | 3 | OpenCV + Full HD normalization wrappers | ✅ done | `7ffde3c`, `8d8a429` | 1 fix round (detect fallback) |
 | 4 | Ordered list `update` | ✅ done | `2bb745f` | review clean |
-| 5 | Page editor component | ⏳ in progress | | |
-| 6 | Scan review integration | ⬜ | | |
+| 5 | Page editor component | ✅ done | `9262f27` | review clean |
+| 6 | Scan review integration | ⏳ in progress | | |
 | 7 | Device verification + APK 1.1.0 | ⬜ | | |
 
 ## Task details
@@ -78,3 +79,25 @@ Durable record of plan execution, for resuming in later sessions.
 
 ### Task 4 — List update (✅ `2bb745f`)
 - `useOrderedList<T>().update(key, value)` replaces a value in place and keeps the key and order. An unknown key is a no-op. Tests: 134/134.
+
+### Task 5 — Page editor (✅ `9262f27`)
+- `src/components/PageEditor.tsx` exports `ScanPage` and `PageEditor`.
+  - Props: `{visible, page, pageNumber, layout, onCancel, onDone(page), onRetake()}`.
+  - It is a full-screen Modal with its own GestureHandlerRootView.
+  - Toolbar: Tự cắt sát / Toàn ảnh / Xoay ⟳ / Chụp lại.
+  - Alignment buttons: Trên / Giữa / Dưới / Lấp đầy.
+  - `Xong` reorders the corners, checks the crop area is ≥ 5%, then calls `applyEdit`.
+- `src/components/CornerHandles.tsx`:
+  - 4 Pan handles and a magnifier.
+  - Pure helpers map screen coordinates to image coordinates for each rotation; they are tested.
+- `src/components/PagePreview.tsx` draws a mini PDF page from `computePlacement`.
+- Files the editor deletes:
+  - It never deletes `page.uri`.
+  - It deletes the retaken file on Huỷ, on a second retake, or after an edit has been applied.
+  - **The caller must delete the old `page.uri` when `onDone` returns a different uri.**
+- Jest: `jest.setup.js` loads `react-native-gesture-handler/jestSetup`. `MARGIN_POINTS` is exported from `layout.ts`.
+- Deferred minors:
+  - A stale detection token can still raise an alert after the editor has closed.
+  - Handles near the canvas edge may be hard to grab on Android (check on device).
+  - The spinner keeps spinning after a decode failure.
+- Tests: 162/162.
