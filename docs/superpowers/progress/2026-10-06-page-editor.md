@@ -37,7 +37,7 @@ Durable record of plan execution, for resuming in later sessions.
 | 4 | Ordered list `update` | ✅ done | `2bb745f` | review clean |
 | 5 | Page editor component | ✅ done | `9262f27` | review clean |
 | 6 | Scan review integration | ✅ done | `a2d7fe9` | review clean |
-| 7 | Device verification + APK 1.1.0 | ⏳ in progress | | |
+| 7 | Device verification + APK 1.1.0 | ✅ done | device fixes + `4831231` | verified on emulator; APK 101.7 MB |
 
 ## Task details
 
@@ -151,3 +151,17 @@ Durable record of plan execution, for resuming in later sessions.
   - Release APK 1.1.0 and its size.
   - README.
   - Merge into master.
+
+## Completion (2026-10-06)
+- **Device re-check after the fix wave (emulator):**
+  - R12 pipeline: a 4000×3000 image imported from the gallery reaches the pipeline at 3383×2528 after the ML Kit crop and comes out at **1920×1435** (216 KB), sharp with correct colours. Small images keep their size.
+  - R11: rectangles inside the page (a text block) are rejected and the editor falls back to the full image, so nothing is cropped away.
+  - The 44 dp handles sit fully inside the canvas and edge corners can be dragged.
+  - A perspective edit produces a correct 1920×1435 image.
+- **Release APK:** `dist/iScanner-1.1.0.apk`
+  - versionCode 2, versionName 1.1.0, ARM only.
+  - **101.7 MB** vs 62.8 MB for 1.0.0 (+38.9 MB). Most of the increase is `libopencv_java4.so`: 22.4 MB arm64 + 14.9 MB armv7. The spec estimated 15–25 MB.
+  - It could shrink by shipping arm64 only, using an AAB with ABI splits on Google Play, or a smaller OpenCV build.
+- README: added the 1.1.0 features and a 1.1.0 manual test checklist.
+- Final checks: jest **230/230**, typecheck clean.
+- **Status: plan complete. Next step: merge `feat/page-editor` into `master` and test on a real phone (12MP camera, iOS).**
