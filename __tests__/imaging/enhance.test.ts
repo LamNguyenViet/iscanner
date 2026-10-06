@@ -276,6 +276,25 @@ describe('detectPageQuad', () => {
     });
   });
 
+  it('falls back to the full image when the detected quad is degenerate', async () => {
+    givenInput(4000, 3000);
+    // Device bug: BR coincides with TR, so the "quad" is a large triangle.
+    mockedDetect.mockReturnValue([
+      { x: 10, y: 20 },
+      { x: 790, y: 15 },
+      { x: 790, y: 15 },
+      { x: 12, y: 580 },
+    ]);
+
+    const result = await detectPageQuad(INPUT);
+
+    expect(result).toEqual({
+      quad: fullQuad(4000, 3000),
+      size: { width: 4000, height: 3000 },
+      detected: false,
+    });
+  });
+
   it('falls back to the full image and removes the copy when detection throws', async () => {
     givenInput(4000, 3000);
     mockedDetect.mockImplementation(() => {

@@ -8,6 +8,7 @@ import {
   warpSize,
   isFullQuad,
   isQuadUsable,
+  isConvexQuad,
   scaleQuad,
 } from '../../src/imaging/geometry';
 
@@ -204,6 +205,47 @@ describe('geometry', () => {
         { x: 37.5, y: 62.5 },
       ];
       expect(isQuadUsable(quad, 100, 100)).toBe(true);
+    });
+
+    it.each<[string, Quad]>([
+      ['rectangle', [{ x: 10, y: 10 }, { x: 90, y: 10 }, { x: 90, y: 80 }, { x: 10, y: 80 }]],
+      ['diamond', [{ x: 50, y: 5 }, { x: 95, y: 50 }, { x: 50, y: 95 }, { x: 5, y: 50 }]],
+      ['trapezoid', [{ x: 30, y: 10 }, { x: 70, y: 10 }, { x: 95, y: 90 }, { x: 5, y: 90 }]],
+      ['crossed (bowtie) corners, which orderQuad untangles', [{ x: 0, y: 0 }, { x: 100, y: 100 }, { x: 100, y: 0 }, { x: 0, y: 100 }]],
+    ])('accepts a %s', (_name, quad) => {
+      expect(isQuadUsable(quad, 100, 100)).toBe(true);
+    });
+
+    it.each<[string, Quad]>([
+      // Device bug: an out-and-back contour where BR coincides with TR (a big triangle).
+      ['triangle with a duplicate corner', [{ x: 5, y: 5 }, { x: 95, y: 5 }, { x: 95, y: 5 }, { x: 5, y: 95 }]],
+      ['triangle with a near-duplicate corner', [{ x: 5, y: 5 }, { x: 95, y: 5 }, { x: 94, y: 6 }, { x: 5, y: 95 }]],
+      ['collinear (flat) corner', [{ x: 5, y: 5 }, { x: 95, y: 5 }, { x: 50, y: 50 }, { x: 5, y: 95 }]],
+      ['concave (arrowhead) quad', [{ x: 5, y: 5 }, { x: 95, y: 50 }, { x: 5, y: 95 }, { x: 40, y: 50 }]],
+      ['quad with a tiny angle', [{ x: 0, y: 50 }, { x: 85, y: 42 }, { x: 95, y: 50 }, { x: 85, y: 58 }]],
+    ])('rejects a %s even when its area is large enough', (_name, quad) => {
+      expect(isQuadUsable(quad, 100, 100)).toBe(false);
+    });
+  });
+
+  describe('isConvexQuad', () => {
+    it('accepts rectangles in either winding', () => {
+      const q = fullQuad(100, 50);
+      expect(isConvexQuad(q)).toBe(true);
+      expect(isConvexQuad([q[0], q[3], q[2], q[1]])).toBe(true);
+    });
+
+    it('rejects a bowtie (self-intersecting order)', () => {
+      expect(isConvexQuad([{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 0, y: 100 }, { x: 100, y: 100 }])).toBe(false);
+    });
+
+    it('rejects an out-and-back contour (two coinciding corners)', () => {
+      expect(isConvexQuad([{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 0, y: 100 }, { x: 100, y: 0 }])).toBe(false);
+    });
+
+    it('rejects a concave quad and a collinear corner', () => {
+      expect(isConvexQuad([{ x: 0, y: 0 }, { x: 100, y: 50 }, { x: 0, y: 100 }, { x: 40, y: 50 }])).toBe(false);
+      expect(isConvexQuad([{ x: 0, y: 0 }, { x: 50, y: 0 }, { x: 100, y: 0 }, { x: 0, y: 100 }])).toBe(false);
     });
   });
 

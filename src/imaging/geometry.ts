@@ -148,15 +148,70 @@ export function isFullQuad(
   );
 }
 
+const MIN_AREA_RATIO = 0.05;
+const MIN_CORNER_GAP_RATIO = 0.02; // of the image diagonal
+const MIN_ANGLE_DEG = 15;
+const MAX_ANGLE_DEG = 165;
+
+/** z of the cross product (b - a) × (c - b): the turn direction at b. */
+function turn(a: Point, b: Point, c: Point): number {
+  return (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
+}
+
 /**
- * Checks if a quad has enough area to be usable
- * Requires: quadArea(orderQuad(q)) >= 0.05 * w * h
+ * True when the quad, taken in the given vertex order, is a strictly convex polygon: every
+ * corner turns the same way and none is flat. Rejects bowties, concave quads, collinear
+ * corners and coinciding corners.
+ */
+export function isConvexQuad(q: Quad): boolean {
+  let sign = 0;
+  for (let i = 0; i < 4; i++) {
+    const t = turn(q[i], q[(i + 1) % 4], q[(i + 2) % 4]);
+    if (t === 0) return false;
+    const s = Math.sign(t);
+    if (sign !== 0 && s !== sign) return false;
+    sign = s;
+  }
+  return true;
+}
+
+/** Interior angle at `b` (degrees) between the edges to its neighbours `a` and `c`. */
+function cornerAngle(a: Point, b: Point, c: Point): number {
+  const ux = a.x - b.x;
+  const uy = a.y - b.y;
+  const vx = c.x - b.x;
+  const vy = c.y - b.y;
+  const lengths = Math.hypot(ux, uy) * Math.hypot(vx, vy);
+  if (lengths === 0) return 0;
+  const cos = Math.max(-1, Math.min(1, (ux * vx + uy * vy) / lengths));
+  return (Math.acos(cos) * 180) / Math.PI;
+}
+
+/**
+ * Checks if a quad can be cropped to: after `orderQuad`, it must cover at least 5 % of the
+ * w×h image, be strictly convex, keep every pair of corners at least 2 % of the image
+ * diagonal apart, and have every interior angle within [15°, 165°]. Rejects degenerate
+ * detections such as a triangle with two coinciding corners.
  */
 export function isQuadUsable(q: Quad, w: number, h: number): boolean {
   const ordered = orderQuad(q);
-  const area = quadArea(ordered);
-  const minArea = 0.05 * w * h;
-  return area >= minArea;
+  if (quadArea(ordered) < MIN_AREA_RATIO * w * h) return false;
+  if (!isConvexQuad(ordered)) return false;
+
+  const minGap = MIN_CORNER_GAP_RATIO * Math.hypot(w, h);
+  for (let i = 0; i < 4; i++) {
+    for (let j = i + 1; j < 4; j++) {
+      if (Math.hypot(ordered[i].x - ordered[j].x, ordered[i].y - ordered[j].y) < minGap) {
+        return false;
+      }
+    }
+  }
+
+  for (let i = 0; i < 4; i++) {
+    const angle = cornerAngle(ordered[(i + 3) % 4], ordered[i], ordered[(i + 1) % 4]);
+    if (angle < MIN_ANGLE_DEG || angle > MAX_ANGLE_DEG) return false;
+  }
+  return true;
 }
 
 /**

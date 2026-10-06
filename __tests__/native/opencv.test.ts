@@ -1,4 +1,4 @@
-import { warpAndSharpen } from '../../src/native/opencv';
+import { detectQuad, warpAndSharpen } from '../../src/native/opencv';
 import type { Quad } from '../../src/imaging/geometry';
 
 // Mirrors react-native-fast-opencv 1.0.1's native behaviour where it matters:
@@ -8,6 +8,9 @@ import type { Quad } from '../../src/imaging/geometry';
 type Obj = { released: boolean; release(): void };
 const created: Obj[] = [];
 const perspectiveCalls: { from: unknown[]; to: unknown[] }[] = [];
+// Contours that the mocked findContours reports; approxPolyDP returns each one unchanged.
+type MockPoint = { x: number; y: number };
+const mockContours: MockPoint[][] = [];
 
 jest.mock('react-native-fast-opencv', () => {
   const track = <T extends object>(o: T): T & Obj => {
@@ -21,6 +24,14 @@ jest.mock('react-native-fast-opencv', () => {
     return obj;
   };
   const mat = () => track({ toBase64: () => 'sharpened-base64' });
+  const pointVector = (points: MockPoint[] = []) =>
+    track({
+      points,
+      get length() {
+        return points.length;
+      },
+      getAll: () => points.map((p) => track({ x: p.x, y: p.y })),
+    });
   return {
     BorderTypes: { BORDER_REPLICATE: 1 },
     ColorConversionCodes: {},
@@ -59,6 +70,38 @@ jest.mock('react-native-fast-opencv', () => {
         perspectiveCalls.push({ from: [...from.items], to: [...to.items] });
         return mat();
       },
+      PointVector: { create: () => pointVector() },
+      PointVectorOfVectors: {
+        create: () => {
+          const items: ReturnType<typeof pointVector>[] = [];
+          return track({
+            items,
+            get length() {
+              return items.length;
+            },
+            get: (i: number) => items[i],
+          });
+        },
+      },
+      cvtColor: jest.fn(),
+      Canny: jest.fn(),
+      findContours: (_edges: unknown, contours: { items: unknown[] }) => {
+        for (const c of mockContours) contours.items.push(pointVector([...c]));
+      },
+      arcLength: () => ({ value: 1000 }),
+      approxPolyDP: (contour: { points: MockPoint[] }, approx: { points: MockPoint[] }) => {
+        approx.points.push(...contour.points);
+      },
+      // |shoelace| in the contour's own vertex order, like cv::contourArea.
+      contourArea: ({ points }: { points: MockPoint[] }) => {
+        let sum = 0;
+        for (let i = 0; i < points.length; i++) {
+          const a = points[i];
+          const b = points[(i + 1) % points.length];
+          sum += a.x * b.y - b.x * a.y;
+        }
+        return { value: Math.abs(sum) / 2 };
+      },
       warpPerspective: jest.fn(),
       rotate: jest.fn(),
       GaussianBlur: jest.fn(),
@@ -68,6 +111,7 @@ jest.mock('react-native-fast-opencv', () => {
 });
 
 beforeEach(() => {
+  mockContours.length = 0;
   created.length = 0;
   perspectiveCalls.length = 0;
 });
@@ -110,6 +154,66 @@ describe('warpAndSharpen', () => {
 
   it('releases every native object it creates', () => {
     warpAndSharpen('src-base64', quad, 90);
+    expect(created.length).toBeGreaterThan(0);
+    expect(created.every((o) => o.released)).toBe(true);
+  });
+});
+
+describe('detectQuad', () => {
+  // An open Canny edge (the board's left + top border forming an "L") is traced by
+  // findContours as an out-and-back, zero-area contour; approxPolyDP keeps 4 vertices with two
+  // (nearly) coinciding. Re-ordered, it looks like a big triangle (device bug).
+  const outAndBack = [
+    { x: 25, y: 570 },
+    { x: 20, y: 30 },
+    { x: 780, y: 25 },
+    { x: 21, y: 31 },
+  ];
+  const page = [
+    { x: 600, y: 100 },
+    { x: 200, y: 110 },
+    { x: 190, y: 500 },
+    { x: 610, y: 490 },
+  ];
+
+  it('returns the ordered page quad for a convex 4-vertex contour', () => {
+    mockContours.push(page);
+    expect(detectQuad('small-base64', 800, 600)).toEqual([
+      { x: 200, y: 110 },
+      { x: 600, y: 100 },
+      { x: 610, y: 490 },
+      { x: 190, y: 500 },
+    ]);
+  });
+
+  it('ignores an out-and-back (degenerate) contour', () => {
+    mockContours.push(outAndBack);
+    expect(detectQuad('small-base64', 800, 600)).toBeNull();
+  });
+
+  it('prefers a real page over a larger-looking degenerate contour', () => {
+    mockContours.push(outAndBack, page);
+    expect(detectQuad('small-base64', 800, 600)).toEqual([
+      { x: 200, y: 110 },
+      { x: 600, y: 100 },
+      { x: 610, y: 490 },
+      { x: 190, y: 500 },
+    ]);
+  });
+
+  it('ignores a concave 4-vertex contour', () => {
+    mockContours.push([
+      { x: 50, y: 50 },
+      { x: 750, y: 300 },
+      { x: 50, y: 550 },
+      { x: 400, y: 300 },
+    ]);
+    expect(detectQuad('small-base64', 800, 600)).toBeNull();
+  });
+
+  it('releases every native object it creates', () => {
+    mockContours.push(outAndBack, page);
+    detectQuad('small-base64', 800, 600);
     expect(created.length).toBeGreaterThan(0);
     expect(created.every((o) => o.released)).toBe(true);
   });

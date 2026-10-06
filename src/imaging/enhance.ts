@@ -1,7 +1,7 @@
 import { File, Paths } from 'expo-file-system';
 import { ImageManipulator, SaveFormat, type ImageRef } from 'expo-image-manipulator';
 import { detectQuad, warpAndSharpen, type Rotation } from '../native/opencv';
-import { clampQuad, fullQuad, scaleQuad, type Quad } from './geometry';
+import { clampQuad, fullQuad, isQuadUsable, scaleQuad, type Quad } from './geometry';
 
 export type { Rotation };
 
@@ -84,6 +84,8 @@ export async function detectPageQuad(
     const found = await detectOnSmallCopy(image, fitLongEdge(size, DETECT_EDGE));
     if (!found) return fallback;
     const quad = clampQuad(scaleQuad(found.quad, size.width / found.width), size.width, size.height);
+    // A degenerate detection (coinciding corners, concave, sliver) is no detection at all.
+    if (!isQuadUsable(quad, size.width, size.height)) return fallback;
     return { quad, size, detected: true };
   } catch {
     return fallback;

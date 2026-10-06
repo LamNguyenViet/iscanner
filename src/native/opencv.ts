@@ -10,7 +10,14 @@ import {
   RotateFlags,
   type Mat,
 } from 'react-native-fast-opencv';
-import { orderQuad, quadArea, warpSize, type Point, type Quad } from '../imaging/geometry';
+import {
+  isConvexQuad,
+  isQuadUsable,
+  orderQuad,
+  warpSize,
+  type Point,
+  type Quad,
+} from '../imaging/geometry';
 
 /** Clockwise rotation in degrees. */
 export type Rotation = 0 | 90 | 180 | 270;
@@ -44,7 +51,14 @@ const emptyMat = (pool: Pool): Mat => pool.add(OpenCV.Mat.create(0, 0, DataTypes
 /**
  * Finds the document quadrilateral (TL, TR, BR, BL) in an image, in that image's pixel
  * coordinates. Callers pass a downscaled copy (long edge ~800 px) and scale the result back.
- * Returns null when no 4-vertex contour covers at least 20 % of the image.
+ * Returns null when no convex, non-degenerate 4-vertex contour covers at least 20 % of the image.
+ *
+ * Canny often leaves the page border as an OPEN curve (e.g. just the left + top edges). With
+ * RETR_EXTERNAL, findContours traces such a curve out and back, so the contour has ~zero area,
+ * yet approxPolyDP can still reduce it to 4 vertices, two of them (nearly) coinciding. Taken
+ * in their native order those vertices do not form a convex polygon, and their contourArea is
+ * ~0; only re-ordering them (orderQuad) makes them look like a big triangle. So candidates are
+ * checked for convexity and ranked by contourArea in contour order, before ordering.
  */
 export function detectQuad(base64Jpeg: string, width: number, height: number): Quad | null {
   const pool = createPool();
@@ -78,13 +92,14 @@ export function detectQuad(base64Jpeg: string, width: number, height: number): Q
       const points = approx.getAll().map((p) => {
         pool.add(p);
         return { x: p.x, y: p.y };
-      });
+      }) as Quad;
+      if (!isConvexQuad(points)) continue;
+      const area = OpenCV.contourArea(approx).value;
+      if (area < bestArea) continue;
       const quad = orderQuad(points);
-      const area = quadArea(quad);
-      if (area >= bestArea) {
-        best = quad;
-        bestArea = area;
-      }
+      if (!isQuadUsable(quad, width, height)) continue;
+      best = quad;
+      bestArea = area;
     }
     return best;
   } finally {
