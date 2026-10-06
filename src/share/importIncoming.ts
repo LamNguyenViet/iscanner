@@ -1,0 +1,84 @@
+import { Directory, File, Paths } from 'expo-file-system';
+import { classifyIncoming } from './classify';
+import type { IncomingFile } from './types';
+
+export type SkippedFile = { name: string; reason: 'unsupported' | 'too-large' | 'unreadable' };
+export const MAX_INCOMING_BYTES = 100 * 1024 * 1024;
+
+const FALLBACK_NAME = 'Tài liệu';
+
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+function displayName(source: { uri: string; name?: string }): string {
+  if (source.name) return source.name;
+  const last = source.uri.split('?')[0].split('/').filter(Boolean).pop();
+  if (last) {
+    try {
+      return decodeURIComponent(last);
+    } catch {
+      return last;
+    }
+  }
+  return FALLBACK_NAME;
+}
+
+function extensionFor(bytes: Uint8Array, kind: 'pdf' | 'image'): string {
+  if (kind === 'pdf') return 'pdf';
+  return bytes[0] === 0x89 ? 'png' : 'jpg';
+}
+
+function discard(file: File | undefined): void {
+  try {
+    file?.delete();
+  } catch {
+    // already gone — ignore
+  }
+}
+
+/**
+ * Copy each shared source (content:// or file://) into cache/incoming right away — shared URI grants
+ * can expire — checking size and type. A bad source is skipped, never thrown.
+ */
+export async function importIncoming(
+  sources: { uri: string; name?: string }[],
+): Promise<{ files: IncomingFile[]; skipped: SkippedFile[] }> {
+  const files: IncomingFile[] = [];
+  const skipped: SkippedFile[] = [];
+  for (const source of sources) {
+    const name = displayName(source);
+    let copy: File | undefined;
+    try {
+      const src = new File(source.uri);
+      let declared: number | null = null;
+      try {
+        declared = src.size;
+      } catch {
+        // size unavailable for some providers — fall back to the byte length
+      }
+      if (typeof declared === 'number' && declared > MAX_INCOMING_BYTES) {
+        skipped.push({ name, reason: 'too-large' });
+        continue;
+      }
+      const bytes = await src.bytes();
+      if (bytes.length > MAX_INCOMING_BYTES) {
+        skipped.push({ name, reason: 'too-large' });
+        continue;
+      }
+      const kind = classifyIncoming(bytes);
+      if (kind === 'unsupported') {
+        skipped.push({ name, reason: 'unsupported' });
+        continue;
+      }
+      const dir = new Directory(Paths.cache, 'incoming');
+      dir.create({ intermediates: true, idempotent: true });
+      copy = new File(dir, `${newId()}.${extensionFor(bytes, kind)}`);
+      copy.create({ intermediates: true, overwrite: true });
+      copy.write(bytes);
+      files.push({ uri: copy.uri, name, kind, size: bytes.length });
+    } catch {
+      discard(copy);
+      skipped.push({ name, reason: 'unreadable' });
+    }
+  }
+  return { files, skipped };
+}
