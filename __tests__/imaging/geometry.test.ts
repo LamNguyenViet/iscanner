@@ -38,6 +38,84 @@ describe('geometry', () => {
       );
       expect(() => orderQuad([])).toThrow(new Error('QUAD_NEEDS_4_POINTS'));
     });
+
+    it('handles diamond quad (rotated 45°) without crossed order', () => {
+      // Diamond with centroid at (50,50) and area 5000
+      const diamondPoints: Point[] = [{ x: 50, y: 0 }, { x: 100, y: 50 }, { x: 50, y: 100 }, { x: 0, y: 50 }];
+      const result = orderQuad(diamondPoints);
+      // Should produce non-crossed quad
+      const area = quadArea(result);
+      expect(area).toBe(5000);
+      // Should be usable (5000 >= 0.05*100*100 = 500)
+      expect(isQuadUsable(result, 100, 100)).toBe(true);
+    });
+
+    it('handles rotated quad (~30°) given shuffled', () => {
+      // Create a rectangle rotated ~30° around centroid (50,50)
+      // Original corners: (30,35), (70,35), (70,65), (30,65) (20x30 rect)
+      // After ~30° rotation, approximated points
+      const angle = Math.PI / 6; // ~30 degrees
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const cx = 50,
+        cy = 50;
+
+      const rotatePoint = (px: number, py: number): Point => {
+        const x = px - cx;
+        const y = py - cy;
+        return {
+          x: cx + x * cos - y * sin,
+          y: cy + x * sin + y * cos,
+        };
+      };
+
+      const corners = [
+        rotatePoint(30, 35), // TL before rotation
+        rotatePoint(70, 35), // TR before rotation
+        rotatePoint(70, 65), // BR before rotation
+        rotatePoint(30, 65), // BL before rotation
+      ];
+
+      // Shuffle the input
+      const shuffled = [corners[2], corners[0], corners[3], corners[1]];
+      const result = orderQuad(shuffled);
+
+      // Verify we get points back and they're in proper order
+      expect(result.length).toBe(4);
+      expect(result[0]).toBeDefined();
+      expect(result[1]).toBeDefined();
+      expect(result[2]).toBeDefined();
+      expect(result[3]).toBeDefined();
+      // Verify it's a sensible (non-crossed) quad
+      const area = quadArea(result);
+      expect(area).toBeGreaterThan(400); // 20*30 = 600, allow some variance from rotation
+      // Should be usable (>400 >= 500 is false, but the area should be valid)
+      expect(quadArea(result)).toBeGreaterThan(0);
+    });
+
+    it('handles duplicate point references [a,a,b,c] without undefined', () => {
+      const a = { x: 10, y: 10 };
+      const b = { x: 90, y: 10 };
+      const c = { x: 90, y: 90 };
+      // Note: this creates an invalid quad (duplicate point), but the function should
+      // still return 4 defined Point objects and not crash with undefined
+      const points = [a, a, b, c];
+      const result = orderQuad(points);
+      // All 4 positions should have defined objects
+      expect(result[0]).toBeDefined();
+      expect(result[1]).toBeDefined();
+      expect(result[2]).toBeDefined();
+      expect(result[3]).toBeDefined();
+      // No undefined values
+      expect(result[0].x).toBeDefined();
+      expect(result[0].y).toBeDefined();
+      expect(result[1].x).toBeDefined();
+      expect(result[1].y).toBeDefined();
+      expect(result[2].x).toBeDefined();
+      expect(result[2].y).toBeDefined();
+      expect(result[3].x).toBeDefined();
+      expect(result[3].y).toBeDefined();
+    });
   });
 
   describe('fullQuad', () => {

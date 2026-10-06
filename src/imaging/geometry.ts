@@ -3,33 +3,64 @@ export type Quad = [Point, Point, Point, Point]; // TL, TR, BR, BL
 
 /**
  * Orders 4 points into a canonical quad: [TL, TR, BR, BL]
- * TL = min(x+y) (top-left diagonal sum)
- * BR = max(x+y) (bottom-right diagonal sum)
- * TR = min(y-x) (top-right diagonal difference)
- * BL = max(y-x) (bottom-left diagonal difference)
+ * Algorithm:
+ * 1. Compute centroid of the 4 points
+ * 2. Sort by angle from centroid (ascending) → clockwise order: TL→TR→BR→BL
+ * 3. Rotate sorted array to start at the point with min(x+y), breaking ties with smaller x
+ * Works with indices to avoid object identity issues; returns new Point objects.
  */
 export function orderQuad(points: Point[]): Quad {
   if (points.length !== 4) {
     throw new Error('QUAD_NEEDS_4_POINTS');
   }
 
-  // Calculate diagonal sums and differences for each point
-  const pointsWithDiagonals = points.map(p => ({
-    point: p,
-    sum: p.x + p.y,
-    diff: p.y - p.x,
-  }));
+  // Compute centroid
+  let cx = 0,
+    cy = 0;
+  for (let i = 0; i < 4; i++) {
+    cx += points[i].x;
+    cy += points[i].y;
+  }
+  cx /= 4;
+  cy /= 4;
 
-  // Find TL (min sum) and BR (max sum)
-  const tl = pointsWithDiagonals.reduce((min, p) => (p.sum < min.sum ? p : min));
-  const br = pointsWithDiagonals.reduce((max, p) => (p.sum > max.sum ? p : max));
+  // Create indices array and sort by angle (clockwise from centroid)
+  const indices = [0, 1, 2, 3];
+  indices.sort((i, j) => {
+    const angleI = Math.atan2(points[i].y - cy, points[i].x - cx);
+    const angleJ = Math.atan2(points[j].y - cy, points[j].x - cx);
+    return angleI - angleJ;
+  });
 
-  // Find TR (min diff) and BL (max diff) from remaining points
-  const remaining = pointsWithDiagonals.filter(p => p.point !== tl.point && p.point !== br.point);
-  const tr = remaining.reduce((min, p) => (p.diff < min.diff ? p : min));
-  const bl = remaining.find(p => p.point !== tr.point)!;
+  // Find the index in the sorted array where min(x+y) point is, breaking ties by smaller x
+  let minIdx = 0;
+  let minSum = points[indices[0]].x + points[indices[0]].y;
+  let minX = points[indices[0]].x;
+  for (let i = 1; i < 4; i++) {
+    const sum = points[indices[i]].x + points[indices[i]].y;
+    const x = points[indices[i]].x;
+    if (sum < minSum || (sum === minSum && x < minX)) {
+      minSum = sum;
+      minIdx = i;
+      minX = x;
+    }
+  }
 
-  return [tl.point, tr.point, br.point, bl.point];
+  // Rotate sorted array to start at minIdx (TL position)
+  const sorted = [
+    points[indices[minIdx]],
+    points[indices[(minIdx + 1) % 4]],
+    points[indices[(minIdx + 2) % 4]],
+    points[indices[(minIdx + 3) % 4]],
+  ];
+
+  // Return new point objects to avoid identity/reference issues
+  return [
+    { x: sorted[0].x, y: sorted[0].y },
+    { x: sorted[1].x, y: sorted[1].y },
+    { x: sorted[2].x, y: sorted[2].y },
+    { x: sorted[3].x, y: sorted[3].y },
+  ];
 }
 
 /**
