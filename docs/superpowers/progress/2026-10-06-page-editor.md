@@ -135,3 +135,19 @@ Durable record of plan execution, for resuming in later sessions.
   - Release APK 1.1.0 and its size.
 - Dev-only note: Fast Refresh unmounts the review screen and deletes the page files. Scan again after a hot reload.
 - The emulator and Metro were stopped by Claude Code because the machine was low on memory.
+
+## Final whole-branch review (✅ code) — 2026-10-06
+- Opus review verdict: **With fixes**. 0 Critical; 3 Important:
+  1. Long-pressing the thumbnail no longer started a drag (an MVP regression).
+  2. Detection picked rectangles inside the page (for example a table) and cropped away content.
+  3. The Full HD pipeline sharpened first and then downscaled bilinearly, encoded the JPEG twice and used a lot of memory.
+- Rulings:
+  - **R11:** a detected quad is accepted only if its area is ≥ 50% and every corner lies within 15% of the matching image corner; otherwise the full image is used.
+  - **R12:** a single OpenCV pass: decode → warp → rotate → resize INTER_AREA to ≤ 1920 → unsharp → `saveToFile(jpeg, 0.95)`, which is JPEG quality 95. Spec §3.4/§3.5 got an "Amendments" section.
+  - **R13:** the fix wave also took these minors: 44 dp handles with an inset image rect and `Gesture.hitSlop`; the preview uses the cropped size; single quotes restored; Jest `testTimeout` 15 s; an alert when Chụp lại fails.
+- Fix wave `45dcd0d`..`f9e8f2f` (6 commits). Scoped re-review: 8/8 ADDRESSED. jest **230/230**, typecheck clean.
+- **Remaining:**
+  - On-device check of the new native calls (`resize`/`saveToFile`), the 1920 cap with a large image, and the handle hitSlop.
+  - Release APK 1.1.0 and its size.
+  - README.
+  - Merge into master.
