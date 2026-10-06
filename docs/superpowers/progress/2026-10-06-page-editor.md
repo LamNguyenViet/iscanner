@@ -36,8 +36,8 @@ Durable record of plan execution, for resuming in later sessions.
 | 3 | OpenCV + Full HD normalization wrappers | ✅ done | `7ffde3c`, `8d8a429` | 1 fix round (detect fallback) |
 | 4 | Ordered list `update` | ✅ done | `2bb745f` | review clean |
 | 5 | Page editor component | ✅ done | `9262f27` | review clean |
-| 6 | Scan review integration | ⏳ in progress | | |
-| 7 | Device verification + APK 1.1.0 | ⬜ | | |
+| 6 | Scan review integration | ✅ done | `a2d7fe9` | review clean |
+| 7 | Device verification + APK 1.1.0 | ⏳ in progress | | |
 
 ## Task details
 
@@ -101,3 +101,18 @@ Durable record of plan execution, for resuming in later sessions.
   - Handles near the canvas edge may be hard to grab on Android (check on device).
   - The spinner keeps spinning after a decode failure.
 - Tests: 162/162.
+
+### Task 6 — Scan review integration (✅ `a2d7fe9`)
+- `app/scan.tsx`:
+  - Each page in the list is now a `ScanPage`.
+  - After every scan or "+ Chụp thêm", the new pages are normalized one at a time inside the busy guard, with the overlay `Đang xử lý ảnh…`. A page that fails keeps its raw image.
+  - Each row shows the alignment label, a `Sửa` button and the thumbnail; both open the editor.
+  - New segmented controls: `Khổ giấy` (A4/Letter/Theo ảnh) and `Lề` (Không/Nhỏ/Vừa, disabled for Theo ảnh).
+  - Retake scans with `maxPages:1` and normalizes the result.
+  - If the user leaves the screen while pages are processing, the processed files are cleaned up.
+- `src/components/SegmentedControl.tsx`.
+- Deferred minors:
+  - Long-pressing the thumbnail may open the editor instead of starting a drag (check on device).
+  - The alignment labels are duplicated.
+  - The act() warning is intermittent in the index/merge suites.
+- Tests: 176/176.
