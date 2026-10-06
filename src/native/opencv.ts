@@ -21,7 +21,11 @@ export type Rotation = 0 | 90 | 180 | 270;
 const MIN_AREA_RATIO = 0.2;
 const CANNY_LOW = 75;
 const CANNY_HIGH = 200;
-const GAP_KERNEL = 5; // px, on the ~800 px detection copy
+// Dilation kernels (px) tried in order to close gaps in the Canny edges. The detection copy is
+// at most 800 px but often much smaller (~370 px on the emulator), where 5×5 already welds a
+// checkerboard, its frame and the wall texture into one blob that touches the image border.
+const GAP_KERNELS = [3, 5];
+const OTSU_CLOSE_KERNEL = 5;
 const APPROX_EPSILONS = [0.02, 0.04]; // × contour perimeter
 const SHARPEN_SIGMA = 1.0;
 
@@ -52,9 +56,10 @@ const emptyMat = (pool: Pool): Mat => pool.add(OpenCV.Mat.create(0, 0, DataTypes
  *
  * Canny often leaves the page border as an OPEN curve with small gaps, which findContours
  * traces out and back: approxPolyDP then yields too many vertices or two coinciding ones. So
- * the edges are dilated first to close those gaps, and every contour (RETR_LIST, so the inner
- * edge of a framed page counts too) is approximated at two tolerances. If that finds no page,
- * an Otsu-binarized pass is tried.
+ * the edges are dilated to close those gaps (3×3 first, then 5×5; too large a kernel merges the
+ * page with its surroundings), and every contour (RETR_LIST, so the inner edge of a framed page
+ * counts too) is approximated at two tolerances. The first pass that finds a page wins; an
+ * Otsu-binarized pass is the last resort.
  */
 export function detectQuad(base64Jpeg: string, width: number, height: number): Quad | null {
   const pool = createPool();
@@ -65,44 +70,56 @@ export function detectQuad(base64Jpeg: string, width: number, height: number): Q
     // JPEG decodes to 3-channel BGR.
     OpenCV.cvtColor(src, gray, ColorConversionCodes.COLOR_BGR2GRAY);
     OpenCV.GaussianBlur(gray, blurred, pool.add(OpenCV.Size.create(5, 5)), 0);
-    const kernel = pool.add(
-      OpenCV.getStructuringElement(
-        MorphShapes.MORPH_RECT,
-        pool.add(OpenCV.Size.create(GAP_KERNEL, GAP_KERNEL)),
-      ),
-    );
-
     const edges = emptyMat(pool);
-    const closedEdges = emptyMat(pool);
     OpenCV.Canny(blurred, edges, CANNY_LOW, CANNY_HIGH);
-    OpenCV.dilate(
-      edges,
-      closedEdges,
-      kernel,
-      pool.add(OpenCV.Point.create(-1, -1)),
-      1,
-      BorderTypes.BORDER_CONSTANT,
-      pool.add(OpenCV.Scalar.create(0)),
-    );
-    const edgeCandidates = quadCandidates(pool, closedEdges, width, height);
-    let pass = 'edges';
-    let candidates = edgeCandidates.length;
-    let best = pickPageQuad(edgeCandidates, width, height);
+
+    const passes: string[] = [];
+    let candidates = 0;
+    const tryPass = (name: string, binary: Mat) => {
+      const found = quadCandidates(pool, binary, width, height);
+      passes.push(name);
+      candidates += found.length;
+      return pickPageQuad(found, width, height);
+    };
+
+    let best: ReturnType<typeof pickPageQuad> = null;
+    for (const size of GAP_KERNELS) {
+      const closedEdges = emptyMat(pool);
+      OpenCV.dilate(
+        edges,
+        closedEdges,
+        rectKernel(pool, size),
+        pool.add(OpenCV.Point.create(-1, -1)),
+        1,
+        BorderTypes.BORDER_CONSTANT,
+        pool.add(OpenCV.Scalar.create(0)),
+      );
+      best = tryPass('edges' + size, closedEdges);
+      if (best) break;
+    }
 
     if (!best) {
       const binary = emptyMat(pool);
       const closedBinary = emptyMat(pool);
-      OpenCV.threshold(blurred, binary, 0, 255, ThresholdTypes.THRESH_BINARY | ThresholdTypes.THRESH_OTSU);
-      OpenCV.morphologyEx(binary, closedBinary, MorphTypes.MORPH_CLOSE, kernel);
-      const otsuCandidates = quadCandidates(pool, closedBinary, width, height);
-      pass = 'otsu';
-      candidates += otsuCandidates.length;
-      best = pickPageQuad(otsuCandidates, width, height);
+      OpenCV.threshold(
+        blurred,
+        binary,
+        0,
+        255,
+        ThresholdTypes.THRESH_BINARY | ThresholdTypes.THRESH_OTSU,
+      );
+      OpenCV.morphologyEx(
+        binary,
+        closedBinary,
+        MorphTypes.MORPH_CLOSE,
+        rectKernel(pool, OTSU_CLOSE_KERNEL),
+      );
+      best = tryPass('otsu', closedBinary);
     }
 
     if (__DEV__) {
       console.log('[detectQuad]', {
-        pass,
+        passes,
         candidates,
         chosenArea: best ? Math.round(best.area) : null,
         imageArea: width * height,
@@ -114,6 +131,11 @@ export function detectQuad(base64Jpeg: string, width: number, height: number): Q
     pool.releaseAll();
   }
 }
+
+const rectKernel = (pool: Pool, size: number): Mat =>
+  pool.add(
+    OpenCV.getStructuringElement(MorphShapes.MORPH_RECT, pool.add(OpenCV.Size.create(size, size))),
+  );
 
 /**
  * All 4-vertex approximations of the contours in a binary image that are long enough to

@@ -8,11 +8,12 @@ import type { Quad } from '../../src/imaging/geometry';
 type Obj = { released: boolean; release(): void };
 const created: Obj[] = [];
 const perspectiveCalls: { from: unknown[]; to: unknown[] }[] = [];
-// Contours the mocked findContours reports, per binary image it is given: the dilated Canny
-// edges ("edges") or the Otsu-thresholded image ("otsu"). approxPolyDP returns each unchanged.
+// Contours the mocked findContours reports, per binary image it is given: Canny edges dilated
+// with a 3×3 ("edges3") or 5×5 ("edges5") kernel, or the Otsu-thresholded image ("otsu").
+// approxPolyDP returns each contour unchanged.
 type MockPoint = { x: number; y: number };
-type MockMat = { tag?: string };
-const mockContours: Record<string, MockPoint[][]> = { edges: [], otsu: [] };
+type MockMat = { tag?: string; ksize?: number };
+const mockContours: Record<string, MockPoint[][]> = { edges3: [], edges5: [], otsu: [] };
 const mockRetrievalModes: unknown[] = [];
 
 jest.mock('react-native-fast-opencv', () => {
@@ -94,9 +95,10 @@ jest.mock('react-native-fast-opencv', () => {
       Canny: (_src: MockMat, dst: MockMat) => {
         dst.tag = 'canny';
       },
-      getStructuringElement: () => mat(),
-      dilate: (src: MockMat, dst: MockMat) => {
-        dst.tag = src.tag === 'canny' ? 'edges' : 'dilated-' + src.tag;
+      getStructuringElement: (_shape: unknown, size: { width: number }) =>
+        Object.assign(mat(), { ksize: size.width }),
+      dilate: (src: MockMat, dst: MockMat, kernel: MockMat) => {
+        dst.tag = src.tag === 'canny' ? 'edges' + kernel.ksize : 'dilated-' + src.tag;
       },
       threshold: (_src: MockMat, dst: MockMat) => {
         dst.tag = 'otsu-raw';
@@ -132,7 +134,8 @@ let logSpy: jest.SpyInstance;
 
 beforeEach(() => {
   logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-  mockContours.edges = [];
+  mockContours.edges3 = [];
+  mockContours.edges5 = [];
   mockContours.otsu = [];
   mockRetrievalModes.length = 0;
   created.length = 0;
@@ -204,7 +207,7 @@ describe('detectQuad', () => {
   ];
 
   it('returns the ordered page quad for a convex 4-vertex contour', () => {
-    mockContours.edges.push(page);
+    mockContours.edges3.push(page);
     expect(detectQuad('small-base64', 800, 600)).toEqual([
       { x: 200, y: 110 },
       { x: 600, y: 100 },
@@ -214,12 +217,12 @@ describe('detectQuad', () => {
   });
 
   it('ignores an out-and-back (degenerate) contour', () => {
-    mockContours.edges.push(outAndBack);
+    mockContours.edges3.push(outAndBack);
     expect(detectQuad('small-base64', 800, 600)).toBeNull();
   });
 
   it('prefers a real page over a larger-looking degenerate contour', () => {
-    mockContours.edges.push(outAndBack, page);
+    mockContours.edges3.push(outAndBack, page);
     expect(detectQuad('small-base64', 800, 600)).toEqual([
       { x: 200, y: 110 },
       { x: 600, y: 100 },
@@ -229,7 +232,7 @@ describe('detectQuad', () => {
   });
 
   it('accepts the true corners of an out-and-back trace listed in crossed order', () => {
-    mockContours.edges.push([page[0], page[2], page[1], page[3]]);
+    mockContours.edges3.push([page[0], page[2], page[1], page[3]]);
     expect(detectQuad('small-base64', 800, 600)).toEqual([
       { x: 200, y: 110 },
       { x: 600, y: 100 },
@@ -239,14 +242,25 @@ describe('detectQuad', () => {
   });
 
   it('lists all contours (RETR_LIST), so an inner border can be found too', () => {
-    mockContours.edges.push(page);
+    mockContours.edges3.push(page);
     detectQuad('small-base64', 800, 600);
     expect(mockRetrievalModes).toEqual([1]);
   });
 
   it('falls back to an Otsu-thresholded pass when the edges yield no page', () => {
-    mockContours.edges.push(outAndBack);
+    mockContours.edges3.push(outAndBack);
     mockContours.otsu.push(page);
+    expect(detectQuad('small-base64', 800, 600)).toEqual([
+      { x: 200, y: 110 },
+      { x: 600, y: 100 },
+      { x: 610, y: 490 },
+      { x: 190, y: 500 },
+    ]);
+    expect(mockRetrievalModes).toEqual([1, 1, 1]);
+  });
+
+  it('tries a 5×5 dilation when the 3×3 pass yields no page', () => {
+    mockContours.edges5.push(page);
     expect(detectQuad('small-base64', 800, 600)).toEqual([
       { x: 200, y: 110 },
       { x: 600, y: 100 },
@@ -256,8 +270,20 @@ describe('detectQuad', () => {
     expect(mockRetrievalModes).toEqual([1, 1]);
   });
 
+  it('stops at the first (3×3) pass that finds a page', () => {
+    mockContours.edges3.push(page);
+    mockContours.edges5.push([
+      { x: 100, y: 50 },
+      { x: 700, y: 50 },
+      { x: 700, y: 550 },
+      { x: 100, y: 550 },
+    ]);
+    expect(detectQuad('small-base64', 800, 600)?.[0]).toEqual({ x: 200, y: 110 });
+    expect(mockRetrievalModes).toEqual([1]);
+  });
+
   it('logs a detection summary in development', () => {
-    mockContours.edges.push(page);
+    mockContours.edges3.push(page);
     detectQuad('small-base64', 800, 600);
     expect(logSpy).toHaveBeenCalledWith(
       '[detectQuad]',
@@ -266,7 +292,7 @@ describe('detectQuad', () => {
   });
 
   it('ignores a concave 4-vertex contour', () => {
-    mockContours.edges.push([
+    mockContours.edges3.push([
       { x: 50, y: 50 },
       { x: 750, y: 300 },
       { x: 50, y: 550 },
@@ -276,7 +302,7 @@ describe('detectQuad', () => {
   });
 
   it('releases every native object it creates', () => {
-    mockContours.edges.push(outAndBack, page);
+    mockContours.edges3.push(outAndBack, page);
     detectQuad('small-base64', 800, 600);
     expect(created.length).toBeGreaterThan(0);
     expect(created.every((o) => o.released)).toBe(true);
