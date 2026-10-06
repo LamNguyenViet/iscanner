@@ -19,10 +19,17 @@
 ## Tasks
 | # | Task | Status | Commits | Notes |
 |---|---|---|---|---|
-| 1 | Classify / plan / pending store | ⏳ | | |
-| 2 | Import to cache + payload wrapper | ⬜ | | |
+| 1 | Classify / plan / pending store | ✅ | `b586789` | review clean |
+| 2 | Import to cache + payload wrapper | ⏳ | | |
 | 3 | app.json + native-intent + incoming screen | ⬜ | | |
 | 4 | Merge/scan consume pending files | ⬜ | | |
 | 5 | Device verification + docs | ⬜ | | |
 
 ## Task details
+
+### Task 1 (✅ `b586789`)
+- `src/share/types.ts` defines `IncomingFile` and `IncomingPlan`.
+- `classify.ts`: magic bytes `%PDF-` mean pdf; JPEG and PNG mean image. Ruling R2: `%PDF-` is 5 bytes.
+- `plan.ts` decides the flow: none, single-pdf (with images), merge (with images), or scan. Order is preserved.
+- `incomingStore.ts`: `setPending` returns the dropped files; `takePdfs` and `takeImages` read once; there are also `hasPendingImages` and `clearPending`.
+- Tests: 246/246.
