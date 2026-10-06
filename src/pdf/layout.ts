@@ -19,7 +19,7 @@ const PAGE_POINTS = {
   a4: { width: 595.28, height: 841.89 },
   letter: { width: 612, height: 792 },
 } as const;
-const MARGIN_POINTS: Record<Margin, number> = { none: 0, small: 14.17, medium: 28.35 };
+export const MARGIN_POINTS: Record<Margin, number> = { none: 0, small: 14.17, medium: 28.35 };
 
 export function computePlacement(
   img: { width: number; height: number },
