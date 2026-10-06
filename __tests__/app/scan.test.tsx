@@ -8,6 +8,7 @@ import { deleteFiles } from '../../src/native/deleteFiles';
 import { scanDocuments } from '../../src/scanner/scanner';
 import { DEFAULT_LAYOUT } from '../../src/pdf/layout';
 import { createScanDocument } from '../../src/workflows/scanWorkflow';
+import { normalizePage } from '../../src/imaging/enhance';
 
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
@@ -23,6 +24,11 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('../../src/scanner/scanner', () => ({ scanDocuments: jest.fn() }));
 jest.mock('../../src/workflows/scanWorkflow', () => ({ createScanDocument: jest.fn() }));
+jest.mock('../../src/imaging/enhance', () => ({ normalizePage: jest.fn() }));
+const mockEditorProps = jest.fn();
+jest.mock('../../src/components/PageEditor', () => ({
+  PageEditor: (props: any) => (mockEditorProps(props), null),
+}));
 jest.mock('../../src/native/readBytes', () => ({ readBytes: jest.fn() }));
 jest.mock('../../src/native/deleteFiles', () => ({
   deleteFiles: jest.fn().mockResolvedValue(undefined),
@@ -37,6 +43,9 @@ jest.mock('react-native-draggable-flatlist', () => {
       mockDraggableProps({ containerStyle }),
       <FlatList
         {...rest}
+        // Every test page fits the initial render window; keep the list's deferred
+        // re-render timer (default 50 ms) from firing outside act mid-test.
+        updateCellsBatchingPeriod={60_000}
         renderItem={({ item }: any) => renderItem({ item, drag: jest.fn(), isActive: false })}
       />
     ),
@@ -46,6 +55,15 @@ jest.mock('react-native-draggable-flatlist', () => {
 const mockScan = scanDocuments as jest.Mock;
 const mockCreate = createScanDocument as jest.Mock;
 const mockDeleteFiles = deleteFiles as jest.Mock;
+const mockNormalize = normalizePage as jest.Mock;
+
+// Lets pending promises settle and the list's deferred render timer fire inside act.
+async function flush() {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
 
 async function renderScan() {
   const store = createLibraryStore({ fs: createMemoryFs(), newId: () => 'id1' });
@@ -64,6 +82,7 @@ let alertSpy: jest.SpyInstance;
 beforeEach(() => {
   jest.clearAllMocks();
   alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  mockNormalize.mockImplementation((uri: string) => Promise.resolve(uri + '-n'));
 });
 
 test('goes back when first scan is cancelled', async () => {
@@ -93,8 +112,8 @@ test('creates pdf and opens viewer', async () => {
   expect(mockCreate).toHaveBeenCalledWith(
     expect.anything(),
     [
-      { uri: 'a', align: 'center' },
-      { uri: 'b', align: 'center' },
+      { uri: 'a-n', align: 'center' },
+      { uri: 'b-n', align: 'center' },
     ],
     expect.any(String),
     DEFAULT_LAYOUT,
@@ -167,7 +186,7 @@ describe('temporary image cleanup', () => {
     mockScan.mockResolvedValueOnce(['a', 'b']);
     await renderScan();
     await fireEvent.press(screen.getAllByText('Xoá')[0]);
-    expect(mockDeleteFiles).toHaveBeenCalledWith(['a']);
+    expect(mockDeleteFiles).toHaveBeenCalledWith(['a-n']);
     expect(screen.queryByText('Trang 2')).toBeNull();
   });
 
@@ -175,8 +194,9 @@ describe('temporary image cleanup', () => {
     mockScan.mockResolvedValueOnce(['a', 'b']);
     mockCreate.mockResolvedValueOnce({ id: 'id1' });
     await renderScan();
+    mockDeleteFiles.mockClear();
     await fireEvent.press(screen.getByText('Tạo PDF'));
-    expect(mockDeleteFiles).toHaveBeenCalledWith(['a', 'b']);
+    expect(mockDeleteFiles).toHaveBeenCalledWith(['a-n', 'b-n']);
     await screen.unmount();
     expect(mockDeleteFiles).toHaveBeenCalledTimes(1);
   });
@@ -184,15 +204,16 @@ describe('temporary image cleanup', () => {
   test('deletes remaining page images when leaving without creating', async () => {
     mockScan.mockResolvedValueOnce(['a', 'b']);
     await renderScan();
-    expect(mockDeleteFiles).not.toHaveBeenCalled();
+    mockDeleteFiles.mockClear();
     await screen.unmount();
-    expect(mockDeleteFiles).toHaveBeenCalledWith(['a', 'b']);
+    expect(mockDeleteFiles).toHaveBeenCalledWith(['a-n', 'b-n']);
   });
 
   test('keeps page images when create fails', async () => {
     mockScan.mockResolvedValueOnce(['a']);
     mockCreate.mockRejectedValueOnce(new Error('boom'));
     await renderScan();
+    mockDeleteFiles.mockClear();
     await fireEvent.press(screen.getByText('Tạo PDF'));
     expect(mockDeleteFiles).not.toHaveBeenCalled();
   });
@@ -215,5 +236,208 @@ describe('layout', () => {
     mockScan.mockResolvedValueOnce(['a']);
     await renderScan();
     expect(screen.getByTestId('thumb').props.resizeMethod).toBe('resize');
+  });
+});
+
+describe('normalization', () => {
+  test('normalizes scanned pages with overlay', async () => {
+    const pending: Array<() => void> = [];
+    mockNormalize.mockImplementation(
+      (uri: string) => new Promise<string>((resolve) => pending.push(() => resolve(uri + '-n'))),
+    );
+    mockScan.mockResolvedValueOnce(['a', 'b']);
+    await renderScan();
+    expect(screen.getByText('Đang xử lý ảnh…')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '+ Chụp thêm' })).toBeDisabled();
+    await act(async () => {
+      pending.shift()!();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await act(async () => {
+      pending.shift()!();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(mockNormalize.mock.calls.map((c) => c[0])).toEqual(['a', 'b']);
+    expect(screen.queryByText('Đang xử lý ảnh…')).toBeNull();
+    expect(screen.getByText('Trang 1')).toBeTruthy();
+    expect(screen.getByText('Trang 2')).toBeTruthy();
+    expect(mockDeleteFiles).toHaveBeenCalledWith(['a', 'b']);
+  });
+
+  test('deletes processed images when the screen is left during processing', async () => {
+    let finish: () => void = () => {};
+    mockNormalize.mockImplementation(
+      (uri: string) => new Promise<string>((resolve) => (finish = () => resolve(uri + '-n'))),
+    );
+    mockScan.mockResolvedValueOnce(['a']);
+    await renderScan();
+    await screen.unmount();
+    await act(async () => finish());
+    expect(mockDeleteFiles).toHaveBeenCalledWith(['a']);
+    expect(mockDeleteFiles).toHaveBeenCalledWith(['a-n']);
+  });
+
+  test('keeps raw page when normalize fails', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    mockNormalize.mockImplementation((uri: string) =>
+      uri === 'b' ? Promise.reject(new Error('bad')) : Promise.resolve(uri + '-n'),
+    );
+    mockScan.mockResolvedValueOnce(['a', 'b']);
+    mockCreate.mockResolvedValueOnce({ id: 'id1' });
+    await renderScan();
+    expect(screen.getByText('Trang 1')).toBeTruthy();
+    expect(screen.getByText('Trang 2')).toBeTruthy();
+    expect(mockDeleteFiles).toHaveBeenCalledWith(['a']);
+    expect(mockDeleteFiles.mock.calls.some((c) => c[0].includes('b'))).toBe(false);
+    await fireEvent.press(screen.getByText('Tạo PDF'));
+    expect(mockCreate.mock.calls[0][1].map((p: any) => p.uri)).toEqual(['a-n', 'b']);
+    warnSpy.mockRestore();
+  });
+});
+
+describe('layout controls', () => {
+  test('layout controls change PDF layout', async () => {
+    mockScan.mockResolvedValueOnce(['a']);
+    mockCreate.mockResolvedValueOnce({ id: 'id1' });
+    await renderScan();
+    expect(screen.getByText('Khổ giấy')).toBeTruthy();
+    expect(screen.getByText('Lề')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'A4' })).toBeSelected();
+    expect(screen.getByRole('button', { name: 'Vừa' })).toBeSelected();
+    await fireEvent.press(screen.getByText('Letter'));
+    await fireEvent.press(screen.getByText('Nhỏ'));
+    expect(screen.getByRole('button', { name: 'Letter' })).toBeSelected();
+    expect(screen.getByRole('button', { name: 'Nhỏ' })).toBeSelected();
+    await fireEvent.press(screen.getByText('Tạo PDF'));
+    expect(mockCreate.mock.calls[0][3]).toEqual({ pageSize: 'letter', margin: 'small' });
+  });
+
+  test('Theo ảnh disables margin options', async () => {
+    mockScan.mockResolvedValueOnce(['a']);
+    await renderScan();
+    expect(screen.getByRole('button', { name: 'Không' })).toBeEnabled();
+    await fireEvent.press(screen.getByText('Theo ảnh'));
+    for (const name of ['Không', 'Nhỏ', 'Vừa']) {
+      expect(screen.getByRole('button', { name })).toBeDisabled();
+    }
+  });
+});
+
+describe('page editor', () => {
+  const lastEditorProps = () => mockEditorProps.mock.calls.at(-1)![0];
+
+  test('rows show the alignment label and edit button', async () => {
+    mockScan.mockResolvedValueOnce(['a', 'b']);
+    await renderScan();
+    expect(screen.getAllByText('Giữa')).toHaveLength(2);
+    expect(screen.getAllByText('Sửa')).toHaveLength(2);
+    expect(mockEditorProps).not.toHaveBeenCalled();
+  });
+
+  test('Sửa opens editor for that page', async () => {
+    mockScan.mockResolvedValueOnce(['a', 'b']);
+    await renderScan();
+    await fireEvent.press(screen.getAllByText('Sửa')[1]);
+    const props = lastEditorProps();
+    expect(props.visible).toBe(true);
+    expect(props.page).toEqual({ uri: 'b-n', align: 'center' });
+    expect(props.pageNumber).toBe(2);
+    expect(props.layout).toEqual(DEFAULT_LAYOUT);
+  });
+
+  test('tapping the thumbnail opens the editor', async () => {
+    mockScan.mockResolvedValueOnce(['a', 'b']);
+    await renderScan();
+    await fireEvent.press(screen.getAllByLabelText('Sửa trang')[0]);
+    expect(lastEditorProps().page.uri).toBe('a-n');
+    expect(lastEditorProps().pageNumber).toBe(1);
+  });
+
+  test('cancel closes the editor without changes', async () => {
+    mockScan.mockResolvedValueOnce(['a']);
+    await renderScan();
+    await fireEvent.press(screen.getByText('Sửa'));
+    const { onCancel } = lastEditorProps();
+    mockEditorProps.mockClear();
+    mockDeleteFiles.mockClear();
+    await act(async () => onCancel());
+    expect(mockEditorProps.mock.calls.every((c) => !c[0].visible)).toBe(true);
+    expect(mockDeleteFiles).not.toHaveBeenCalled();
+    expect(screen.getByText('Giữa')).toBeTruthy();
+  });
+
+  test('editor done updates page in place', async () => {
+    mockScan.mockResolvedValueOnce(['a', 'b']);
+    mockCreate.mockResolvedValueOnce({ id: 'id1' });
+    await renderScan();
+    await fireEvent.press(screen.getAllByText('Sửa')[1]);
+    mockDeleteFiles.mockClear();
+    const { onDone } = lastEditorProps();
+    await act(async () => onDone({ uri: 'b-edit', align: 'top' }));
+    expect(mockDeleteFiles).toHaveBeenCalledWith(['b-n']);
+    expect(screen.getByText('Trên')).toBeTruthy();
+    expect(screen.getAllByText('Giữa')).toHaveLength(1);
+    expect(screen.getByText('Trang 2')).toBeTruthy();
+    await fireEvent.press(screen.getByText('Tạo PDF'));
+    expect(mockCreate.mock.calls[0][1]).toEqual([
+      { uri: 'a-n', align: 'center' },
+      { uri: 'b-edit', align: 'top' },
+    ]);
+  });
+
+  test('editor done with the same uri does not delete it', async () => {
+    mockScan.mockResolvedValueOnce(['a']);
+    await renderScan();
+    await fireEvent.press(screen.getByText('Sửa'));
+    mockDeleteFiles.mockClear();
+    const { onDone } = lastEditorProps();
+    await act(async () => onDone({ uri: 'a-n', align: 'fill' }));
+    expect(mockDeleteFiles).not.toHaveBeenCalled();
+    expect(screen.getByText('Lấp đầy')).toBeTruthy();
+  });
+
+  test('retake returns normalized single page', async () => {
+    mockScan.mockResolvedValueOnce(['a']);
+    await renderScan();
+    await fireEvent.press(screen.getByText('Sửa'));
+    mockDeleteFiles.mockClear();
+    mockScan.mockResolvedValueOnce(['r1', 'r2']);
+    let result: string | null = null;
+    await act(async () => {
+      result = await lastEditorProps().onRetake();
+    });
+    expect(mockScan).toHaveBeenLastCalledWith({ maxPages: 1 });
+    expect(result).toBe('r1-n');
+    expect(mockDeleteFiles).toHaveBeenCalledWith(['r2']);
+    expect(mockDeleteFiles).toHaveBeenCalledWith(['r1']);
+  });
+
+  test('cancelled retake returns null', async () => {
+    mockScan.mockResolvedValueOnce(['a']);
+    await renderScan();
+    await fireEvent.press(screen.getByText('Sửa'));
+    mockScan.mockResolvedValueOnce([]);
+    let result: string | null = 'x';
+    await act(async () => {
+      result = await lastEditorProps().onRetake();
+    });
+    expect(result).toBeNull();
+  });
+
+  test('retake keeps the raw image when normalize fails', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    mockScan.mockResolvedValueOnce(['a']);
+    await renderScan();
+    await fireEvent.press(screen.getByText('Sửa'));
+    mockDeleteFiles.mockClear();
+    mockNormalize.mockRejectedValueOnce(new Error('bad'));
+    mockScan.mockResolvedValueOnce(['r1']);
+    let result: string | null = null;
+    await act(async () => {
+      result = await lastEditorProps().onRetake();
+    });
+    expect(result).toBe('r1');
+    expect(mockDeleteFiles).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 });
