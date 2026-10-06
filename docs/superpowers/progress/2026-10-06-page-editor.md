@@ -26,8 +26,8 @@ Durable record of plan execution, for resuming in later sessions.
 
 | # | Task | Status | Commits | Notes |
 |---|---|---|---|---|
-| 1 | Page layout math + layout-aware PDF | ⏳ in progress | | |
-| 2 | Quad geometry helpers | ⬜ | | |
+| 1 | Page layout math + layout-aware PDF | ✅ done | `4c69862` | review clean |
+| 2 | Quad geometry helpers | ⏳ in progress | | |
 | 3 | OpenCV + Full HD normalization wrappers | ⬜ | | |
 | 4 | Ordered list `update` | ⬜ | | |
 | 5 | Page editor component | ⬜ | | |
@@ -35,3 +35,12 @@ Durable record of plan execution, for resuming in later sessions.
 | 7 | Device verification + APK 1.1.0 | ⬜ | | |
 
 ## Task details
+
+### Task 1 — Page layout (✅ `4c69862`)
+- `src/pdf/layout.ts`:
+  - types `PageSize` / `Margin` / `Align` / `PageLayout`, and `DEFAULT_LAYOUT` (A4 + medium)
+  - `computePlacement(img, layout, align)`: PDF origin is bottom-left; landscape images get a landscape page; `fill` covers the whole page; other aligns fit inside the margins.
+- `createPdfFromImages(images: PageImage[], layout?)`: the default layout `{image, none}` keeps the old behaviour. `PageImage` adds `align`.
+- `createScanDocument(deps, pages: {uri, align}[], name, layout)`. For now `app/scan.tsx` passes `align:'center'` and `DEFAULT_LAYOUT`; the UI comes in Task 6.
+- Ruling R6: the plan's top/bottom test used a landscape image, so the test was switched to 1000×1100. Ruling R7: the RED step was not recorded; the reviewer confirmed the tests are meaningful.
+- Tests: 101/101.
