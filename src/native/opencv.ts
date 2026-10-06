@@ -13,12 +13,18 @@ import {
   ThresholdTypes,
   type Mat,
 } from 'react-native-fast-opencv';
-import { pickPageQuad, warpSize, type Point, type Quad } from '../imaging/geometry';
+import {
+  fitLongEdge,
+  PAGE_MIN_AREA_RATIO,
+  pickPageQuad,
+  warpSize,
+  type Point,
+  type Quad,
+} from '../imaging/geometry';
 
 /** Clockwise rotation in degrees. */
 export type Rotation = 0 | 90 | 180 | 270;
 
-const MIN_AREA_RATIO = 0.2;
 const CANNY_LOW = 75;
 const CANNY_HIGH = 200;
 // Dilation kernels (px) tried in order to close gaps in the Canny edges. The detection copy is
@@ -39,6 +45,12 @@ function createPool() {
       items.push(item);
       return item;
     },
+    /** Releases one item early (e.g. a full-size intermediate image) and forgets it. */
+    releaseNow(item: Releasable) {
+      const index = items.indexOf(item);
+      if (index >= 0) items.splice(index, 1);
+      item.release();
+    },
     releaseAll() {
       for (const item of items.reverse()) item.release();
     },
@@ -52,7 +64,8 @@ const emptyMat = (pool: Pool): Mat => pool.add(OpenCV.Mat.create(0, 0, DataTypes
 /**
  * Finds the document quadrilateral (TL, TR, BR, BL) in an image, in that image's pixel
  * coordinates. Callers pass a downscaled copy (long edge ~800 px) and scale the result back.
- * Returns null when no usable quad (see `pickPageQuad`) covers at least 20 % of the image.
+ * Returns null when no candidate passes `pickPageQuad` (usable, and a page inside a small border:
+ * at least 50 % of the image with every corner near its image corner, ruling R11).
  *
  * Canny often leaves the page border as an OPEN curve with small gaps, which findContours
  * traces out and back: approxPolyDP then yields too many vertices or two coinciding ones. So
@@ -139,7 +152,7 @@ const rectKernel = (pool: Pool, size: number): Mat =>
 
 /**
  * All 4-vertex approximations of the contours in a binary image that are long enough to
- * enclose 20 % of it (a quad of area A has perimeter ≥ 4·√A), in contour vertex order.
+ * enclose 50 % of it (a quad of area A has perimeter ≥ 4·√A), in contour vertex order.
  */
 function quadCandidates(pool: Pool, binary: Mat, width: number, height: number): Point[][] {
   const contours = pool.add(OpenCV.PointVectorOfVectors.create());
@@ -149,7 +162,7 @@ function quadCandidates(pool: Pool, binary: Mat, width: number, height: number):
     RetrievalModes.RETR_LIST,
     ContourApproximationModes.CHAIN_APPROX_SIMPLE,
   );
-  const minPerimeter = 4 * Math.sqrt(MIN_AREA_RATIO * width * height);
+  const minPerimeter = 4 * Math.sqrt(PAGE_MIN_AREA_RATIO * width * height);
   const result: Point[][] = [];
   for (let i = 0; i < contours.length; i++) {
     const contour = pool.add(contours.get(i));
@@ -189,49 +202,93 @@ const ROTATE_FLAGS: Record<Exclude<Rotation, 0>, RotateFlags> = {
   270: RotateFlags.ROTATE_90_COUNTERCLOCKWISE,
 };
 
+export type ImageSize = { width: number; height: number };
+
+export type RenderOptions = {
+  /** Page corners in source pixels; null keeps the whole image (no perspective warp). */
+  quad: Quad | null;
+  rotation: Rotation;
+  /** The output's long edge is scaled down to at most this; never upscaled. */
+  maxEdge: number;
+  /** Destination file (`file://` uri or plain path); written once as JPEG. */
+  outPath: string;
+  /** JPEG quality as a fraction (0..1), as `Mat.saveToFile` expects. */
+  quality: number;
+};
+
 /**
- * Perspective-warps `quad` (source pixel coordinates) to a rectangle, rotates it clockwise by
- * `rotation`, and applies an unsharp mask (1.5·img − 0.5·GaussianBlur(σ 1.0)).
- * Returns the result as a base64 JPEG.
+ * The single-pass page pipeline (controller ruling R12): decode → perspective-warp to `quad`
+ * (if given) → rotate clockwise → resize with INTER_AREA so the long edge is ≤ `maxEdge` →
+ * unsharp mask (1.5·img − 0.5·GaussianBlur(σ 1.0)) → write ONE JPEG to `outPath`.
+ * Sharpening runs after the downscale so it is not averaged away, and the image is encoded
+ * only once. Each full-size intermediate is released as soon as the next step has replaced it;
+ * everything else is released in `finally`. Returns the input and output pixel sizes.
  */
-export function warpAndSharpen(base64Jpeg: string, quad: Quad, rotation: Rotation): string {
+export function renderPage(
+  base64Jpeg: string,
+  { quad, rotation, maxEdge, outPath, quality }: RenderOptions,
+): { input: ImageSize; output: ImageSize } {
   const pool = createPool();
   try {
-    const src = pool.add(OpenCV.Mat.createFromBase64(base64Jpeg));
-    const { width, height } = warpSize(quad);
+    let image = pool.add(OpenCV.Mat.createFromBase64(base64Jpeg));
+    const input = { width: image.cols, height: image.rows };
+    const replace = (next: Mat) => {
+      pool.releaseNow(image);
+      image = next;
+    };
 
-    const from = point2fVector(pool, quad);
-    const to = point2fVector(pool, [
-      { x: 0, y: 0 },
-      { x: width, y: 0 },
-      { x: width, y: height },
-      { x: 0, y: height },
-    ]);
-    const transform = pool.add(OpenCV.getPerspectiveTransform(from, to, DecompTypes.DECOMP_LU));
+    if (quad) {
+      const { width, height } = warpSize(quad);
+      const from = point2fVector(pool, quad);
+      const to = point2fVector(pool, [
+        { x: 0, y: 0 },
+        { x: width, y: 0 },
+        { x: width, y: height },
+        { x: 0, y: height },
+      ]);
+      const transform = pool.add(OpenCV.getPerspectiveTransform(from, to, DecompTypes.DECOMP_LU));
+      const warped = emptyMat(pool);
+      OpenCV.warpPerspective(
+        image,
+        warped,
+        transform,
+        pool.add(OpenCV.Size.create(width, height)),
+        InterpolationFlags.INTER_LINEAR,
+        BorderTypes.BORDER_REPLICATE,
+        pool.add(OpenCV.Scalar.create(0)),
+      );
+      replace(warped);
+    }
 
-    const warped = emptyMat(pool);
-    OpenCV.warpPerspective(
-      src,
-      warped,
-      transform,
-      pool.add(OpenCV.Size.create(width, height)),
-      InterpolationFlags.INTER_LINEAR,
-      BorderTypes.BORDER_REPLICATE,
-      pool.add(OpenCV.Scalar.create(0)),
-    );
-
-    let oriented = warped;
     if (rotation !== 0) {
-      oriented = emptyMat(pool);
-      OpenCV.rotate(warped, oriented, ROTATE_FLAGS[rotation]);
+      const rotated = emptyMat(pool);
+      OpenCV.rotate(image, rotated, ROTATE_FLAGS[rotation]);
+      replace(rotated);
+    }
+
+    const output = fitLongEdge({ width: image.cols, height: image.rows }, maxEdge);
+    if (output.width !== image.cols || output.height !== image.rows) {
+      const resized = emptyMat(pool);
+      OpenCV.resize(
+        image,
+        resized,
+        pool.add(OpenCV.Size.create(output.width, output.height)),
+        0,
+        0,
+        InterpolationFlags.INTER_AREA,
+      );
+      replace(resized);
     }
 
     const blurred = emptyMat(pool);
-    OpenCV.GaussianBlur(oriented, blurred, pool.add(OpenCV.Size.create(0, 0)), SHARPEN_SIGMA);
+    OpenCV.GaussianBlur(image, blurred, pool.add(OpenCV.Size.create(0, 0)), SHARPEN_SIGMA);
     const sharpened = emptyMat(pool);
-    OpenCV.addWeighted(oriented, 1.5, blurred, -0.5, 0, sharpened);
+    OpenCV.addWeighted(image, 1.5, blurred, -0.5, 0, sharpened);
+    replace(sharpened);
+    pool.releaseNow(blurred);
 
-    return sharpened.toBase64();
+    image.saveToFile(outPath, 'jpeg', quality);
+    return { input, output };
   } finally {
     pool.releaseAll();
   }

@@ -214,13 +214,29 @@ export function isQuadUsable(q: Quad, w: number, h: number): boolean {
   return true;
 }
 
-const PAGE_MIN_AREA_RATIO = 0.2;
+export const PAGE_MIN_AREA_RATIO = 0.5;
+const PAGE_CORNER_REACH_RATIO = 0.15; // of the image width / height
 const FRAME_TOLERANCE_RATIO = 0.02; // of the image's short edge
 
 /**
+ * Controller ruling R11: scanner output is already cropped, so a detected quad is only
+ * plausible as "the page inside a small excess border": it covers at least 50 % of the w×h
+ * image and each ordered corner (TL, TR, BR, BL) lies within 15 % of the image width/height
+ * of the matching image corner. Inner rectangles (tables, form boxes, photos) fail this.
+ */
+export function isPageInBorder(q: Quad, w: number, h: number): boolean {
+  if (quadArea(q) < PAGE_MIN_AREA_RATIO * w * h) return false;
+  const maxDx = PAGE_CORNER_REACH_RATIO * w;
+  const maxDy = PAGE_CORNER_REACH_RATIO * h;
+  return fullQuad(w, h).every(
+    (corner, i) => Math.abs(q[i].x - corner.x) <= maxDx && Math.abs(q[i].y - corner.y) <= maxDy,
+  );
+}
+
+/**
  * Chooses the page among detected 4-vertex candidates (w×h image coordinates, any vertex
- * order): each is ordered, must pass `isQuadUsable`, cover at least 20 % of the image and not
- * be the image frame itself; the largest wins. Vertex order is deliberately ignored, because a
+ * order): each is ordered, must pass `isQuadUsable` and `isPageInBorder` (R11) and not be the
+ * image frame itself; the largest wins. Vertex order is deliberately ignored, because a
  * contour traced out and back along an open border can list the true corners in crossed order.
  */
 export function pickPageQuad(
@@ -234,11 +250,21 @@ export function pickPageQuad(
     if (points.length !== 4) continue;
     const quad = orderQuad([...points]);
     const area = quadArea(quad);
-    if (area < PAGE_MIN_AREA_RATIO * w * h || (best && area <= best.area)) continue;
+    if (best && area <= best.area) continue;
+    if (!isPageInBorder(quad, w, h)) continue;
     if (!isQuadUsable(quad, w, h) || isFullQuad(quad, w, h, frameTolerance)) continue;
     best = { quad, area };
   }
   return best;
+}
+
+/** Scales a size so its long edge is at most `maxEdge` (rounded); never upscales. */
+export function fitLongEdge(
+  size: { width: number; height: number },
+  maxEdge: number,
+): { width: number; height: number } {
+  const scale = Math.min(1, maxEdge / Math.max(size.width, size.height));
+  return { width: Math.round(size.width * scale), height: Math.round(size.height * scale) };
 }
 
 /**

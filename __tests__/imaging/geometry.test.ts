@@ -252,7 +252,7 @@ describe('geometry', () => {
 
   describe('pickPageQuad', () => {
     const outer = [{ x: 700, y: 50 }, { x: 100, y: 60 }, { x: 90, y: 550 }, { x: 710, y: 540 }];
-    const inner = [{ x: 150, y: 110 }, { x: 650, y: 100 }, { x: 660, y: 490 }, { x: 140, y: 500 }];
+    const inner = [{ x: 110, y: 80 }, { x: 690, y: 70 }, { x: 700, y: 520 }, { x: 100, y: 530 }];
 
     it('returns the largest usable candidate, ordered TL, TR, BR, BL', () => {
       expect(pickPageQuad([inner, outer], 800, 600)).toEqual({
@@ -271,11 +271,38 @@ describe('geometry', () => {
       expect(pickPageQuad([triangle, inner], 800, 600)?.quad).toEqual(orderQuad(inner));
     });
 
-    it('ignores candidates below 20 % of the image, non-quads and the image frame itself', () => {
+    it('ignores small candidates, non-quads and the image frame itself', () => {
       const small = [{ x: 300, y: 200 }, { x: 500, y: 200 }, { x: 500, y: 400 }, { x: 300, y: 400 }];
       const frame = [{ x: 0, y: 0 }, { x: 799, y: 0 }, { x: 799, y: 599 }, { x: 0, y: 599 }];
       expect(pickPageQuad([small, outer.slice(0, 3), frame], 800, 600)).toBeNull();
       expect(pickPageQuad([], 800, 600)).toBeNull();
+    });
+
+    // Controller ruling R11: only a page inside a small excess border is accepted.
+    it('rejects an inner rectangle (table, form box) covering 30-45 % of the image', () => {
+      const table30 = [{ x: 180, y: 140 }, { x: 620, y: 140 }, { x: 620, y: 470 }, { x: 180, y: 470 }];
+      const table45 = [{ x: 100, y: 150 }, { x: 700, y: 150 }, { x: 700, y: 510 }, { x: 100, y: 510 }];
+      expect(quadArea(orderQuad(table30)) / (800 * 600)).toBeCloseTo(0.3, 1);
+      expect(quadArea(orderQuad(table45)) / (800 * 600)).toBeCloseTo(0.45, 2);
+      expect(pickPageQuad([table30], 800, 600)).toBeNull();
+      expect(pickPageQuad([table45], 800, 600)).toBeNull();
+    });
+
+    it('accepts a page with a 5 % border on all sides', () => {
+      const page = [{ x: 40, y: 30 }, { x: 760, y: 30 }, { x: 760, y: 570 }, { x: 40, y: 570 }];
+      expect(pickPageQuad([page], 800, 600)?.quad).toEqual(orderQuad(page));
+    });
+
+    it('accepts a corner exactly 15 % from its image corner', () => {
+      const edge = [{ x: 120, y: 90 }, { x: 790, y: 10 }, { x: 790, y: 590 }, { x: 10, y: 590 }];
+      expect(pickPageQuad([edge], 800, 600)).not.toBeNull();
+    });
+
+    it('rejects a large quad with one corner 25 % inward', () => {
+      // BR pulled 25 % of the width/height towards the centre; the area stays above 50 %.
+      const quad = [{ x: 40, y: 30 }, { x: 760, y: 30 }, { x: 600, y: 450 }, { x: 40, y: 570 }];
+      expect(quadArea(orderQuad(quad))).toBeGreaterThan(0.5 * 800 * 600);
+      expect(pickPageQuad([quad], 800, 600)).toBeNull();
     });
   });
 

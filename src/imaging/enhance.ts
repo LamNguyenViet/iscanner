@@ -1,20 +1,20 @@
 import { File, Paths } from 'expo-file-system';
 import { ImageManipulator, SaveFormat, type ImageRef } from 'expo-image-manipulator';
-import { detectQuad, warpAndSharpen, type Rotation } from '../native/opencv';
-import { clampQuad, fullQuad, isQuadUsable, scaleQuad, type Quad } from './geometry';
+import { detectQuad, renderPage, type ImageSize, type Rotation } from '../native/opencv';
+import {
+  clampQuad,
+  fitLongEdge,
+  fullQuad,
+  isQuadUsable,
+  scaleQuad,
+  type Quad,
+} from './geometry';
 
-export type { Rotation };
+export type { ImageSize, Rotation };
 
 export const MAX_EDGE = 1920;
 export const JPEG_QUALITY = 0.95;
 const DETECT_EDGE = 800;
-
-export type ImageSize = { width: number; height: number };
-
-function fitLongEdge(size: ImageSize, maxEdge: number): ImageSize {
-  const scale = Math.min(1, maxEdge / Math.max(size.width, size.height));
-  return { width: Math.round(size.width * scale), height: Math.round(size.height * scale) };
-}
 
 /** Scales so the long edge is at most 1920 px; never upscales. */
 export function targetSize(size: ImageSize): ImageSize {
@@ -29,35 +29,45 @@ async function resizeTo(image: ImageRef, size: ImageSize): Promise<ImageRef> {
   return ImageManipulator.manipulate(image).resize(size).renderAsync();
 }
 
-let tempCounter = 0;
+let outputCounter = 0;
 
 /**
- * Writes the OpenCV output to a temp cache file, downscales it to Full HD if larger,
- * saves it as JPEG 0.95 and returns the new file's uri. The temp file is always deleted.
+ * Runs the single OpenCV pass (ruling R12, see `renderPage`) on `uri` and writes the result to
+ * a new JPEG (quality 0.95, long edge ≤ 1920) under the cache directory; returns its uri. The
+ * input file is kept. A partially written output is removed when the pass fails.
  */
-async function saveNormalized(base64: string): Promise<string> {
-  tempCounter += 1;
-  const temp = new File(Paths.cache, `enhance-${Date.now()}-${tempCounter}.jpg`);
+async function render(
+  uri: string,
+  edit: { quad: Quad | null; rotation: Rotation },
+): Promise<{ uri: string; input: ImageSize; output: ImageSize }> {
+  outputCounter += 1;
+  const out = new File(Paths.cache, `page-${Date.now()}-${outputCounter}.jpg`);
+  const base64 = await new File(uri).base64();
   try {
-    temp.create({ overwrite: true });
-    temp.write(base64, { encoding: 'base64' });
-    const image = await decode(temp.uri);
-    const resized = await resizeTo(image, targetSize(image));
-    const saved = await resized.saveAsync({ compress: JPEG_QUALITY, format: SaveFormat.JPEG });
-    return saved.uri;
-  } finally {
+    const sizes = renderPage(base64, {
+      ...edit,
+      maxEdge: MAX_EDGE,
+      outPath: out.uri,
+      quality: JPEG_QUALITY,
+    });
+    return { uri: out.uri, ...sizes };
+  } catch (e) {
     try {
-      temp.delete();
+      if (out.exists) out.delete();
     } catch {
       // best-effort cleanup
     }
+    throw e;
   }
 }
 
 /** Sharpens the whole image and normalizes it (long edge ≤ 1920, JPEG 0.95). Input is kept. */
 export async function normalizePage(uri: string): Promise<string> {
-  const [image, base64] = await Promise.all([decode(uri), new File(uri).base64()]);
-  return saveNormalized(warpAndSharpen(base64, fullQuad(image.width, image.height), 0));
+  const result = await render(uri, { quad: null, rotation: 0 });
+  if (__DEV__) {
+    console.log('[normalizePage]', { input: result.input, output: result.output });
+  }
+  return result.uri;
 }
 
 /** Crops to `quad` (perspective-corrected), rotates clockwise, sharpens and normalizes. */
@@ -65,8 +75,7 @@ export async function applyEdit(
   uri: string,
   edit: { quad: Quad; rotation: Rotation },
 ): Promise<string> {
-  const base64 = await new File(uri).base64();
-  return saveNormalized(warpAndSharpen(base64, edit.quad, edit.rotation));
+  return (await render(uri, edit)).uri;
 }
 
 /**

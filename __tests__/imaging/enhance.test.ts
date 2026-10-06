@@ -7,11 +7,11 @@ import {
   targetSize,
 } from '../../src/imaging/enhance';
 import { fullQuad, type Quad } from '../../src/imaging/geometry';
-import { detectQuad, warpAndSharpen } from '../../src/native/opencv';
+import { detectQuad, renderPage } from '../../src/native/opencv';
 
 jest.mock('../../src/native/opencv', () => ({
   detectQuad: jest.fn(),
-  warpAndSharpen: jest.fn(),
+  renderPage: jest.fn(),
 }));
 
 // In-memory file system: uri -> base64 content.
@@ -111,7 +111,7 @@ jest.mock('expo-image-manipulator', () => {
   };
 });
 
-const mockedWarp = warpAndSharpen as jest.Mock;
+const mockedRender = renderPage as jest.Mock;
 const mockedDetect = detectQuad as jest.Mock;
 
 const INPUT = 'file:///scans/page.jpg';
@@ -121,20 +121,30 @@ function givenInput(width: number, height: number) {
   mockImages.set('orig', { width, height });
 }
 
-function givenWarpOutput(width: number, height: number) {
-  mockImages.set('sharp', { width, height });
-  mockedWarp.mockReturnValue('sharp');
+/** The mocked OpenCV pass "writes" its output file and reports the sizes. */
+function givenRender(input: { width: number; height: number }, output: { width: number; height: number }) {
+  mockedRender.mockImplementation((_base64: string, options: { outPath: string }) => {
+    mockFiles.set(options.outPath, 'rendered');
+    return { input, output };
+  });
 }
 
 const cacheFiles = () => [...mockFiles.keys()].filter((uri) => uri.startsWith('file:///cache/'));
 
+let logSpy: jest.SpyInstance;
+
 beforeEach(() => {
+  logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
   mockFiles.clear();
   mockImages.clear();
   mockResizes.length = 0;
   mockSaves.length = 0;
-  mockedWarp.mockReset();
+  mockedRender.mockReset();
   mockedDetect.mockReset();
+});
+
+afterEach(() => {
+  logSpy.mockRestore();
 });
 
 describe('constants', () => {
@@ -163,52 +173,66 @@ describe('targetSize', () => {
 });
 
 describe('normalizePage', () => {
-  it('downsizes large images and saves JPEG 0.95 to a new uri', async () => {
+  it('runs one OpenCV pass over the whole image (no warp, no rotation) at Full HD / JPEG 0.95', async () => {
     givenInput(4000, 3000);
-    givenWarpOutput(4000, 3000);
+    givenRender({ width: 4000, height: 3000 }, { width: 1920, height: 1440 });
 
     const out = await normalizePage(INPUT);
 
-    expect(out).not.toBe(INPUT);
-    expect(mockResizes).toEqual([{ width: 1920, height: 1440 }]);
-    expect(mockSaves.at(-1)).toEqual({
-      options: { compress: 0.95, format: 'jpeg' },
-      width: 1920,
-      height: 1440,
+    expect(mockedRender).toHaveBeenCalledTimes(1);
+    expect(mockedRender).toHaveBeenCalledWith('orig', {
+      quad: null,
+      rotation: 0,
+      maxEdge: 1920,
+      outPath: out,
+      quality: 0.95,
     });
-    expect(mockFiles.get(out)).toBe('sharp@1920x1440');
+    expect(out).not.toBe(INPUT);
+    expect(out.startsWith('file:///cache/')).toBe(true);
+    expect(mockFiles.get(out)).toBe('rendered');
+    expect(mockFiles.get(INPUT)).toBe('orig');
   });
 
-  it('keeps small images size but still saves at 0.95', async () => {
-    givenInput(1280, 960);
-    givenWarpOutput(1280, 960);
+  it('does not decode or re-encode through expo-image-manipulator', async () => {
+    givenInput(4000, 3000);
+    givenRender({ width: 4000, height: 3000 }, { width: 1920, height: 1440 });
 
-    const out = await normalizePage(INPUT);
+    await normalizePage(INPUT);
 
     expect(mockResizes).toEqual([]);
-    expect(mockSaves.at(-1)).toEqual({
-      options: { compress: 0.95, format: 'jpeg' },
-      width: 1280,
-      height: 960,
+    expect(mockSaves).toEqual([]);
+  });
+
+  it('writes every page to a new file', async () => {
+    givenInput(1280, 960);
+    givenRender({ width: 1280, height: 960 }, { width: 1280, height: 960 });
+
+    const first = await normalizePage(INPUT);
+    const second = await normalizePage(INPUT);
+
+    expect(second).not.toBe(first);
+  });
+
+  it('logs the input and output size in development', async () => {
+    givenInput(4000, 3000);
+    givenRender({ width: 4000, height: 3000 }, { width: 1920, height: 1440 });
+
+    await normalizePage(INPUT);
+
+    expect(logSpy).toHaveBeenCalledWith('[normalizePage]', {
+      input: { width: 4000, height: 3000 },
+      output: { width: 1920, height: 1440 },
     });
-    expect(mockFiles.get(out)).toBe('sharp@1280x960');
   });
 
-  it('sharpens with the full quad and no rotation', async () => {
+  it('removes a partially written output and rethrows when OpenCV fails', async () => {
     givenInput(4000, 3000);
-    givenWarpOutput(4000, 3000);
+    mockedRender.mockImplementation((_base64: string, options: { outPath: string }) => {
+      mockFiles.set(options.outPath, 'partial');
+      throw new Error('Failed to save Mat to file');
+    });
 
-    await normalizePage(INPUT);
-
-    expect(mockedWarp).toHaveBeenCalledWith('orig', fullQuad(4000, 3000), 0);
-  });
-
-  it('deletes its temp file and keeps the input', async () => {
-    givenInput(4000, 3000);
-    givenWarpOutput(4000, 3000);
-
-    await normalizePage(INPUT);
-
+    await expect(normalizePage(INPUT)).rejects.toThrow('Failed to save Mat to file');
     expect(cacheFiles()).toEqual([]);
     expect(mockFiles.get(INPUT)).toBe('orig');
   });
@@ -222,21 +246,24 @@ describe('applyEdit', () => {
     { x: 60, y: 3950 },
   ];
 
-  it('passes quad and rotation to warpAndSharpen, then normalizes', async () => {
+  it('passes quad and rotation to the single OpenCV pass and returns its new file', async () => {
     givenInput(3000, 4000);
-    givenWarpOutput(2500, 1500);
+    givenRender({ width: 3000, height: 4000 }, { width: 1920, height: 1440 });
 
     const out = await applyEdit(INPUT, { quad, rotation: 90 });
 
-    expect(mockedWarp).toHaveBeenCalledWith('orig', quad, 90);
-    expect(mockResizes).toEqual([{ width: 1920, height: 1152 }]);
-    expect(mockSaves.at(-1)).toEqual({
-      options: { compress: 0.95, format: 'jpeg' },
-      width: 1920,
-      height: 1152,
+    expect(mockedRender).toHaveBeenCalledTimes(1);
+    expect(mockedRender).toHaveBeenCalledWith('orig', {
+      quad,
+      rotation: 90,
+      maxEdge: 1920,
+      outPath: out,
+      quality: 0.95,
     });
     expect(out).not.toBe(INPUT);
-    expect(cacheFiles()).toEqual([]);
+    expect(mockFiles.get(out)).toBe('rendered');
+    expect(mockResizes).toEqual([]);
+    expect(mockSaves).toEqual([]);
   });
 });
 
