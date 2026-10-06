@@ -7,6 +7,9 @@
 - Quét nhiều trang bằng camera, sắp xếp lại thứ tự rồi tạo một file PDF.
 - Chọn nhiều file PDF từ bộ nhớ và gộp thành một file PDF.
 - Thư viện tài liệu: xem, đổi tên, xoá và chia sẻ PDF.
+- (1.1.0) **Chỉnh trang** sau khi scan: kéo 4 góc để cắt sát (làm phẳng phối cảnh), `Tự cắt sát` (OpenCV dò mép), `Toàn ảnh`, `Xoay ⟳`, `Chụp lại` một trang.
+- (1.1.0) **Bố cục PDF**: khổ giấy `A4` / `Letter` / `Theo ảnh`, lề `Không` / `Nhỏ` / `Vừa`, căn từng trang `Trên` / `Giữa` / `Dưới` / `Lấp đầy` (có xem trước).
+- (1.1.0) **Ảnh Full HD**: mỗi trang được thu nhỏ về cạnh dài tối đa 1920 px (không phóng to ảnh nhỏ), làm nét và lưu JPEG chất lượng 95.
 
 ## Lưu ý quan trọng
 
@@ -78,3 +81,12 @@ Giới hạn của Apple ID miễn phí: app hết hạn sau **7 ngày** (cài l
 - [ ] iOS: dung lượng app giảm sau khi xoá tài liệu / rời màn hình scan mà không tạo PDF (ảnh tạm đã bị xoá).
 - [ ] Bàn phím không che các nút trên màn hình Scan và Gộp PDF khi sửa tên.
 - [ ] Kéo thả để sắp xếp lại hoạt động với Reanimated 4.
+- [ ] (1.1.0) Scan bằng camera thật 12MP → file trang trong cache có cạnh dài ≤ 1920 px, chữ rõ nét; scan 10 trang không bị thoát app do thiếu bộ nhớ.
+- [ ] (1.1.0) `Sửa` một trang → 4 góc nằm sát mép giấy (hoặc toàn ảnh nếu không dò được); kéo cả 4 góc (kể cả ở mép ảnh) → `Xong` → ảnh được cắt và làm phẳng đúng.
+- [ ] (1.1.0) Trang có bảng/khung bên trong: mở `Sửa` rồi chỉ đổi căn → `Xong` → nội dung **không** bị cắt mất.
+- [ ] (1.1.0) `Xoay ⟳` 90° → trang PDF chuyển sang khổ ngang; `Chụp lại` thay đúng trang đó; `Huỷ` sau `Chụp lại` giữ ảnh cũ.
+- [ ] (1.1.0) Khổ `A4` + lề `Vừa` + căn `Trên`/`Dưới`/`Lấp đầy` → PDF hiển thị đúng vị trí; `Theo ảnh` cho trang bằng kích thước ảnh.
+- [ ] (1.1.0) Nhấn giữ thumbnail, `Sửa` hoặc `Xoá` rồi kéo → sắp xếp lại được (không mở màn chỉnh).
+- [ ] (1.1.0) `Huỷ`/`Xong` của màn Chỉnh trang không bị thanh trạng thái che, bấm được.
+
+> Ghi chú phát triển: khi đang ở màn review scan, lưu file mã nguồn (Fast Refresh) sẽ unmount màn hình và xoá ảnh trang tạm — hãy scan lại sau mỗi lần hot reload.
