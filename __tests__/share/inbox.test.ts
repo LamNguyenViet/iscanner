@@ -18,7 +18,28 @@ describe('isIosInboxFile', () => {
     expect(isIosInboxFile('file:///var/mobile/ABC/Library/Caches/Documents/Inbox')).toBe(false);
   });
 
+  test('path traversal never counts as an Inbox file', () => {
+    expect(isIosInboxFile('file:///var/A/Documents/Inbox/../pdfs/x.pdf')).toBe(false);
+    expect(isIosInboxFile('file:///var/A/Documents/Inbox/%2E%2E/pdfs/x.pdf')).toBe(false);
+    expect(isIosInboxFile('file:///var/A/Documents/Inbox%2F..%2Fpdfs%2Fx.pdf')).toBe(false);
+    expect(isIosInboxFile('file:///var/A/Documents/pdfs/Documents/Inbox/../../x.pdf')).toBe(false);
+  });
+
+  test('only files directly inside Documents/Inbox count', () => {
+    expect(
+      isIosInboxFile('file:///var/mobile/Containers/Data/Application/UUID/Documents/Inbox/report.pdf'),
+    ).toBe(true);
+    expect(
+      isIosInboxFile(
+        'file:///var/mobile/Containers/Data/Application/UUID/Documents/Inbox/H%E1%BB%A3p%20%C4%91%E1%BB%93ng.pdf',
+      ),
+    ).toBe(true);
+    expect(isIosInboxFile('file:///var/mobile/Containers/Data/Application/UUID/Documents/Inbox/sub/x.pdf')).toBe(false);
+  });
+
   test('non-file URIs and garbage', () => {
+    expect(isIosInboxFile('file:///x/Documents/Inbox/%E0%A4%A')).toBe(false);
+    expect(isIosInboxFile('%E0%A4%A')).toBe(false);
     expect(isIosInboxFile('content://p/Documents/Inbox/x.pdf')).toBe(false);
     expect(isIosInboxFile('file:///x/Documents/Inbox/%E0%A4%A')).toBe(false);
     expect(isIosInboxFile('')).toBe(false);
