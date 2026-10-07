@@ -33,10 +33,10 @@ jest.mock('expo-status-bar', () => ({
     return null;
   },
 }));
-jest.mock('../../src/theme/preference', () => ({
-  ...jest.requireActual('../../src/theme/preference'),
-  loadPreference: () => Promise.resolve('system'),
-  savePreference: () => Promise.resolve(),
+jest.mock('../../src/settings/settings', () => ({
+  ...jest.requireActual('../../src/settings/settings'),
+  loadSettings: () => Promise.resolve({ theme: 'system', language: 'system' }),
+  saveSettings: () => Promise.resolve(),
 }));
 let mockColorScheme = 'light';
 jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({

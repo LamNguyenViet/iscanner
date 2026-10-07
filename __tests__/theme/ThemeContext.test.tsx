@@ -2,7 +2,7 @@ import { Appearance, Pressable, Text } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { createMemoryFs } from '../../src/library/memoryFs';
 import { ThemeProvider, useTheme } from '../../src/theme/ThemeContext';
-import type { ThemePreference } from '../../src/theme/preference';
+import type { ThemePreference } from '../../src/settings/settings';
 
 jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
   __esModule: true,
@@ -78,7 +78,7 @@ test('setPreference applies the scheme and saves it', async () => {
   await settle();
   expect(setScheme).toHaveBeenLastCalledWith('light');
   expect(text('preference')).toBe('light');
-  expect(JSON.parse(fs.files.get('settings.json') as string)).toEqual({ theme: 'light' });
+  expect(JSON.parse(fs.files.get('settings.json') as string)).toEqual({ theme: 'light', language: 'system' });
 });
 
 test('a failed save still applies the theme', async () => {

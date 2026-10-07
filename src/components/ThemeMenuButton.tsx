@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ActionSheetIOS, Platform, Pressable, StyleSheet, Text } from 'react-native';
-import type { ThemePreference } from '../theme/preference';
+import type { ThemePreference } from '../settings/settings';
 import { useTheme } from '../theme/ThemeContext';
 import { ActionMenu } from './ActionMenu';
 

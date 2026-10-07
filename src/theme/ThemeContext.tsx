@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { Appearance, useColorScheme } from 'react-native';
 import type { FsAdapter } from '../library/types';
 import { lightPalette, paletteFor, type Palette } from './palette';
-import { loadPreference, savePreference, toNativeScheme, type ThemePreference } from './preference';
+import { loadSettings, saveSettings, toNativeScheme, type ThemePreference } from '../settings/settings';
 
 type ThemeValue = {
   colors: Palette;
@@ -29,7 +29,7 @@ export function ThemeProvider({ children, fs }: { children: ReactNode; fs?: FsAd
 
   useEffect(() => {
     let active = true;
-    loadPreference(fs).then((p) => {
+    loadSettings(fs).then(({ theme: p }) => {
       if (!active) return;
       setPreferenceState(p);
       Appearance.setColorScheme(toNativeScheme(p));
@@ -44,7 +44,7 @@ export function ThemeProvider({ children, fs }: { children: ReactNode; fs?: FsAd
       setPreferenceState(p);
       Appearance.setColorScheme(toNativeScheme(p));
       // A failed save keeps the choice for this session only.
-      savePreference(p, fs).catch(() => {});
+      saveSettings({ theme: p }, fs).catch(() => {});
     },
     [fs],
   );
