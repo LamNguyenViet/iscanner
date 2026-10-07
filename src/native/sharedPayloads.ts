@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import * as Sharing from 'expo-sharing';
+import { displayNameFromUri } from '../share/displayName';
 
 /** Files other apps shared into iScanner (Android only). Never throws. */
 export async function readSharedFiles(): Promise<{ uri: string; name?: string }[]> {
@@ -9,7 +10,7 @@ export async function readSharedFiles(): Promise<{ uri: string; name?: string }[
     const out: { uri: string; name?: string }[] = [];
     for (const p of payloads) {
       if ((p.contentType === 'file' || p.contentType === 'image') && p.contentUri) {
-        const name = p.originalName || p.value?.split('/').filter(Boolean).pop() || undefined;
+        const name = p.originalName || (p.value ? displayNameFromUri(p.value) : undefined);
         out.push({ uri: p.contentUri, name });
       }
     }

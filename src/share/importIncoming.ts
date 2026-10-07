@@ -1,25 +1,15 @@
 import { Directory, File, Paths } from 'expo-file-system';
 import { classifyIncoming } from './classify';
+import { displayNameFromUri } from './displayName';
 import type { IncomingFile } from './types';
 
 export type SkippedFile = { name: string; reason: 'unsupported' | 'too-large' | 'unreadable' };
 export const MAX_INCOMING_BYTES = 100 * 1024 * 1024;
 
-const FALLBACK_NAME = 'Tài liệu';
-
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
 function displayName(source: { uri: string; name?: string }): string {
-  if (source.name) return source.name;
-  const last = source.uri.split('?')[0].split('/').filter(Boolean).pop();
-  if (last) {
-    try {
-      return decodeURIComponent(last);
-    } catch {
-      return last;
-    }
-  }
-  return FALLBACK_NAME;
+  return source.name || displayNameFromUri(source.uri);
 }
 
 function extensionFor(bytes: Uint8Array, kind: 'pdf' | 'image'): string {

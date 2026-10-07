@@ -26,7 +26,7 @@ test('maps file and image payloads, ignores text and url', async () => {
   ]);
   expect(await readSharedFiles()).toEqual([
     { uri: 'content://a/1', name: 'a.pdf' },
-    { uri: 'content://a/2', name: 'x%20y.jpg' },
+    { uri: 'content://a/2', name: 'x y.jpg' },
   ]);
 });
 
