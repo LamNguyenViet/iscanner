@@ -1,13 +1,18 @@
 import { AppState, type AppStateStatus } from 'react-native';
 import { act, render } from '@testing-library/react-native';
 import RootLayout from '../../app/_layout';
+import { ThemeMenuButton } from '../../src/components/ThemeMenuButton';
 import { hasSharedFiles } from '../../src/native/sharedPayloads';
 
 const mockNavigate = jest.fn();
+const mockScreens: Record<string, any> = {};
 let mockPathname = '/';
 jest.mock('expo-router', () => {
-  const Stack = () => null;
-  Stack.Screen = () => null;
+  const Stack = ({ children }: { children: React.ReactNode }) => children;
+  Stack.Screen = (props: { name: string }) => {
+    mockScreens[props.name] = props;
+    return null;
+  };
   return {
     Stack,
     router: { navigate: (...args: unknown[]) => mockNavigate(...args) },
@@ -97,4 +102,10 @@ test('navigation headers use the dark palette in dark mode', async () => {
     dark: true,
     colors: { background: '#121212', card: '#1e1e1e', text: '#e8e8e8', primary: '#4c8dff', border: '#333', notification: 'n' },
   });
+});
+
+test('the library header has the theme menu button', async () => {
+  await render(<RootLayout />);
+  const headerRight = mockScreens.index.options.headerRight;
+  expect(headerRight().type).toBe(ThemeMenuButton);
 });

@@ -9,6 +9,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useMemo } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { ThemeMenuButton } from '../src/components/ThemeMenuButton';
 import { LibraryProvider } from '../src/library/LibraryContext';
 import { hasSharedFiles } from '../src/native/sharedPayloads';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeContext';
@@ -51,7 +52,10 @@ function ThemedStack() {
     <NavigationThemeProvider value={navTheme}>
       <StatusBar style="auto" />
       <Stack>
-        <Stack.Screen name="index" options={{ title: 'iScanner' }} />
+        <Stack.Screen
+          name="index"
+          options={{ title: 'iScanner', headerRight: () => <ThemeMenuButton /> }}
+        />
         <Stack.Screen name="scan" options={{ title: 'Scan tài liệu' }} />
         <Stack.Screen name="merge" options={{ title: 'Gộp PDF' }} />
         <Stack.Screen name="viewer/[id]" options={{ title: 'Tài liệu' }} />
