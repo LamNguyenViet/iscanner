@@ -15,14 +15,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DocumentActions } from '../src/components/DocumentActions';
 import { DocumentRow } from '../src/components/DocumentRow';
 import { NameInput } from '../src/components/NameInput';
+import { useLocale } from '../src/i18n/LocaleContext';
 import { useLibrary } from '../src/library/LibraryContext';
 import type { DocumentMeta } from '../src/library/types';
 import { shareDocument } from '../src/native/share';
 import type { Palette } from '../src/theme/palette';
 import { useTheme } from '../src/theme/ThemeContext';
 import { sanitizeName } from '../src/utils/format';
-
-const showError = () => Alert.alert('Có lỗi xảy ra');
 
 export default function Home() {
   const { documents, store, refresh, rename, remove } = useLibrary();
@@ -31,6 +30,8 @@ export default function Home() {
   const [menuDoc, setMenuDoc] = useState<DocumentMeta | null>(null);
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const { t } = useLocale();
+  const showError = () => Alert.alert(t.errors.generic);
   const themed = useMemo(() => makeStyles(colors), [colors]);
 
   useFocusEffect(
@@ -40,13 +41,13 @@ export default function Home() {
   );
 
   const confirmRemove = (doc: DocumentMeta) =>
-    Alert.alert('Xoá tài liệu này?', undefined, [
+    Alert.alert(t.library.deleteConfirm, undefined, [
       {
-        text: 'Xoá',
+        text: t.documentMenu.delete,
         style: 'destructive',
         onPress: () => remove(doc.id).catch(showError),
       },
-      { text: 'Huỷ', style: 'cancel' },
+      { text: t.documentMenu.cancel, style: 'cancel' },
     ]);
 
   const startRename = (doc: DocumentMeta) => {
@@ -56,7 +57,7 @@ export default function Home() {
 
   const share = (doc: DocumentMeta) => shareDocument(store.fileUri(doc), doc.name).catch(showError);
 
-  // Android's Alert keeps only 3 buttons (dropping "Huỷ"), so Android gets a custom menu.
+  // Android's Alert keeps only 3 buttons (dropping Cancel), so Android gets a custom menu.
   const openMenu = (doc: DocumentMeta) => {
     if (Platform.OS !== 'ios') {
       setMenuDoc(doc);
@@ -65,7 +66,7 @@ export default function Home() {
     ActionSheetIOS.showActionSheetWithOptions(
       {
         title: doc.name,
-        options: ['Đổi tên', 'Chia sẻ', 'Xoá', 'Huỷ'],
+        options: [t.documentMenu.rename, t.documentMenu.share, t.documentMenu.delete, t.documentMenu.cancel],
         destructiveButtonIndex: 2,
         cancelButtonIndex: 3,
       },
@@ -104,15 +105,15 @@ export default function Home() {
         )}
         contentContainerStyle={documents.length === 0 ? styles.emptyContainer : undefined}
         ListEmptyComponent={
-          <Text style={[styles.empty, themed.empty]}>Chưa có tài liệu nào. Hãy scan hoặc gộp PDF để bắt đầu.</Text>
+          <Text style={[styles.empty, themed.empty]}>{t.library.empty}</Text>
         }
       />
       <View testID="actions" style={[styles.actions, { paddingBottom: 16 + insets.bottom }]}>
         <Pressable style={[styles.button, themed.button]} onPress={() => router.push('/scan')}>
-          <Text style={[styles.buttonText, themed.buttonText]}>Scan tài liệu</Text>
+          <Text style={[styles.buttonText, themed.buttonText]}>{t.library.scan}</Text>
         </Pressable>
         <Pressable style={[styles.button, themed.button]} onPress={() => router.push('/merge')}>
-          <Text style={[styles.buttonText, themed.buttonText]}>Gộp PDF</Text>
+          <Text style={[styles.buttonText, themed.buttonText]}>{t.library.merge}</Text>
         </Pressable>
       </View>
       <DocumentActions
@@ -134,10 +135,10 @@ export default function Home() {
             <NameInput value={draft} onChangeText={setDraft} autoFocus />
             <View style={styles.dialogActions}>
               <Pressable onPress={() => setRenaming(null)}>
-                <Text style={[styles.dialogButton, themed.dialogButton]}>Huỷ</Text>
+                <Text style={[styles.dialogButton, themed.dialogButton]}>{t.documentMenu.cancel}</Text>
               </Pressable>
               <Pressable onPress={saveRename}>
-                <Text style={[styles.dialogButton, themed.dialogButton]}>Lưu</Text>
+                <Text style={[styles.dialogButton, themed.dialogButton]}>{t.library.save}</Text>
               </Pressable>
             </View>
           </View>

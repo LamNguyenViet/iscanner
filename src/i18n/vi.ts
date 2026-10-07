@@ -13,6 +13,32 @@ export const vi = {
     vietnamese: 'Tiếng Việt',
     english: 'English',
   },
+  library: {
+    empty: 'Chưa có tài liệu nào. Hãy scan hoặc gộp PDF để bắt đầu.',
+    scan: 'Scan tài liệu',
+    merge: 'Gộp PDF',
+    deleteConfirm: 'Xoá tài liệu này?',
+    save: 'Lưu',
+  },
+  viewer: {
+    notFound: 'Không tìm thấy tài liệu',
+    back: 'Quay lại',
+    share: 'Chia sẻ',
+    openError: 'Không mở được tài liệu',
+  },
+  documentMenu: {
+    rename: 'Đổi tên',
+    share: 'Chia sẻ',
+    delete: 'Xoá',
+    cancel: 'Huỷ',
+    closeMenu: 'Đóng menu',
+  },
+  nameInput: {
+    label: 'Tên tài liệu',
+  },
+  errors: {
+    generic: 'Có lỗi xảy ra',
+  },
   titles: {
     library: 'iScanner',
     scan: 'Scan tài liệu',

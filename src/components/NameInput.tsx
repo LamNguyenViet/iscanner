@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { useLocale } from '../i18n/LocaleContext';
 import type { Palette } from '../theme/palette';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -12,12 +13,13 @@ type Props = {
 
 export function NameInput({ value, onChangeText, placeholder, autoFocus = false }: Props) {
   const { colors } = useTheme();
+  const { t } = useLocale();
   const themed = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View>
-      <Text style={[styles.label, themed.label]}>Tên tài liệu</Text>
+      <Text style={[styles.label, themed.label]}>{t.nameInput.label}</Text>
       <TextInput
-        accessibilityLabel="Tên tài liệu"
+        accessibilityLabel={t.nameInput.label}
         style={[styles.input, themed.input]}
         value={value}
         onChangeText={onChangeText}

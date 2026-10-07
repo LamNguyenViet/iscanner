@@ -1,8 +1,13 @@
 import { render, screen } from '@testing-library/react-native';
+import { LocaleProvider } from '../../src/i18n/LocaleContext';
+import { createMemoryFs } from '../../src/library/memoryFs';
 import { DocumentRow } from '../../src/components/DocumentRow';
 import { NameInput } from '../../src/components/NameInput';
 import { SegmentedControl } from '../../src/components/SegmentedControl';
 import { settleTheme, styleOf, themed } from '../fixtures/theme';
+
+let mockLocales = [{ languageCode: 'en', languageTag: 'en-US' }];
+jest.mock('expo-localization', () => ({ useLocales: () => mockLocales }));
 
 let mockColorScheme = 'dark';
 jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
@@ -73,3 +78,22 @@ test('light mode keeps the original colors', async () => {
   expect(styleOf(screen.getByText('Hoa don')).color).toBe('#1f1f1f');
 });
 
+
+describe('English', () => {
+  const showEn = async (ui: React.ReactElement) => {
+    await render(themed(<LocaleProvider fs={createMemoryFs()}>{ui}</LocaleProvider>));
+    await settleTheme();
+  };
+
+  test('DocumentRow meta', async () => {
+    const one = { ...doc, createdAt: '2026-10-05T14:03:00', pageCount: 1 };
+    await showEn(<DocumentRow doc={one as never} onPress={() => {}} onLongPress={() => {}} />);
+    expect(screen.getByText('10/05/2026 14:03 · 1 page · 1.0 KB')).toBeTruthy();
+  });
+
+  test('NameInput label', async () => {
+    await showEn(<NameInput value="x" onChangeText={() => {}} />);
+    expect(screen.getByText('Document name')).toBeTruthy();
+    expect(screen.getByLabelText('Document name')).toBeTruthy();
+  });
+});

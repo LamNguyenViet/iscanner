@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
+import { useLocale } from '../i18n/LocaleContext';
 import type { DocumentMeta } from '../library/types';
 import type { Palette } from '../theme/palette';
 import { useTheme } from '../theme/ThemeContext';
@@ -13,6 +14,7 @@ type Props = {
 
 export function DocumentRow({ doc, onPress, onLongPress }: Props) {
   const { colors } = useTheme();
+  const { t } = useLocale();
   const themed = useMemo(() => makeStyles(colors), [colors]);
   return (
     <Pressable
@@ -25,7 +27,7 @@ export function DocumentRow({ doc, onPress, onLongPress }: Props) {
         {doc.name}
       </Text>
       <Text style={[styles.meta, themed.meta]}>
-        {`${formatDate(doc.createdAt)} · ${doc.pageCount} trang · ${formatSize(doc.sizeBytes)}`}
+        {`${formatDate(doc.createdAt, t)} · ${t.format.pages(doc.pageCount)} · ${formatSize(doc.sizeBytes)}`}
       </Text>
     </Pressable>
   );

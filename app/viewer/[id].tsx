@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import Pdf from 'react-native-pdf';
+import { useLocale } from '../../src/i18n/LocaleContext';
 import { useLibrary } from '../../src/library/LibraryContext';
 import { shareDocument } from '../../src/native/share';
 import type { Palette } from '../../src/theme/palette';
@@ -19,6 +20,7 @@ export default function Viewer() {
   const refreshed = useRef(false);
   const doc = documents.find((d) => d.id === id);
   const { colors } = useTheme();
+  const { t } = useLocale();
   const themed = useMemo(() => makeStyles(colors), [colors]);
   const uri = doc ? store.fileUri(doc) : undefined;
   const pdfSource = useMemo(() => ({ uri }), [uri]);
@@ -46,9 +48,9 @@ export default function Viewer() {
   if (!doc) {
     return (
       <View style={[styles.center, themed.screen]}>
-        <Text style={[styles.text, themed.text]}>Không tìm thấy tài liệu</Text>
+        <Text style={[styles.text, themed.text]}>{t.viewer.notFound}</Text>
         <Pressable style={[styles.button, themed.button]} onPress={() => router.back()}>
-          <Text style={[styles.buttonText, themed.buttonText]}>Quay lại</Text>
+          <Text style={[styles.buttonText, themed.buttonText]}>{t.viewer.back}</Text>
         </Pressable>
       </View>
     );
@@ -60,15 +62,15 @@ export default function Viewer() {
         options={{
           title: doc.name,
           headerRight: () => (
-            <Pressable onPress={() => shareDocument(store.fileUri(doc), doc.name).catch(() => Alert.alert('Có lỗi xảy ra'))}>
-              <Text style={[styles.share, themed.share]}>Chia sẻ</Text>
+            <Pressable onPress={() => shareDocument(store.fileUri(doc), doc.name).catch(() => Alert.alert(t.errors.generic))}>
+              <Text style={[styles.share, themed.share]}>{t.viewer.share}</Text>
             </Pressable>
           ),
         }}
       />
       {pdfError ? (
         <View style={[styles.center, themed.screen]}>
-          <Text style={[styles.text, themed.text]}>Không mở được tài liệu</Text>
+          <Text style={[styles.text, themed.text]}>{t.viewer.openError}</Text>
         </View>
       ) : (
         <PdfView source={pdfSource} style={pdfStyle} onError={onPdfError} />

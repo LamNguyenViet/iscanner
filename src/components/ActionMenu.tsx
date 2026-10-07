@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useLocale } from '../i18n/LocaleContext';
 import type { Palette } from '../theme/palette';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -15,6 +16,7 @@ type Props = { visible: boolean; title: string; items: ActionMenuItem[]; onClose
 /** Modal menu used on Android, where Alert keeps only 3 buttons. */
 export function ActionMenu({ visible, title, items, onClose }: Props) {
   const { colors } = useTheme();
+  const { t } = useLocale();
   const themed = useMemo(() => makeStyles(colors), [colors]);
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -22,7 +24,7 @@ export function ActionMenu({ visible, title, items, onClose }: Props) {
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={onClose}
-          accessibilityLabel="Đóng menu"
+          accessibilityLabel={t.documentMenu.closeMenu}
         />
         <View style={[styles.sheet, themed.sheet]}>
           <Text style={[styles.title, themed.title]} numberOfLines={1}>

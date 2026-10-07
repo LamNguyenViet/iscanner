@@ -1,12 +1,15 @@
 import { ActionSheetIOS, Alert, Platform } from 'react-native';
 import { act, render, screen, fireEvent } from '@testing-library/react-native';
 import Home from '../../app/index';
+import { LocaleProvider } from '../../src/i18n/LocaleContext';
 import { LibraryProvider } from '../../src/library/LibraryContext';
 import { createLibraryStore } from '../../src/library/libraryStore';
 import { createMemoryFs } from '../../src/library/memoryFs';
 import { settleTheme, styleOf, themed } from '../fixtures/theme';
 
 const mockPush = jest.fn();
+let mockLocales = [{ languageCode: 'en', languageTag: 'en-US' }];
+jest.mock('expo-localization', () => ({ useLocales: () => mockLocales }));
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 34, left: 0 }),
 }));
@@ -24,16 +27,17 @@ jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
   default: () => mockColorScheme,
 }));
 
-async function renderHome(withDoc: boolean, dark = false) {
+async function renderHome(withDoc: boolean, dark = false, english = false) {
   const store = createLibraryStore({ fs: createMemoryFs(), newId: () => 'id1' });
   if (withDoc) {
     await store.add(new Uint8Array(1536), { name: 'Hoa don', pageCount: 3, source: 'scan' });
   }
-  const ui = (
+  const home = (
     <LibraryProvider store={store}>
       <Home />
     </LibraryProvider>
   );
+  const ui = english ? <LocaleProvider fs={createMemoryFs()}>{home}</LocaleProvider> : home;
   mockColorScheme = dark ? 'dark' : 'light';
   await render(dark ? themed(ui) : ui);
   await settleTheme();
@@ -149,4 +153,41 @@ test('dark theme: rename dialog', async () => {
   while (dialog && styleOf(dialog).borderRadius !== 12) dialog = dialog.parent;
   expect(styleOf(dialog!).backgroundColor).toBe('#1e1e1e');
   expect(styleOf(screen.getByText('Lưu')).color).toBe('#4c8dff');
+});
+
+describe('English', () => {
+  test('empty state and buttons', async () => {
+    await renderHome(false, false, true);
+    expect(
+      await screen.findByText('No documents yet. Scan or merge PDFs to get started.'),
+    ).toBeTruthy();
+    expect(screen.getByText('Scan document')).toBeTruthy();
+    expect(screen.getByText('Merge PDF')).toBeTruthy();
+  });
+
+  test('Android menu and delete confirmation', async () => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+    await renderHome(true, false, true);
+    await fireEvent(screen.getByText('Hoa don'), 'longPress');
+    for (const label of ['Rename', 'Share', 'Delete', 'Cancel']) {
+      expect(screen.getByText(label)).toBeTruthy();
+    }
+    await fireEvent.press(screen.getByText('Delete'));
+    expect(alertSpy).toHaveBeenCalledWith('Delete this document?', undefined, expect.any(Array));
+  });
+
+  test('iOS action sheet options', async () => {
+    const sheetSpy = jest
+      .spyOn(ActionSheetIOS, 'showActionSheetWithOptions')
+      .mockImplementation(() => {});
+    await renderHome(true, false, true);
+    await fireEvent(screen.getByText('Hoa don'), 'longPress');
+    expect(sheetSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ options: ['Rename', 'Share', 'Delete', 'Cancel'] }),
+      expect.any(Function),
+    );
+    const callback = sheetSpy.mock.calls[0][1];
+    await act(async () => callback(2));
+    expect(alertSpy).toHaveBeenCalledWith('Delete this document?', undefined, expect.any(Array));
+  });
 });

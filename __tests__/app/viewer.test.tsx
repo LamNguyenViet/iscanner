@@ -1,11 +1,14 @@
 import { act, render, screen, fireEvent } from '@testing-library/react-native';
 import Viewer from '../../app/viewer/[id]';
+import { LocaleProvider } from '../../src/i18n/LocaleContext';
 import { LibraryProvider } from '../../src/library/LibraryContext';
 import { createLibraryStore } from '../../src/library/libraryStore';
 import { createMemoryFs } from '../../src/library/memoryFs';
 import { settleTheme, styleOf, themed } from '../fixtures/theme';
 
 const mockBack = jest.fn();
+let mockLocales = [{ languageCode: 'en', languageTag: 'en-US' }];
+jest.mock('expo-localization', () => ({ useLocales: () => mockLocales }));
 let mockParams: { id: string } = { id: 'id1' };
 let mockHeaderRight: (() => React.ReactNode) | undefined;
 jest.mock('expo-router', () => ({
@@ -133,4 +136,40 @@ test('re-rendering the screen does not reload the PDF view (react-native-pdf lea
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
   expect(mockPdfProps.mock.calls.length).toBe(calls);
+});
+
+describe('English', () => {
+  const english = (store: ReturnType<typeof createLibraryStore>) => (
+    <LocaleProvider fs={createMemoryFs()}>
+      <LibraryProvider store={store}>
+        <Viewer />
+      </LibraryProvider>
+    </LocaleProvider>
+  );
+  const settle = () =>
+    act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+  test('not-found text and back button', async () => {
+    mockParams = { id: 'nope' };
+    const store = createLibraryStore({ fs: createMemoryFs(), newId: () => 'id1' });
+    await render(english(store));
+    await settle();
+    expect(await screen.findByText('Document not found')).toBeTruthy();
+    await fireEvent.press(screen.getByText('Go back'));
+    expect(mockBack).toHaveBeenCalled();
+  });
+
+  test('share header button and pdf error', async () => {
+    const store = createLibraryStore({ fs: createMemoryFs(), newId: () => 'id1' });
+    await store.add(new Uint8Array(10), { name: 'Hoa don', pageCount: 1, source: 'scan' });
+    await render(english(store));
+    await settle();
+    const { onError } = mockPdfProps.mock.calls.at(-1)![0];
+    await act(async () => onError(new Error('corrupt')));
+    expect(screen.getByText('Could not open the document')).toBeTruthy();
+    await render(<LocaleProvider fs={createMemoryFs()}>{mockHeaderRight!()}</LocaleProvider>);
+    expect(screen.getByText('Share')).toBeTruthy();
+  });
 });
