@@ -105,6 +105,32 @@ describe('logger', () => {
     expect(text).toContain('kept-error');
   });
 
+  it('size measurement failure: still writes error and later records', async () => {
+    const { fs, logger } = setup();
+    fs.files.set(F1, 'old\n');
+    fs.failNextSize(F1);
+    fs.failNextRead(F1); // the old implementation measured via readText
+    logger.error('E', 'first-error');
+    await logger.flush();
+    logger.warn('later-warn');
+    await logger.flush();
+    const text = fs.files.get(F1) as string;
+    expect(text).toContain('first-error');
+    expect(text).toContain('later-warn');
+  });
+
+  it('daily cap counts UTF-8 bytes, not UTF-16 length', async () => {
+    const { fs, logger } = setup();
+    // 800k chars (< 2 MB as UTF-16 length) but 2.4 MB as UTF-8 bytes.
+    fs.files.set(F1, '\u20ac'.repeat(800 * 1024));
+    logger.info('dropped');
+    logger.warn('kept-warn');
+    await logger.flush();
+    const text = fs.files.get(F1) as string;
+    expect(text).not.toContain('"dropped"');
+    expect(text).toContain('kept-warn');
+  });
+
   it('init deletes expired files and keeps the rest', async () => {
     const { fs, logger } = setup();
     fs.files.set('logs/2026-09-30.log', 'old');

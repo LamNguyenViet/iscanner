@@ -16,6 +16,9 @@ export const FLUSH_INTERVAL_MS = 2000;
 export const MAX_BUFFER = 500;
 export const DAILY_CAP_BYTES = 2 * 1024 * 1024;
 
+const encoder = new TextEncoder();
+const utf8Bytes = (s: string) => encoder.encode(s).length;
+
 type Entry = { file: string; lvl: Level; line: string };
 
 export function createLogger(deps: {
@@ -36,7 +39,7 @@ export function createLogger(deps: {
   let dropped = 0;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let chain: Promise<void> = Promise.resolve();
-  // Daily cap: chars already in a day's file, read once per file name on its
+  // Daily cap: bytes already in a day's file, measured once per file name on its
   // first write by this process, then incremented by what this process writes.
   const sizes = new Map<string, number>();
 
@@ -99,8 +102,13 @@ export function createLogger(deps: {
       try {
         const path = `${dir}/${g.file}`;
         if (!sizes.has(g.file)) {
-          const existing = await fs.readText(path);
-          sizes.set(g.file, existing ? existing.length : 0);
+          let existing = 0;
+          try {
+            existing = (await fs.size(path)) ?? 0;
+          } catch {
+            // measuring failed: assume empty, never drop records because of it
+          }
+          sizes.set(g.file, existing);
         }
         let size = sizes.get(g.file) ?? 0;
         let text = '';
@@ -108,7 +116,7 @@ export function createLogger(deps: {
           const capped = size >= DAILY_CAP_BYTES;
           if (capped && (e.lvl === 'info' || e.lvl === 'debug')) continue;
           text += e.line;
-          size += e.line.length;
+          size += utf8Bytes(e.line);
         }
         if (!text) continue;
         await fs.append(path, text);

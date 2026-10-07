@@ -39,3 +39,15 @@ test('returns null when there are no logs', async () => {
   expect(await exportLogs({ fs, logger, now, meta, writeExport })).toBeNull();
   expect(writeExport).not.toHaveBeenCalled();
 });
+
+test('an unreadable file gets a marker and the export still succeeds', async () => {
+  const { fs, logger, writeExport } = setup();
+  fs.files.set('logs/2026-10-06.log', 'a\n');
+  fs.files.set('logs/2026-10-07.log', 'b\n');
+  fs.failNextRead('logs/2026-10-06.log');
+  const res = await exportLogs({ fs, logger, now, meta, writeExport });
+  const text = writeExport.mock.calls[0][1];
+  expect(text).toContain('=== 2026-10-06.log ===\n[unreadable: Error]\n');
+  expect(text).toContain('=== 2026-10-07.log ===\nb\n');
+  expect(res?.files).toBe(2);
+});

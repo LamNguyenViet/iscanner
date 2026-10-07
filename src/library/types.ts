@@ -23,6 +23,8 @@ export interface FsAdapter {
   list(dir: string): Promise<string[]>;
   /** Appends text, creating the parent directory and the file if missing. */
   append(path: string, text: string): Promise<void>;
+  /** Byte size of the file; null if it is missing. */
+  size(path: string): Promise<number | null>;
   /** Absolute file:// URI. */
   uri(path: string): string;
 }

@@ -21,7 +21,12 @@ export async function exportLogs(deps: {
 
   let text = `iScanner ${meta.app} · ${meta.os} · ${meta.language} · ${localIsoTimestamp(now)}\n\n`;
   for (const name of names) {
-    const content = (await fs.readText(`logs/${name}`)) ?? '';
+    let content: string;
+    try {
+      content = (await fs.readText(`logs/${name}`)) ?? '';
+    } catch (error) {
+      content = `[unreadable: ${error instanceof Error ? error.name : 'Error'}]`;
+    }
     text += `=== ${name} ===\n${content}${content === '' || content.endsWith('\n') ? '' : '\n'}`;
   }
   const uri = await writeExport(`iScanner-logs-${localIsoTimestamp(now).slice(0, 10)}.txt`, text);

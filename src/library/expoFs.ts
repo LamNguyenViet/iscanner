@@ -54,6 +54,10 @@ export const expoFs: FsAdapter = {
     if (!f.exists) f.create({ intermediates: true });
     f.write(text, { append: true });
   },
+  async size(path) {
+    const f = file(path);
+    return f.exists ? f.size : null;
+  },
   uri(path) {
     return file(path).uri;
   },
