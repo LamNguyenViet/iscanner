@@ -20,9 +20,17 @@ function isShareLink(path: string): boolean {
  * fires, so the root layout's foreground check of the waiting share owns warm shares, and routing here
  * too would open the screen twice.
  */
+/**
+ * Longest incoming link handled. expo-router decodes query strings with decode-uri-component
+ * 0.2.2, which burns CPU on long malformed percent-encoding (GHSA-vcc3-ghjq-m6fr); no real
+ * iScanner link comes close to this.
+ */
+export const MAX_INCOMING_PATH = 2048;
+
 export function redirectIncomingPath(path: string, initial = true): string {
   try {
     if (typeof path !== 'string') return path;
+    if (path.length > MAX_INCOMING_PATH) return '/';
     if (FILE_URL.test(path)) {
       return `/incoming?uri=${encodeURIComponent(encodeURIComponent(path))}`;
     }

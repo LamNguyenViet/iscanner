@@ -1,4 +1,4 @@
-import { incomingUriParam, redirectIncomingPath } from '../../src/share/redirect';
+import { incomingUriParam, MAX_INCOMING_PATH, redirectIncomingPath } from '../../src/share/redirect';
 
 /** What expo-router does to a query param before `useLocalSearchParams` hands it to the screen:
  * URLSearchParams decodes it once (getStateFromPath), then useLocalSearchParams decodes it again. */
@@ -82,5 +82,21 @@ describe('incomingUriParam schemes', () => {
       expect(incomingUriParam(uri)).toBeUndefined();
       expect(incomingUriParam(encodeURIComponent(uri))).toBeUndefined();
     }
+  });
+});
+
+describe('over-long incoming links (expo-router query decoding DoS, GHSA-vcc3-ghjq-m6fr)', () => {
+  test('a malformed link longer than the cap opens the library instead', () => {
+    expect(redirectIncomingPath('iscanner://x?q=' + '%E0%A4%A'.repeat(400))).toBe('/');
+  });
+
+  test('a file link longer than the cap is refused too', () => {
+    expect(redirectIncomingPath('content://p/' + 'a'.repeat(MAX_INCOMING_PATH))).toBe('/');
+  });
+
+  test('links up to the cap are unchanged', () => {
+    const path = '/viewer/' + 'a'.repeat(MAX_INCOMING_PATH - 8);
+    expect(path).toHaveLength(MAX_INCOMING_PATH);
+    expect(redirectIncomingPath(path)).toBe(path);
   });
 });
