@@ -23,7 +23,7 @@
 | 2 | Import to cache + payload wrapper | ✅ | `26cf873` | review clean |
 | 3 | app.json + native-intent + incoming screen | ✅ | `2e13bed` | review clean |
 | 4 | Merge/scan consume pending files | ✅ | `57e284f`, `15e6ce2` | 1 fix round (R4) |
-| 5 | Device verification + docs | ⏳ | | |
+| 5 | Device verification + docs | ✅ | `2d0840f`, `b61cd9c`, `24d3988` | 2 device fixes; verified on emulator |
 
 ## Task details
 
@@ -67,3 +67,20 @@
     - If the user leaves the merge screen without merging, the pending images are deleted. This prevents leaks and a wrong redirect later.
 - `app/scan.tsx`: on mount it runs `takeImages()`, then the same normalize pipeline as the scanner, deleting the incoming copies after normalization.
 - Tests: 288/288.
+
+### Task 5 — Device verification (✅)
+- Prebuild produced the SEND/SEND_MULTIPLE (pdf, image/*, octet-stream) and VIEW content intent filters, plus `share_into_scheme=iscanner`.
+- **Bugs found on the device and fixed:**
+  1. `2d0840f`: when the app was already open, a share did nothing. Root cause: `expo-sharing` reports the share only through a **one-shot JS link event**, and if JS isn't listening yet the event is lost. Fix: the root layout checks for pending shares at startup and every time the app returns to the foreground, then opens `/incoming`. The incoming screen re-reads on foreground, so a second share switches to the new file.
+  2. `b61cd9c`: "Open with" from Files showed the name `primary:Download/x.pdf`. Fix: new helper `src/share/displayName.ts` that takes the part after the last `/` and the last `:` and decodes `%`.
+- **Verified on the emulator:**
+  - Debug build, app already open:
+    - share 1 PDF → Nhận file (name, page count, Lưu / Gộp);
+    - share 2 PDFs → merge screen pre-filled;
+    - share 2 PDFs + 1 JPG → merge, then scan with the image after merging;
+    - Open with → Nhận file;
+    - Lưu vào thư viện → document saved with the right name.
+  - Release build, app fully closed: share from Files → opens straight on Nhận file.
+- iOS: it cannot be prebuilt on Windows. `expo config --type introspect` shows CFBundleDocumentTypes (PDF and Image, Alternate) and `LSSupportsOpeningDocumentsInPlace=false`, and the **entitlements are empty** (no App Group), so it works with a free Apple ID. It still needs a test on a real iPhone.
+- README now has the 1.2.0 features and a checklist.
+- Not testable on the emulator: the real Zalo app, and the MIME type Zalo actually sends.
