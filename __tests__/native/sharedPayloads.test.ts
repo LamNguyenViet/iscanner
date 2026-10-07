@@ -1,16 +1,19 @@
 import { Platform } from 'react-native';
 import * as Sharing from 'expo-sharing';
-import { clearSharedFiles, readSharedFiles } from '../../src/native/sharedPayloads';
+import { clearSharedFiles, hasSharedFiles, readSharedFiles } from '../../src/native/sharedPayloads';
 
 jest.mock('expo-sharing', () => ({
   getResolvedSharedPayloadsAsync: jest.fn(),
+  getSharedPayloads: jest.fn(),
   clearSharedPayloads: jest.fn(),
 }));
 const getPayloads = Sharing.getResolvedSharedPayloadsAsync as jest.Mock;
+const getPending = Sharing.getSharedPayloads as jest.Mock;
 
 beforeEach(() => {
   Platform.OS = 'android';
   getPayloads.mockReset();
+  getPending.mockReset();
 });
 
 test('maps file and image payloads, ignores text and url', async () => {
@@ -33,6 +36,25 @@ test('returns [] when the API rejects or off Android', async () => {
   Platform.OS = 'ios';
   getPayloads.mockResolvedValue([{ contentType: 'file', contentUri: 'file:///a', value: '' }]);
   expect(await readSharedFiles()).toEqual([]);
+});
+
+describe('hasSharedFiles', () => {
+  test('true while a share is waiting', () => {
+    getPending.mockReturnValue([{ shareType: 'file', mimeType: 'application/pdf', value: 'content://a/1' }]);
+    expect(hasSharedFiles()).toBe(true);
+  });
+
+  test('false when nothing is waiting, the API throws, or off Android', () => {
+    getPending.mockReturnValue([]);
+    expect(hasSharedFiles()).toBe(false);
+    getPending.mockImplementation(() => {
+      throw new Error('boom');
+    });
+    expect(hasSharedFiles()).toBe(false);
+    Platform.OS = 'ios';
+    getPending.mockReturnValue([{ shareType: 'file', mimeType: 'application/pdf', value: 'x' }]);
+    expect(hasSharedFiles()).toBe(false);
+  });
 });
 
 test('clearSharedFiles clears payloads', () => {

@@ -5,13 +5,14 @@ import { HeaderBackButton } from 'expo-router/react-navigation';
 import { useLibrary } from '../src/library/LibraryContext';
 import { deleteFiles } from '../src/native/deleteFiles';
 import { readBytes } from '../src/native/readBytes';
-import { clearSharedFiles, readSharedFiles } from '../src/native/sharedPayloads';
+import { clearSharedFiles, hasSharedFiles, readSharedFiles } from '../src/native/sharedPayloads';
 import { getPdfPageCount } from '../src/pdf/mergePdfs';
 import { importIncoming } from '../src/share/importIncoming';
 import { clearPending, hasPendingImages, setPending } from '../src/share/incomingStore';
 import { planIncoming } from '../src/share/plan';
 import { incomingUriParam } from '../src/share/redirect';
 import type { IncomingFile } from '../src/share/types';
+import { useForegroundCheck } from '../src/workflows/useForegroundCheck';
 
 type Confirm = { pdf: IncomingFile; images: IncomingFile[]; bytes: Uint8Array; pageCount: number };
 
@@ -32,6 +33,10 @@ export default function Incoming() {
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [saving, setSaving] = useState(false);
   const started = useRef(false);
+  // True from the start of a receive until its result is shown (or it navigated away).
+  const receiving = useRef(false);
+  const savingRef = useRef(false);
+  savingRef.current = saving;
   const mounted = useRef(true);
   // The single PDF copy waiting for the user's choice; deleted if the screen is left without one.
   const undecided = useRef<string | null>(null);
@@ -51,9 +56,11 @@ export default function Incoming() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const receive = async () => {
+  // fromShare: read the waiting share even if this screen was opened for a file URI.
+  const receive = async (fromShare = false) => {
+    receiving.current = true;
     try {
-      const uri = incomingUriParam(params.uri);
+      const uri = fromShare ? undefined : incomingUriParam(params.uri);
       const sources = uri ? [{ uri }] : await readSharedFiles();
       try {
         clearSharedFiles();
@@ -93,8 +100,22 @@ export default function Incoming() {
       if (!mounted.current) return;
       Alert.alert(NO_FILES);
       router.replace('/');
+    } finally {
+      receiving.current = false;
     }
   };
+
+  // A share that arrives while this screen is open does not remount it (navigating to the open route
+  // is a no-op), so read it here: it replaces the file waiting for a choice.
+  useForegroundCheck(() => {
+    if (receiving.current || savingRef.current || !hasSharedFiles()) return;
+    if (undecided.current) {
+      deleteFiles([undecided.current]);
+      undecided.current = null;
+    }
+    setConfirm(null);
+    receive(true);
+  });
 
   const prepareSinglePdf = async (pdf: IncomingFile, images: IncomingFile[]) => {
     setPending({ pdfs: [], images });

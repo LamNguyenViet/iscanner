@@ -1,8 +1,27 @@
-import { Stack } from 'expo-router';
+import { router, Stack, usePathname } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { LibraryProvider } from '../src/library/LibraryContext';
+import { hasSharedFiles } from '../src/native/sharedPayloads';
+import { useForegroundCheck } from '../src/workflows/useForegroundCheck';
+
+/**
+ * Opens the incoming screen for a share that arrived while the app was running. expo-sharing keeps the
+ * shared intent natively; its JS event is one-shot and is lost if it fires before JS listens, so the
+ * waiting share is checked on startup and on every return to the foreground instead.
+ */
+function useOpenWaitingShare() {
+  const pathname = usePathname();
+  useForegroundCheck(
+    () => {
+      // The incoming screen reads a new share itself.
+      if (pathname !== '/incoming' && hasSharedFiles()) router.navigate('/incoming');
+    },
+    { onMount: true },
+  );
+}
 
 export default function RootLayout() {
+  useOpenWaitingShare();
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <LibraryProvider>

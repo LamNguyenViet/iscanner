@@ -14,14 +14,19 @@ function isShareLink(path: string): boolean {
  * The file URI is encoded twice because expo-router decodes a query param twice before the screen
  * reads it (URLSearchParams in getStateFromPath, then useLocalSearchParams); a single encoding would
  * corrupt URIs that contain percent-escapes (e.g. `…/document/msf%3A12`).
+ *
+ * The expo-sharing link only routes when it launches the app (`initial`). While the app runs it gives
+ * '' (expo-router then ignores the link): that one-shot event is lost if JS is not listening when it
+ * fires, so the root layout's foreground check of the waiting share owns warm shares, and routing here
+ * too would open the screen twice.
  */
-export function redirectIncomingPath(path: string): string {
+export function redirectIncomingPath(path: string, initial = true): string {
   try {
     if (typeof path !== 'string') return path;
     if (FILE_URL.test(path)) {
       return `/incoming?uri=${encodeURIComponent(encodeURIComponent(path))}`;
     }
-    if (isShareLink(path)) return '/incoming';
+    if (isShareLink(path)) return initial ? '/incoming' : '';
     return path;
   } catch {
     return path;

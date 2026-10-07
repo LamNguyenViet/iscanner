@@ -1,4 +1,4 @@
-import { Alert } from 'react-native';
+import { Alert, AppState, type AppStateStatus } from 'react-native';
 import { act, render, screen, fireEvent } from '@testing-library/react-native';
 import Incoming from '../../app/incoming';
 import { LibraryProvider } from '../../src/library/LibraryContext';
@@ -7,7 +7,7 @@ import { createMemoryFs } from '../../src/library/memoryFs';
 import type { LibraryStore } from '../../src/library/types';
 import { deleteFiles } from '../../src/native/deleteFiles';
 import { readBytes } from '../../src/native/readBytes';
-import { clearSharedFiles, readSharedFiles } from '../../src/native/sharedPayloads';
+import { clearSharedFiles, hasSharedFiles, readSharedFiles } from '../../src/native/sharedPayloads';
 import { getPdfPageCount } from '../../src/pdf/mergePdfs';
 import { importIncoming } from '../../src/share/importIncoming';
 import {
@@ -46,6 +46,7 @@ jest.mock('expo-router/react-navigation', () => {
 jest.mock('../../src/native/sharedPayloads', () => ({
   readSharedFiles: jest.fn(),
   clearSharedFiles: jest.fn(),
+  hasSharedFiles: jest.fn(),
 }));
 jest.mock('../../src/share/importIncoming', () => ({ importIncoming: jest.fn() }));
 jest.mock('../../src/native/deleteFiles', () => ({
@@ -56,6 +57,7 @@ jest.mock('../../src/pdf/mergePdfs', () => ({ getPdfPageCount: jest.fn() }));
 
 const mockReadShared = readSharedFiles as jest.Mock;
 const mockClearShared = clearSharedFiles as jest.Mock;
+const mockHasShared = hasSharedFiles as jest.Mock;
 const mockImport = importIncoming as jest.Mock;
 const mockDeleteFiles = deleteFiles as jest.Mock;
 const mockReadBytes = readBytes as jest.Mock;
@@ -90,8 +92,15 @@ async function renderIncoming(): Promise<LibraryStore> {
 }
 
 let alertSpy: jest.SpyInstance;
+let appStateHandler: ((s: AppStateStatus) => void) | undefined;
 beforeEach(() => {
   jest.clearAllMocks();
+  mockHasShared.mockReturnValue(false);
+  appStateHandler = undefined;
+  jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, h) => {
+    appStateHandler = h as (s: AppStateStatus) => void;
+    return { remove: jest.fn() } as unknown as ReturnType<typeof AppState.addEventListener>;
+  });
   clearPending();
   mockParams = {};
   mockOptions = undefined;
@@ -268,5 +277,59 @@ describe('single pdf', () => {
     await renderIncoming();
     await screen.unmount();
     expect(mockDeleteFiles).toHaveBeenCalledWith([pdf.uri]);
+  });
+});
+
+describe('a new share while the screen is open', () => {
+  async function comeToForeground() {
+    await act(async () => appStateHandler!('active'));
+    await flush();
+    await flush();
+  }
+
+  test('replaces the file waiting for a choice', async () => {
+    mockImport.mockResolvedValueOnce({ files: [pdf], skipped: [] });
+    await renderIncoming();
+    expect(screen.getByText('hop-dong.pdf')).toBeTruthy();
+
+    mockHasShared.mockReturnValue(true);
+    mockReadShared.mockResolvedValueOnce([{ uri: 'content://files/2', name: 'b.pdf' }]);
+    mockImport.mockResolvedValueOnce({ files: [pdf2], skipped: [] });
+    await comeToForeground();
+
+    expect(mockDeleteFiles).toHaveBeenCalledWith([pdf.uri]);
+    expect(mockImport).toHaveBeenLastCalledWith([{ uri: 'content://files/2', name: 'b.pdf' }]);
+    expect(screen.getByText('b.pdf')).toBeTruthy();
+    expect(screen.queryByText('hop-dong.pdf')).toBeNull();
+  });
+
+  test('reads the shared files even if the screen was opened from a file URI', async () => {
+    mockParams = { uri: 'content://p/doc%3A1' };
+    mockImport.mockResolvedValueOnce({ files: [pdf], skipped: [] });
+    await renderIncoming();
+    expect(mockReadShared).not.toHaveBeenCalled();
+
+    mockHasShared.mockReturnValue(true);
+    mockImport.mockResolvedValueOnce({ files: [pdf2], skipped: [] });
+    await comeToForeground();
+    expect(mockReadShared).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('b.pdf')).toBeTruthy();
+  });
+
+  test('is left alone while the first share is still importing', async () => {
+    mockImport.mockReturnValueOnce(new Promise(() => {}));
+    await renderIncoming();
+    mockHasShared.mockReturnValue(true);
+    await comeToForeground();
+    expect(mockReadShared).toHaveBeenCalledTimes(1);
+  });
+
+  test('returning to the foreground with nothing shared changes nothing', async () => {
+    mockImport.mockResolvedValueOnce({ files: [pdf], skipped: [] });
+    await renderIncoming();
+    await comeToForeground();
+    expect(mockReadShared).toHaveBeenCalledTimes(1);
+    expect(mockDeleteFiles).not.toHaveBeenCalled();
+    expect(screen.getByText('hop-dong.pdf')).toBeTruthy();
   });
 });

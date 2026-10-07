@@ -26,11 +26,21 @@ describe('redirectIncomingPath', () => {
     expect(incomingUriParam(routerParam(href, 'uri'))).toBe(uri);
   });
 
-  test('expo-sharing share link goes to the incoming screen', () => {
-    expect(redirectIncomingPath('iscanner://expo-sharing')).toBe('/incoming');
-    expect(redirectIncomingPath('iscanner:///expo-sharing')).toBe('/incoming');
-    expect(redirectIncomingPath('/expo-sharing')).toBe('/incoming');
-    expect(redirectIncomingPath('expo-sharing')).toBe('/incoming');
+  test('expo-sharing share link that launches the app goes to the incoming screen', () => {
+    expect(redirectIncomingPath('iscanner://expo-sharing', true)).toBe('/incoming');
+    expect(redirectIncomingPath('iscanner:///expo-sharing', true)).toBe('/incoming');
+    expect(redirectIncomingPath('/expo-sharing', true)).toBe('/incoming');
+    expect(redirectIncomingPath('expo-sharing', true)).toBe('/incoming');
+  });
+
+  test('expo-sharing share link while the app runs is ignored (the foreground check owns it)', () => {
+    expect(redirectIncomingPath('iscanner://expo-sharing', false)).toBe('');
+    expect(redirectIncomingPath('/expo-sharing', false)).toBe('');
+  });
+
+  test('file URLs and other paths behave the same while the app runs', () => {
+    expect(redirectIncomingPath('file:///a/b.pdf', false).startsWith('/incoming?uri=')).toBe(true);
+    expect(redirectIncomingPath('/scan', false)).toBe('/scan');
   });
 
   test('leaves other paths unchanged', () => {
