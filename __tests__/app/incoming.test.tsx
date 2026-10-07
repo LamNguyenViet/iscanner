@@ -20,10 +20,14 @@ import {
 import type { IncomingFile } from '../../src/share/types';
 
 const mockReplace = jest.fn();
+const mockDismissTo = jest.fn();
 let mockParams: { uri?: string } = {};
 let mockOptions: { headerLeft?: (props: object) => React.ReactNode } | undefined;
 jest.mock('expo-router', () => ({
-  router: { replace: (...args: unknown[]) => mockReplace(...args) },
+  router: {
+    replace: (...args: unknown[]) => mockReplace(...args),
+    dismissTo: (...args: unknown[]) => mockDismissTo(...args),
+  },
   useLocalSearchParams: () => mockParams,
   Stack: {
     Screen: ({ options }: { options?: typeof mockOptions }) => {
@@ -79,13 +83,17 @@ async function flush() {
   });
 }
 
+// Unmounts the incoming screen even after another tree (e.g. the header button) was rendered.
+let unmountIncoming: () => unknown = () => {};
+
 async function renderIncoming(): Promise<LibraryStore> {
   const store = createLibraryStore({ fs: createMemoryFs(), newId: () => 'id1' });
-  await render(
+  const view = await render(
     <LibraryProvider store={store}>
       <Incoming />
     </LibraryProvider>,
   );
+  unmountIncoming = view.unmount;
   await flush();
   await flush();
   return store;
@@ -114,7 +122,26 @@ test('none goes home with alert', async () => {
   mockImport.mockResolvedValueOnce({ files: [], skipped: [] });
   await renderIncoming();
   expect(alertSpy).toHaveBeenCalledWith('Không có file PDF hoặc ảnh hợp lệ');
-  expect(mockReplace).toHaveBeenCalledWith('/');
+  expect(mockDismissTo).toHaveBeenCalledWith('/');
+  expect(mockReplace).not.toHaveBeenCalledWith('/');
+});
+
+test('when every file was skipped only the no-files alert is shown', async () => {
+  mockImport.mockResolvedValueOnce({
+    files: [],
+    skipped: [{ name: 'a.docx', reason: 'unsupported' }],
+  });
+  await renderIncoming();
+  expect(alertSpy).toHaveBeenCalledTimes(1);
+  expect(alertSpy).toHaveBeenCalledWith('Không có file PDF hoặc ảnh hợp lệ');
+  expect(mockDismissTo).toHaveBeenCalledWith('/');
+});
+
+test('an import failure alerts and goes back to the library', async () => {
+  mockImport.mockRejectedValueOnce(new Error('boom'));
+  await renderIncoming();
+  expect(alertSpy).toHaveBeenCalledWith('Không có file PDF hoặc ảnh hợp lệ');
+  expect(mockDismissTo).toHaveBeenCalledWith('/');
 });
 
 test('shows a loading message while importing', async () => {
@@ -140,6 +167,7 @@ test('leaving while importing deletes the imported copies and does not navigate'
   });
   expect(mockDeleteFiles).toHaveBeenCalledWith([img.uri]);
   expect(mockReplace).not.toHaveBeenCalled();
+  expect(mockDismissTo).not.toHaveBeenCalled();
 });
 
 test('uri param used instead of shared payloads', async () => {
@@ -240,7 +268,8 @@ describe('single pdf', () => {
     await renderIncoming();
     expect(alertSpy).toHaveBeenCalledWith('Không đọc được file');
     expect(mockDeleteFiles).toHaveBeenCalledWith([pdf.uri]);
-    expect(mockReplace).toHaveBeenCalledWith('/');
+    expect(mockDismissTo).toHaveBeenCalledWith('/');
+    expect(mockReplace).not.toHaveBeenCalledWith('/');
   });
 
   test('corrupt pdf with images goes to scan', async () => {
@@ -259,7 +288,8 @@ describe('single pdf', () => {
     await render(<>{mockOptions!.headerLeft!({})}</>);
     await fireEvent.press(screen.getByText('header-back'));
     expect(mockDeleteFiles).toHaveBeenCalledWith([pdf.uri]);
-    expect(mockReplace).toHaveBeenCalledWith('/');
+    expect(mockDismissTo).toHaveBeenCalledWith('/');
+    expect(mockReplace).not.toHaveBeenCalledWith('/');
   });
 
   test('header back with pending images goes to scan', async () => {
@@ -277,6 +307,34 @@ describe('single pdf', () => {
     await renderIncoming();
     await screen.unmount();
     expect(mockDeleteFiles).toHaveBeenCalledWith([pdf.uri]);
+  });
+
+  test('leaving without a choice also deletes the images waiting for the scan review', async () => {
+    mockImport.mockResolvedValueOnce({ files: [pdf, img], skipped: [] });
+    await renderIncoming();
+    await screen.unmount();
+    expect(mockDeleteFiles).toHaveBeenCalledWith([pdf.uri, img.uri]);
+    expect(hasPendingImages()).toBe(false);
+  });
+
+  test('leaving after a choice keeps the images handed on', async () => {
+    mockImport.mockResolvedValueOnce({ files: [pdf, img], skipped: [] });
+    await renderIncoming();
+    await fireEvent.press(screen.getByText('Gộp với file khác'));
+    await screen.unmount();
+    expect(mockDeleteFiles).not.toHaveBeenCalled();
+    expect(takeImages()).toEqual([img]);
+  });
+
+  test('leaving after cancel keeps the images for the scan review', async () => {
+    mockImport.mockResolvedValueOnce({ files: [pdf, img], skipped: [] });
+    await renderIncoming();
+    await render(<>{mockOptions!.headerLeft!({})}</>);
+    await fireEvent.press(screen.getByText('header-back'));
+    mockDeleteFiles.mockClear();
+    await unmountIncoming();
+    expect(mockDeleteFiles).not.toHaveBeenCalled();
+    expect(takeImages()).toEqual([img]);
   });
 });
 

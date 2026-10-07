@@ -18,9 +18,18 @@ type Confirm = { pdf: IncomingFile; images: IncomingFile[]; bytes: Uint8Array; p
 
 const NO_FILES = 'Không có file PDF hoặc ảnh hợp lệ';
 
+/**
+ * Back to the library. On a warm share the stack is [index, incoming]: pop to it instead of stacking a
+ * second library; on a cold start (incoming is the root) dismissTo replaces the screen.
+ */
+function goHome() {
+  router.dismissTo('/');
+}
+
 /** After the PDF step: the scan review takes the shared images, otherwise back to the library. */
 function continueAfterPdf() {
-  router.replace(hasPendingImages() ? '/scan' : '/');
+  if (hasPendingImages()) router.replace('/scan');
+  else goHome();
 }
 
 function stripPdfExtension(name: string): string {
@@ -44,7 +53,11 @@ export default function Incoming() {
   useEffect(
     () => () => {
       mounted.current = false;
-      if (undecided.current) deleteFiles([undecided.current]);
+      if (undecided.current) {
+        // No choice was made: the images waiting for the scan review go with the PDF.
+        const pending = clearPending();
+        deleteFiles([undecided.current, ...pending.map((f) => f.uri)]);
+      }
     },
     [],
   );
@@ -75,14 +88,15 @@ export default function Incoming() {
         if (files.length > 0) deleteFiles(files.map((f) => f.uri));
         return;
       }
-      if (skipped.length > 0) {
+      const plan = planIncoming(files);
+      // With nothing usable the no-files alert says it all.
+      if (skipped.length > 0 && plan.kind !== 'none') {
         Alert.alert(`Bỏ qua ${skipped.length} file không hỗ trợ hoặc quá lớn`);
       }
-      const plan = planIncoming(files);
       switch (plan.kind) {
         case 'none':
           Alert.alert(NO_FILES);
-          router.replace('/');
+          goHome();
           return;
         case 'merge':
           setPending({ pdfs: plan.pdfs, images: plan.images });
@@ -99,7 +113,7 @@ export default function Incoming() {
     } catch {
       if (!mounted.current) return;
       Alert.alert(NO_FILES);
-      router.replace('/');
+      goHome();
     } finally {
       receiving.current = false;
     }
