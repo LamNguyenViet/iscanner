@@ -25,6 +25,11 @@ export function serializeError(e: unknown, depth = 0): unknown {
   return out;
 }
 
+function skipPayload(s: string, i: number): number {
+  while (i < s.length && PAYLOAD_CHAR.test(s[i])) i++;
+  return i;
+}
+
 // Replaces every `data:<mime>;base64,<payload>` (any case, anywhere). Linear: header scan is bounded.
 function replaceDataUris(s: string): string {
   const lower = s.toLowerCase();
@@ -39,7 +44,18 @@ function replaceDataUris(s: string): string {
     const header = comma === -1 ? '' : lower.slice(headerStart, comma);
     if (comma !== -1 && header.endsWith(';base64')) {
       let end = comma + 1;
-      while (end < s.length && PAYLOAD_CHAR.test(s[end])) end++;
+      end = skipPayload(s, end);
+      // Wrapped payload: keep consuming whole lines (>= 16 payload chars, or a short padded last line).
+      for (;;) {
+        let j = end;
+        while (j < s.length && /\s/.test(s[j])) j++;
+        if (j === end) break;
+        const tokenEnd = skipPayload(s, j);
+        const len = tokenEnd - j;
+        if (len >= 16) { end = tokenEnd; continue; }
+        if (len > 0 && s[tokenEnd - 1] === '=') end = tokenEnd;
+        break;
+      }
       const mime = header.split(';')[0].trim();
       out += s.slice(pos, from) + `[data-uri ${mime || 'unknown'}, ${end - from} chars]`;
       pos = end;

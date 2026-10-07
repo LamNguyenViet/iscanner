@@ -123,5 +123,17 @@ describe('redact', () => {
       const longText = 'the quick brown fox jumps over the lazy dog '.repeat(10);
       expect(redact(longText)).toBe(longText);
     });
+
+    it('redacts line-wrapped data URIs as one marker', () => {
+      const uri = 'data:image/png;base64,' + 'QUJD'.repeat(750);
+      const wrap = (sep: string) => (uri.match(/.{1,76}/g) as string[]).join(sep);
+      for (const sep of ['\n', '\r\n', ' ']) {
+        const w = wrap(sep);
+        expect(redact(w)).toBe(`[data-uri image/png, ${w.length} chars]`);
+        expect(redact(w + ' end of message')).toBe(`[data-uri image/png, ${w.length} chars] end of message`);
+      }
+      const out = redact({ m: wrap('\n') + '\nfollowing text' }) as { m: string };
+      expect(out.m).toMatch(/^\[data-uri image\/png, \d+ chars\]\nfollowing text$/);
+    });
   });
 });
