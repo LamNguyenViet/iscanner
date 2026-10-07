@@ -3,6 +3,7 @@ import Viewer from '../../app/viewer/[id]';
 import { LibraryProvider } from '../../src/library/LibraryContext';
 import { createLibraryStore } from '../../src/library/libraryStore';
 import { createMemoryFs } from '../../src/library/memoryFs';
+import { settleTheme, styleOf, themed } from '../fixtures/theme';
 
 const mockBack = jest.fn();
 let mockParams: { id: string } = { id: 'id1' };
@@ -32,14 +33,23 @@ jest.mock('../../src/native/share', () => ({
   shareDocument: (...args: unknown[]) => mockShare(...args),
 }));
 
-async function renderViewer() {
+let mockColorScheme = 'light';
+jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
+  __esModule: true,
+  default: () => mockColorScheme,
+}));
+
+async function renderViewer(dark = false) {
   const store = createLibraryStore({ fs: createMemoryFs(), newId: () => 'id1' });
   const doc = await store.add(new Uint8Array(10), { name: 'Hoa don', pageCount: 1, source: 'scan' });
-  await render(
+  const ui = (
     <LibraryProvider store={store}>
       <Viewer />
-    </LibraryProvider>,
+    </LibraryProvider>
   );
+  mockColorScheme = dark ? 'dark' : 'light';
+  await render(dark ? themed(ui) : ui);
+  await settleTheme();
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
@@ -98,4 +108,9 @@ test('shows an error when the pdf cannot be opened', async () => {
   const { onError } = mockPdfProps.mock.calls.at(-1)![0];
   await act(async () => onError(new Error('corrupt')));
   expect(screen.getByText('Không mở được tài liệu')).toBeTruthy();
+});
+
+test('dark theme: viewer background', async () => {
+  await renderViewer(true);
+  expect(styleOf(screen.root!).backgroundColor).toBe('#121212');
 });

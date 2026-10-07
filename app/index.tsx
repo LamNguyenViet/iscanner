@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActionSheetIOS,
   Alert,
@@ -18,6 +18,8 @@ import { NameInput } from '../src/components/NameInput';
 import { useLibrary } from '../src/library/LibraryContext';
 import type { DocumentMeta } from '../src/library/types';
 import { shareDocument } from '../src/native/share';
+import type { Palette } from '../src/theme/palette';
+import { useTheme } from '../src/theme/ThemeContext';
 import { sanitizeName } from '../src/utils/format';
 
 const showError = () => Alert.alert('Có lỗi xảy ra');
@@ -28,6 +30,8 @@ export default function Home() {
   const [draft, setDraft] = useState('');
   const [menuDoc, setMenuDoc] = useState<DocumentMeta | null>(null);
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  const themed = useMemo(() => makeStyles(colors), [colors]);
 
   useFocusEffect(
     useCallback(() => {
@@ -87,7 +91,7 @@ export default function Home() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, themed.container]}>
       <FlatList
         data={documents}
         keyExtractor={(d) => d.id}
@@ -100,15 +104,15 @@ export default function Home() {
         )}
         contentContainerStyle={documents.length === 0 ? styles.emptyContainer : undefined}
         ListEmptyComponent={
-          <Text style={styles.empty}>Chưa có tài liệu nào. Hãy scan hoặc gộp PDF để bắt đầu.</Text>
+          <Text style={[styles.empty, themed.empty]}>Chưa có tài liệu nào. Hãy scan hoặc gộp PDF để bắt đầu.</Text>
         }
       />
       <View testID="actions" style={[styles.actions, { paddingBottom: 16 + insets.bottom }]}>
-        <Pressable style={styles.button} onPress={() => router.push('/scan')}>
-          <Text style={styles.buttonText}>Scan tài liệu</Text>
+        <Pressable style={[styles.button, themed.button]} onPress={() => router.push('/scan')}>
+          <Text style={[styles.buttonText, themed.buttonText]}>Scan tài liệu</Text>
         </Pressable>
-        <Pressable style={styles.button} onPress={() => router.push('/merge')}>
-          <Text style={styles.buttonText}>Gộp PDF</Text>
+        <Pressable style={[styles.button, themed.button]} onPress={() => router.push('/merge')}>
+          <Text style={[styles.buttonText, themed.buttonText]}>Gộp PDF</Text>
         </Pressable>
       </View>
       <DocumentActions
@@ -125,15 +129,15 @@ export default function Home() {
         animationType="fade"
         onRequestClose={() => setRenaming(null)}
       >
-        <View style={styles.backdrop}>
-          <View style={styles.dialog}>
+        <View style={[styles.backdrop, themed.backdrop]}>
+          <View style={[styles.dialog, themed.dialog]}>
             <NameInput value={draft} onChangeText={setDraft} autoFocus />
             <View style={styles.dialogActions}>
               <Pressable onPress={() => setRenaming(null)}>
-                <Text style={styles.dialogButton}>Huỷ</Text>
+                <Text style={[styles.dialogButton, themed.dialogButton]}>Huỷ</Text>
               </Pressable>
               <Pressable onPress={saveRename}>
-                <Text style={styles.dialogButton}>Lưu</Text>
+                <Text style={[styles.dialogButton, themed.dialogButton]}>Lưu</Text>
               </Pressable>
             </View>
           </View>
@@ -144,25 +148,34 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1 },
   emptyContainer: { flexGrow: 1, justifyContent: 'center', padding: 24 },
-  empty: { textAlign: 'center', color: '#666', fontSize: 15 },
+  empty: { textAlign: 'center', fontSize: 15 },
   actions: { flexDirection: 'row', gap: 12, padding: 16 },
   button: {
     flex: 1,
-    backgroundColor: '#1f6feb',
     borderRadius: 8,
     paddingVertical: 14,
     alignItems: 'center',
   },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  buttonText: { fontSize: 16, fontWeight: '600' },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     padding: 24,
   },
-  dialog: { backgroundColor: '#fff', borderRadius: 12, padding: 16 },
+  dialog: { borderRadius: 12, padding: 16 },
   dialogActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 24, marginTop: 16 },
-  dialogButton: { fontSize: 16, fontWeight: '600', color: '#1f6feb' },
+  dialogButton: { fontSize: 16, fontWeight: '600' },
 });
+
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    container: { backgroundColor: c.background },
+    empty: { color: c.textMuted },
+    button: { backgroundColor: c.primary },
+    buttonText: { color: c.onPrimary },
+    backdrop: { backgroundColor: c.backdrop },
+    dialog: { backgroundColor: c.surface },
+    dialogButton: { color: c.primary },
+  });

@@ -4,6 +4,7 @@ import Home from '../../app/index';
 import { LibraryProvider } from '../../src/library/LibraryContext';
 import { createLibraryStore } from '../../src/library/libraryStore';
 import { createMemoryFs } from '../../src/library/memoryFs';
+import { settleTheme, styleOf, themed } from '../fixtures/theme';
 
 const mockPush = jest.fn();
 jest.mock('react-native-safe-area-context', () => ({
@@ -17,16 +18,25 @@ jest.mock('expo-router', () => ({
   },
 }));
 
-async function renderHome(withDoc: boolean) {
+let mockColorScheme = 'light';
+jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
+  __esModule: true,
+  default: () => mockColorScheme,
+}));
+
+async function renderHome(withDoc: boolean, dark = false) {
   const store = createLibraryStore({ fs: createMemoryFs(), newId: () => 'id1' });
   if (withDoc) {
     await store.add(new Uint8Array(1536), { name: 'Hoa don', pageCount: 3, source: 'scan' });
   }
-  await render(
+  const ui = (
     <LibraryProvider store={store}>
       <Home />
-    </LibraryProvider>,
+    </LibraryProvider>
   );
+  mockColorScheme = dark ? 'dark' : 'light';
+  await render(dark ? themed(ui) : ui);
+  await settleTheme();
   // let the provider load and the focus refresh settle inside act
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -120,4 +130,23 @@ test('rename dialog focuses the name input', async () => {
   await fireEvent(screen.getByText('Hoa don'), 'longPress');
   await fireEvent.press(screen.getByText('Đổi tên'));
   expect(screen.getByLabelText('Tên tài liệu').props.autoFocus).toBe(true);
+});
+
+test('dark theme: screen and empty state', async () => {
+  await renderHome(false, true);
+  expect(styleOf(screen.root!).backgroundColor).toBe('#121212');
+  expect(styleOf(screen.getByText(/Chưa có tài liệu nào/)).color).toBe('#a0a0a0');
+});
+
+test('dark theme: rename dialog', async () => {
+  jest.replaceProperty(Platform, 'OS', 'android');
+  await renderHome(true, true);
+  await fireEvent(screen.getByText('Hoa don'), 'longPress');
+  await fireEvent.press(screen.getByText('Đổi tên'));
+  const input = screen.getByLabelText('Tên tài liệu');
+  expect(styleOf(input).color).toBe('#e8e8e8');
+  let dialog = input.parent;
+  while (dialog && styleOf(dialog).borderRadius !== 12) dialog = dialog.parent;
+  expect(styleOf(dialog!).backgroundColor).toBe('#1e1e1e');
+  expect(styleOf(screen.getByText('Lưu')).color).toBe('#4c8dff');
 });

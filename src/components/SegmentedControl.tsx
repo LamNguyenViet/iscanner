@@ -1,4 +1,7 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { Palette } from '../theme/palette';
+import { useTheme } from '../theme/ThemeContext';
 
 type SegmentedControlProps<T extends string> = {
   label: string;
@@ -16,10 +19,12 @@ export function SegmentedControl<T extends string>({
   onChange,
   disabled = false,
 }: SegmentedControlProps<T>) {
+  const { colors } = useTheme();
+  const themed = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.row}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={[styles.segments, disabled && styles.disabled]}>
+      <Text style={[styles.label, themed.label]}>{label}</Text>
+      <View style={[styles.segments, themed.segments, disabled && styles.disabled]}>
         {options.map((option) => {
           const selected = option.value === value;
           return (
@@ -29,9 +34,16 @@ export function SegmentedControl<T extends string>({
               accessibilityState={{ selected, disabled }}
               disabled={disabled}
               onPress={() => onChange(option.value)}
-              style={[styles.segment, selected && styles.segmentSelected]}
+              style={[styles.segment, selected && themed.segmentSelected]}
             >
-              <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>
+              <Text
+                style={[
+                  styles.segmentText,
+                  themed.segmentText,
+                  selected && styles.segmentTextSelected,
+                  selected && themed.segmentTextSelected,
+                ]}
+              >
                 {option.label}
               </Text>
             </Pressable>
@@ -44,18 +56,25 @@ export function SegmentedControl<T extends string>({
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12 },
-  label: { width: 72, fontSize: 15, color: '#333' },
+  label: { width: 72, fontSize: 15 },
   segments: {
     flex: 1,
     flexDirection: 'row',
     borderWidth: 1,
-    borderColor: '#1f6feb',
     borderRadius: 8,
     overflow: 'hidden',
   },
   segment: { flex: 1, paddingVertical: 8, alignItems: 'center' },
-  segmentSelected: { backgroundColor: '#1f6feb' },
-  segmentText: { fontSize: 14, color: '#1f6feb' },
-  segmentTextSelected: { color: '#fff', fontWeight: '600' },
+  segmentText: { fontSize: 14 },
+  segmentTextSelected: { fontWeight: '600' },
   disabled: { opacity: 0.4 },
 });
+
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    label: { color: c.textMuted },
+    segments: { borderColor: c.primary },
+    segmentSelected: { backgroundColor: c.primary },
+    segmentText: { color: c.primary },
+    segmentTextSelected: { color: c.onPrimary },
+  });
