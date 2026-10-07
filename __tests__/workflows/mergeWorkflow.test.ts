@@ -1,4 +1,4 @@
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument } from '../../src/pdf/pdfLib';
 import { createMergedDocument, loadPickedPdfs } from '../../src/workflows/mergeWorkflow';
 import type { DocumentMeta } from '../../src/library/types';
 

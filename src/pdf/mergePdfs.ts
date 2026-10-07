@@ -1,4 +1,4 @@
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument } from './pdfLib';
 
 export class PdfLoadError extends Error {
   index: number;

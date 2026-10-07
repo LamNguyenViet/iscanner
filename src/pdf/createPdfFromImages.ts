@@ -1,4 +1,4 @@
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument } from './pdfLib';
 import type { ImageInput } from './images';
 import { computePlacement, type Align, type PageLayout } from './layout';
 

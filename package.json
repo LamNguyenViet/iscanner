@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {
+    "@pdfme/pdf-lib": "^6.2.4",
     "expo": "~57.0.26",
     "expo-constants": "~57.0.20",
     "expo-dev-client": "~57.0.19",
@@ -14,7 +15,6 @@
     "expo-sharing": "~57.0.22",
     "expo-status-bar": "~57.0.1",
     "expo-system-ui": "~57.0.4",
-    "pdf-lib": "^1.17.1",
     "react": "19.2.3",
     "react-dom": "^19.2.3",
     "react-native": "0.86.3",

@@ -1,4 +1,4 @@
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument } from '../../src/pdf/pdfLib';
 import { createScanDocument } from '../../src/workflows/scanWorkflow';
 import { makeJpeg, makePng } from '../fixtures/images';
 import type { DocumentMeta } from '../../src/library/types';

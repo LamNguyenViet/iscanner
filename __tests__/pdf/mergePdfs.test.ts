@@ -1,7 +1,14 @@
-import { EncryptedPDFError, PDFDocument } from 'pdf-lib';
+import { deflateSync } from 'zlib';
+import {
+  decodePDFRawStream,
+  EncryptedPDFError,
+  PDFDocument,
+  PDFRawStream,
+} from '../../src/pdf/pdfLib';
 import { createPdfFromImages } from '../../src/pdf/createPdfFromImages';
 import { getPdfPageCount, mergePdfs, PdfLoadError } from '../../src/pdf/mergePdfs';
 import { makePng } from '../fixtures/images';
+import { makePdfBomb } from '../fixtures/pdfBomb';
 
 const img = (n: number) => ({ bytes: makePng(n, n), mimeType: 'image/png' as const, align: 'center' as const });
 
@@ -47,5 +54,25 @@ describe('mergePdfs', () => {
     const err = await getPdfPageCount(A).catch((e) => e);
     expect(err).toBeInstanceOf(PdfLoadError);
     expect(err.index).toBe(0);
+  });
+});
+
+describe('decompression bomb (untrusted shared PDFs)', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('refuses to inflate a crafted stream past the size cap', async () => {
+    const doc = await PDFDocument.create();
+    const compressed = deflateSync(Buffer.alloc(150 * 1024 * 1024, 0x20), { level: 9 });
+    const stream = PDFRawStream.of(
+      doc.context.obj({ Filter: 'FlateDecode', Length: compressed.length }),
+      new Uint8Array(compressed),
+    );
+    expect(() => decodePDFRawStream(stream).decode()).toThrow(/Decompression bomb/);
+  });
+
+  it('a PDF carrying such a stream still loads without it', async () => {
+    // The library warns about the object it had to skip.
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(await getPdfPageCount(makePdfBomb(150))).toBe(0);
   });
 });

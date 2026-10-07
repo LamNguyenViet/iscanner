@@ -1,4 +1,4 @@
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument } from '../../src/pdf/pdfLib';
 import { detectImageType } from '../../src/pdf/images';
 import { createPdfFromImages } from '../../src/pdf/createPdfFromImages';
 import { makeJpeg, makePng } from '../fixtures/images';

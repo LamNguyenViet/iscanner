@@ -1,4 +1,4 @@
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument } from '../src/pdf/pdfLib';
 test('pdf-lib loads under jest', async () => {
   const doc = await PDFDocument.create();
   doc.addPage();
