@@ -306,3 +306,31 @@ describe('English', () => {
     );
   });
 });
+
+describe('nameless shared PDFs', () => {
+  const nameless = { uri: 'file:///n.pdf', name: '', kind: 'pdf' as const, size: 1 };
+
+  test('English shows Document in the row and in the failed list', async () => {
+    setPending({ pdfs: [nameless, nameless], images: [] });
+    mockLoad.mockResolvedValueOnce({
+      loaded: [{ uri: 'file:///n.pdf', name: '', pageCount: 2 }],
+      failed: ['', 'x.pdf'],
+    });
+    await renderMerge(false, true);
+    expect(screen.getByText('Document')).toBeTruthy();
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Could not read the file',
+      'Document\nx.pdf\nThe file may be corrupted or password-protected.',
+    );
+  });
+
+  test('Vietnamese default shows Tài liệu', async () => {
+    setPending({ pdfs: [nameless], images: [] });
+    mockLoad.mockResolvedValueOnce({
+      loaded: [{ uri: 'file:///n.pdf', name: '', pageCount: 2 }],
+      failed: [],
+    });
+    await renderMerge();
+    expect(screen.getByText('Tài liệu')).toBeTruthy();
+  });
+});

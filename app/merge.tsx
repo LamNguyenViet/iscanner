@@ -92,7 +92,7 @@ export default function Merge() {
       if (result.failed.length > 0) {
         Alert.alert(
           t.merge.readFailedTitle,
-          result.failed.join('\n') + '\n' + t.merge.corruptSuffix,
+          result.failed.map((n) => n || t.common.untitled).join('\n') + '\n' + t.merge.corruptSuffix,
         );
       }
       if (result.loaded.length === 0) backIfEmpty();
@@ -154,7 +154,7 @@ export default function Merge() {
       disabled={isActive}
     >
       <Text style={[styles.fileName, themed.fileName]} numberOfLines={1}>
-        {item.value.name}
+        {item.value.name || t.common.untitled}
       </Text>
       <Text style={[styles.pages, themed.pages]}>{t.format.pages(item.value.pageCount)}</Text>
       <Pressable onPress={() => removeFile(item)}>
