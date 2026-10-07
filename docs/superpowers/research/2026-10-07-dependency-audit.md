@@ -70,3 +70,23 @@ Not recommended now: an Expo SDK 58 major upgrade, `npm audit fix --force`, or `
 - [react-native-pdf #1048 PDFium GNU_RELRO end-alignment](https://github.com/wonday/react-native-pdf/issues/1048)
 - [react-native-pdf releases](https://github.com/wonday/react-native-pdf/releases)
 - [react-native-document-scanner-plugin (ML Kit requires Google Play services)](https://github.com/Preeternal/react-native-document-scanner-plugin)
+
+## Status: patched (2026-10-07, branch `fix/dependency-audit`)
+
+| Finding | Commit | What changed |
+|---|---|---|
+| F1 | `a63c2e3` | `pdf-lib` 1.17.1 is replaced with `@pdfme/pdf-lib` ^6.2.4, which caps decoded streams at 100 MB and throws `DecompressionBombError`, so the bad stream is skipped. All imports go through `src/pdf/pdfLib.ts`. Jest now transforms the fork's ESM dependencies. Regression tests: decoding a crafted 150 MB stream throws, and a PDF that carries one still loads. |
+| F2 | `0a7079e` | `<Pdf>` is wrapped in `memo`, and its source, style and `onError` are stable, so re-rendering the viewer does not reload the document. Covered by a test. Upgrade react-native-pdf when 7.0.6+ ships. |
+| F3 | `3dd58c6` | `redirectIncomingPath` returns `/` for paths longer than `MAX_INCOMING_PATH` (2048). Covered by tests. |
+| F4 | `c009a11` | Expo patch upgrades. `expo-doctor` passes 21/21. |
+
+**Verification:**
+- 375/375 tests pass, typecheck is clean.
+- Release APK on the emulator:
+  - Merging two PDFs shows the right page counts (1 and 2) and the merged document opens in the viewer. This confirms the fork runs under Hermes.
+  - The 0.4 MB bomb PDF (inflates to 400 MB) is picked and merged without a crash. The app stays alive at about 240 MB total PSS.
+- npm audit now reports 0 advisories for PDF parsing. The remaining items are the build-time chains from F5, plus F3's upstream `decode-uri-component`, which is mitigated in app code.
+
+**Still open:**
+- The F6 smoke test on an Android 15 16 KB emulator image.
+- Upgrading react-native-pdf when the #1046 fix is released.
