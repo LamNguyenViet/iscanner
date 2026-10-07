@@ -18,6 +18,7 @@ import { useLibrary } from '../src/library/LibraryContext';
 import { pickPdfs } from '../src/native/pickPdfs';
 import { deleteFiles } from '../src/native/deleteFiles';
 import { readBytes } from '../src/native/readBytes';
+import { hasPendingImages, takePdfs } from '../src/share/incomingStore';
 import { defaultName, sanitizeName } from '../src/utils/format';
 import {
   createMergedDocument,
@@ -53,10 +54,10 @@ export default function Merge() {
     if (count.current === 0) router.back();
   };
 
-  const pick = async () => {
+  const loadFrom = async (getPicked: () => Promise<{ uri: string; name: string }[]>) => {
     try {
       const result = await busy.run(async () => {
-        const picked = await pickPdfs();
+        const picked = await getPicked();
         if (picked.length === 0) return null;
         const loaded = await loadPickedPdfs({ readBytes }, picked);
         const loadedUris = new Set(loaded.loaded.map((f) => f.uri));
@@ -83,10 +84,17 @@ export default function Merge() {
     }
   };
 
+  const pick = () => loadFrom(pickPdfs);
+
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    pick();
+    const pending = takePdfs();
+    if (pending.length > 0) {
+      loadFrom(async () => pending.map((f) => ({ uri: f.uri, name: f.name })));
+    } else {
+      pick();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -109,7 +117,9 @@ export default function Merge() {
     deleteFiles(items.map((i) => i.value.uri));
     // The document already exists; a failed refresh must not look like a failed merge.
     await refresh().catch(() => {});
-    router.replace(`/viewer/${meta.id}`);
+    // Images received together with the PDFs continue into the scan screen.
+    if (hasPendingImages()) router.replace('/scan');
+    else router.replace(`/viewer/${meta.id}`);
   };
 
   const removeFile = (item: Keyed<LoadedPdf>) => {

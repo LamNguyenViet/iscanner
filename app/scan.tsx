@@ -30,6 +30,7 @@ import {
   type PageSize,
 } from '../src/pdf/layout';
 import { scanDocuments } from '../src/scanner/scanner';
+import { takeImages } from '../src/share/incomingStore';
 import { defaultName, sanitizeName } from '../src/utils/format';
 import { useBusy } from '../src/workflows/useBusy';
 import { createScanDocument } from '../src/workflows/scanWorkflow';
@@ -128,10 +129,10 @@ export default function Scan() {
       ],
     );
 
-  const scan = async () => {
+  const scanFrom = async (getUris: () => Promise<string[]>) => {
     try {
       const uris = await busy.run(async () => {
-        const scanned = await scanDocuments();
+        const scanned = await getUris();
         if (scanned.length === 0) return scanned;
         setProcessing(true);
         try {
@@ -160,10 +161,17 @@ export default function Scan() {
     }
   };
 
+  const scan = () => scanFrom(() => scanDocuments());
+
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    scan();
+    const pending = takeImages();
+    if (pending.length > 0) {
+      scanFrom(async () => pending.map((f) => f.uri));
+    } else {
+      scan();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

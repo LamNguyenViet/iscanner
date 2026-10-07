@@ -4,6 +4,7 @@ import Scan from '../../app/scan';
 import { LibraryProvider } from '../../src/library/LibraryContext';
 import { createLibraryStore } from '../../src/library/libraryStore';
 import { createMemoryFs } from '../../src/library/memoryFs';
+import { clearPending, setPending } from '../../src/share/incomingStore';
 import { deleteFiles } from '../../src/native/deleteFiles';
 import { scanDocuments } from '../../src/scanner/scanner';
 import { DEFAULT_LAYOUT } from '../../src/pdf/layout';
@@ -482,5 +483,30 @@ describe('page editor', () => {
     expect(result).toBe('r1');
     expect(mockDeleteFiles).not.toHaveBeenCalled();
     warnSpy.mockRestore();
+  });
+});
+
+describe('received files', () => {
+  const img = (name: string) => ({ uri: 'file:///' + name, name, kind: 'image' as const, size: 1 });
+
+  test('uses pending images instead of camera', async () => {
+    setPending({ pdfs: [], images: [img('a.jpg'), img('b.jpg')] });
+    await renderScan();
+    expect(mockScan).not.toHaveBeenCalled();
+    expect(mockNormalize).toHaveBeenCalledWith('file:///a.jpg');
+    expect(mockNormalize).toHaveBeenCalledWith('file:///b.jpg');
+    expect(screen.getByText('Trang 1')).toBeTruthy();
+    expect(screen.getByText('Trang 2')).toBeTruthy();
+    expect(mockDeleteFiles).toHaveBeenCalledWith(['file:///a.jpg', 'file:///b.jpg']);
+  });
+
+  test('keeps the incoming copy as the page when normalizing fails', async () => {
+    setPending({ pdfs: [], images: [img('a.jpg')] });
+    mockNormalize.mockRejectedValueOnce(new Error('bad'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    await renderScan();
+    warn.mockRestore();
+    expect(screen.getByText('Trang 1')).toBeTruthy();
+    expect(mockDeleteFiles).not.toHaveBeenCalled();
   });
 });

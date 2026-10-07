@@ -5,6 +5,7 @@ import { LibraryProvider } from '../../src/library/LibraryContext';
 import { createLibraryStore } from '../../src/library/libraryStore';
 import { createMemoryFs } from '../../src/library/memoryFs';
 import { deleteFiles } from '../../src/native/deleteFiles';
+import { clearPending, setPending } from '../../src/share/incomingStore';
 import { pickPdfs } from '../../src/native/pickPdfs';
 import { createMergedDocument, loadPickedPdfs } from '../../src/workflows/mergeWorkflow';
 
@@ -166,5 +167,45 @@ describe('layout', () => {
     mockLoad.mockResolvedValueOnce({ loaded: [a, b], failed: [] });
     await renderMerge();
     expect(screen.getByTestId('actions')).toHaveStyle({ paddingBottom: 16 + 34 });
+  });
+});
+
+describe('received files', () => {
+  const inc = (name: string, kind: 'pdf' | 'image') => ({
+    uri: 'file:///' + name,
+    name,
+    kind,
+    size: 1,
+  });
+
+  test('uses pending pdfs instead of picker', async () => {
+    setPending({ pdfs: [inc('a.pdf', 'pdf'), inc('b.pdf', 'pdf')], images: [] });
+    mockLoad.mockResolvedValueOnce({ loaded: [a, b], failed: [] });
+    await renderMerge();
+    expect(mockPick).not.toHaveBeenCalled();
+    expect(mockLoad).toHaveBeenCalledWith(expect.anything(), [
+      { uri: 'file:///a.pdf', name: 'a.pdf' },
+      { uri: 'file:///b.pdf', name: 'b.pdf' },
+    ]);
+    expect(screen.getByText('a.pdf')).toBeTruthy();
+    expect(screen.getByText('b.pdf')).toBeTruthy();
+  });
+
+  test('goes back when all pending pdfs fail to load', async () => {
+    setPending({ pdfs: [inc('x.pdf', 'pdf')], images: [] });
+    mockLoad.mockResolvedValueOnce({ loaded: [], failed: ['x.pdf'] });
+    await renderMerge();
+    expect(mockPick).not.toHaveBeenCalled();
+    expect(mockBack).toHaveBeenCalled();
+  });
+
+  test('merge with pending images continues to scan', async () => {
+    setPending({ pdfs: [inc('a.pdf', 'pdf'), inc('b.pdf', 'pdf')], images: [inc('i.jpg', 'image')] });
+    mockLoad.mockResolvedValueOnce({ loaded: [a, b], failed: [] });
+    mockMerge.mockResolvedValueOnce({ id: 'id1' });
+    await renderMerge();
+    await fireEvent.press(screen.getByText('Gộp PDF'));
+    expect(mockReplace).toHaveBeenCalledWith('/scan');
+    expect(mockReplace).not.toHaveBeenCalledWith('/viewer/id1');
   });
 });
