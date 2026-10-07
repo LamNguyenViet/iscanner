@@ -14,6 +14,7 @@
 - (1.3.0) **Giao diện Sáng / Tối / Theo hệ thống**: nút ⚙︎ trên màn Thư viện. `Theo hệ thống` (mặc định) đổi theo cài đặt của máy ngay cả khi app đang mở; lựa chọn được lưu lại. Màn Chỉnh trang luôn nền tối, ảnh và trang PDF giữ nguyên màu.
 - (1.4.0) **Đa ngôn ngữ Tiếng Việt / English**: mặc định theo ngôn ngữ máy (máy tiếng Việt → Tiếng Việt, còn lại → English); đổi trong ⚙︎ **Cài đặt** (cùng chỗ chọn giao diện) hoặc trong cài đặt ngôn ngữ riêng cho từng app của Android 13+ / iOS. Lựa chọn được lưu lại.
 - (1.5.0) **Thông báo lỗi rõ ràng**: mỗi loại lỗi có lớp riêng (`PdfLoadError`, `PdfEncryptedError`, `FileTooLargeError`…) và popup theo ngôn ngữ đang dùng, nói rõ chuyện gì xảy ra và nên làm gì, kèm `Mã lỗi: …` ở cuối. Nhiều file lỗi cùng lúc → một popup liệt kê từng file và lý do.
+- (1.6.0) **Log hệ thống**: lỗi, cảnh báo và các sự kiện chính được ghi vào file riêng theo ngày (`logs/YYYY-MM-DD.log`, JSON Lines, trong thư mục riêng của app), tự xoá sau 7 ngày, không bao giờ ghi dữ liệu file/ảnh (byte, base64, data URI). ⚙︎ Cài đặt → `Hỗ trợ` → `Gửi log lỗi` để gửi log khi báo lỗi.
 
 ## Lưu ý quan trọng
 
@@ -114,3 +115,6 @@ Giới hạn của Apple ID miễn phí: app hết hạn sau **7 ngày** (cài l
 - [ ] (1.5.0) Gộp 1 PDF có mật khẩu + 1 PDF hỏng + 1 PDF tốt → file tốt vẫn vào danh sách; một popup liệt kê 2 file lỗi kèm lý do.
 - [ ] (1.5.0) Chia sẻ vào iScanner một file không hỗ trợ (.txt/.zip) hoặc > 100 MB → một popup duy nhất nêu tên file và lý do, rồi về Thư viện.
 - [ ] (1.5.0) Từ chối quyền camera rồi bấm Scan → popup `Cần quyền camera` có nút `Mở Cài đặt`; máy không có Google Play → popup `Không thể scan tài liệu` giải thích cần Google Play services.
+- [ ] (1.6.0) Gây một lỗi (ví dụ gộp PDF hỏng) → ⚙︎ Cài đặt → `Gửi log lỗi` → bảng chia sẻ mở với `iScanner-logs-<ngày>.txt`; mở file: có dòng `app.start` và dòng `error` mã `PDF_LOAD` kèm tên file, không có chuỗi base64 dài hay `data:image`.
+- [ ] (1.6.0) Chưa có log (cài mới, chưa mở app lần nào trước đó) → `Gửi log lỗi` báo `Chưa có log nào.`
+- [ ] (1.6.0) Sau 7 ngày, file log cũ tự bị xoá khi mở app (kiểm bằng bản debug: `adb shell run-as com.dlbk.iscanner ls files/logs`).
