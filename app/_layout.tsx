@@ -10,6 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useMemo } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeMenuButton } from '../src/components/ThemeMenuButton';
+import { LocaleProvider } from '../src/i18n/LocaleContext';
 import { LibraryProvider } from '../src/library/LibraryContext';
 import { hasSharedFiles } from '../src/native/sharedPayloads';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeContext';
@@ -70,9 +71,11 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider>
-        <LibraryProvider>
-          <ThemedStack />
-        </LibraryProvider>
+        <LocaleProvider>
+          <LibraryProvider>
+            <ThemedStack />
+          </LibraryProvider>
+        </LocaleProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
   );

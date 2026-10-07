@@ -1,7 +1,9 @@
+import { vi, type Strings } from '../i18n/vi';
+
 /**
- * Format an ISO date string to dd/MM/yyyy HH:mm in local time
+ * Format an ISO date string to dd/MM/yyyy HH:mm (MM/dd/yyyy HH:mm for English) in local time
  */
-export function formatDate(iso: string): string {
+export function formatDate(iso: string, t: Strings = vi): string {
   const date = new Date(iso);
 
   const day = String(date.getDate()).padStart(2, '0');
@@ -10,21 +12,22 @@ export function formatDate(iso: string): string {
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
 
-  return `${day}/${month}/${year} ${hours}:${minutes}`;
+  const datePart = t.format.dateOrder === 'mdy' ? `${month}/${day}/${year}` : `${day}/${month}/${year}`;
+  return `${datePart} ${hours}:${minutes}`;
 }
 
 /**
  * Generate a default name for a scan or merge based on date
  * Format: "Scan 05-10-2026 14.03" or "Gộp 05-10-2026 14.03"
  */
-export function defaultName(kind: 'scan' | 'merge', date: Date): string {
+export function defaultName(kind: 'scan' | 'merge', date: Date, t: Strings = vi): string {
   const day = String(date.getDate()).padStart(2, '0');
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const year = date.getFullYear();
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
 
-  const prefix = kind === 'scan' ? 'Scan' : 'Gộp';
+  const prefix = kind === 'scan' ? t.format.scanPrefix : t.format.mergePrefix;
 
   return `${prefix} ${day}-${month}-${year} ${hours}.${minutes}`;
 }

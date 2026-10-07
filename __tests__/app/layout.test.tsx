@@ -38,6 +38,9 @@ jest.mock('../../src/settings/settings', () => ({
   loadSettings: () => Promise.resolve({ theme: 'system', language: 'system' }),
   saveSettings: () => Promise.resolve(),
 }));
+jest.mock('expo-localization', () => ({
+  useLocales: () => [{ languageCode: 'vi', languageTag: 'vi-VN' }],
+}));
 let mockColorScheme = 'light';
 jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
   __esModule: true,

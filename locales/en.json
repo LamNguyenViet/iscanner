@@ -1,0 +1,5 @@
+{
+  "ios": {
+    "NSCameraUsageDescription": "iScanner needs camera access to scan documents."
+  }
+}

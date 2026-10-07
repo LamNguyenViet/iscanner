@@ -1,0 +1,5 @@
+{
+  "ios": {
+    "NSCameraUsageDescription": "Ứng dụng cần quyền camera để scan tài liệu."
+  }
+}

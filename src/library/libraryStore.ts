@@ -1,4 +1,5 @@
 import { defaultName, sanitizeName } from '../utils/format';
+import { vi } from '../i18n/vi';
 import type { DocumentMeta, FsAdapter, LibraryStore } from './types';
 
 const INDEX_PATH = 'library.json';
@@ -50,7 +51,7 @@ export function createLibraryStore(deps: {
       const path = `${PDF_DIR}/${fileName}`;
       const meta: DocumentMeta = {
         id,
-        name: sanitizeName(input.name, defaultName(input.source, created)),
+        name: sanitizeName(input.name, defaultName(input.source, created, vi)),
         fileName,
         createdAt: created.toISOString(),
         pageCount: input.pageCount,

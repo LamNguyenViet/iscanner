@@ -2,14 +2,18 @@
   "expo": {
     "name": "iScanner",
     "slug": "iscanner",
-    "version": "1.3.0",
+    "version": "1.4.0",
+    "locales": {
+      "vi": "./locales/vi.json",
+      "en": "./locales/en.json"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.dlbk.iscanner",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "infoPlist": {
         "CFBundleDocumentTypes": [
           {
@@ -29,7 +33,8 @@
             "CFBundleTypeRole": "Viewer"
           }
         ],
-        "LSSupportsOpeningDocumentsInPlace": false
+        "LSSupportsOpeningDocumentsInPlace": false,
+        "CFBundleAllowMixedLocalizations": true
       }
     },
     "android": {
@@ -41,7 +46,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.dlbk.iscanner",
-      "versionCode": 3,
+      "versionCode": 4,
       "intentFilters": [
         {
           "action": "VIEW",
@@ -91,6 +96,21 @@
               "application/pdf",
               "image/*",
               "application/octet-stream"
+            ]
+          }
+        }
+      ],
+      [
+        "expo-localization",
+        {
+          "supportedLocales": {
+            "ios": [
+              "vi",
+              "en"
+            ],
+            "android": [
+              "vi",
+              "en"
             ]
           }
         }

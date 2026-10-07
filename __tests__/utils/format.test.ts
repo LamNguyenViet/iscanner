@@ -5,6 +5,8 @@ import {
   sanitizeName,
   shareFileName,
 } from '../../src/utils/format';
+import { en } from '../../src/i18n/en';
+import { vi } from '../../src/i18n/vi';
 
 describe('shareFileName', () => {
   test('keeps Vietnamese names and adds .pdf', () => {
@@ -34,6 +36,12 @@ describe('formatDate', () => {
     const d = new Date(2026, 9, 5, 14, 3); // October 5, 2026, 14:03 local
     expect(formatDate(d.toISOString())).toBe('05/10/2026 14:03');
   });
+
+  test('uses the language date order', () => {
+    expect(formatDate('2026-10-05T14:03:00', en)).toBe('10/05/2026 14:03');
+    expect(formatDate('2026-10-05T14:03:00', vi)).toBe('05/10/2026 14:03');
+    expect(formatDate('2026-10-05T14:03:00')).toBe('05/10/2026 14:03');
+  });
 });
 
 describe('defaultName', () => {
@@ -45,6 +53,12 @@ describe('defaultName', () => {
   test('returns Gộp prefix with formatted date and time', () => {
     const d = new Date(2026, 9, 5, 14, 3);
     expect(defaultName('merge', d)).toBe('Gộp 05-10-2026 14.03');
+  });
+
+  test('uses the language prefix', () => {
+    const d = new Date(2026, 9, 5, 14, 3);
+    expect(defaultName('merge', d, en)).toBe('Merge 05-10-2026 14.03');
+    expect(defaultName('scan', d, en)).toBe('Scan 05-10-2026 14.03');
   });
 });
 
