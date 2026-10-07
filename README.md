@@ -96,3 +96,4 @@ Giới hạn của Apple ID miễn phí: app hết hạn sau **7 ngày** (cài l
 - [ ] (1.2.0) Android: chia sẻ khi iScanner đang tắt hẳn và khi đang mở; chia sẻ file thứ hai khi màn `Nhận file` đang mở → chuyển sang file mới.
 - [ ] (1.2.0) Android: mở một PDF trong app Files → `Mở bằng` → `iScanner`.
 - [ ] (1.2.0) iPhone: mở PDF/ảnh trong Zalo/Files/Mail → nút chia sẻ → `iScanner` (hoặc `Sao chép vào iScanner`) → app mở màn `Nhận file`.
+- [ ] (1.2.0) Android: mở lại iScanner từ Đa nhiệm sau khi đã chia sẻ — không bị nhận lại file cũ.
