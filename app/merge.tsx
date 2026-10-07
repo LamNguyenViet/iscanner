@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -25,6 +25,8 @@ import {
   loadPickedPdfs,
   type LoadedPdf,
 } from '../src/workflows/mergeWorkflow';
+import type { Palette } from '../src/theme/palette';
+import { useTheme } from '../src/theme/ThemeContext';
 import { useBusy } from '../src/workflows/useBusy';
 import { useOrderedList, type Keyed } from '../src/workflows/useOrderedList';
 
@@ -33,6 +35,8 @@ export default function Merge() {
   const { items, append, remove, setOrder } = useOrderedList<LoadedPdf>();
   const busy = useBusy();
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  const themed = useMemo(() => makeStyles(colors), [colors]);
   const headerHeight = useHeaderHeight();
   const [name, setName] = useState(() => defaultName('merge', new Date()));
   const started = useRef(false);
@@ -143,16 +147,16 @@ export default function Merge() {
 
   const renderItem = ({ item, drag, isActive }: RenderItemParams<Keyed<LoadedPdf>>) => (
     <Pressable
-      style={[styles.row, isActive && styles.rowActive]}
+      style={[styles.row, themed.row, isActive && themed.rowActive]}
       onLongPress={drag}
       disabled={isActive}
     >
-      <Text style={styles.fileName} numberOfLines={1}>
+      <Text style={[styles.fileName, themed.fileName]} numberOfLines={1}>
         {item.value.name}
       </Text>
-      <Text style={styles.pages}>{item.value.pageCount} trang</Text>
+      <Text style={[styles.pages, themed.pages]}>{item.value.pageCount} trang</Text>
       <Pressable onPress={() => removeFile(item)}>
-        <Text style={styles.delete}>Xoá</Text>
+        <Text style={[styles.delete, themed.delete]}>Xoá</Text>
       </Pressable>
     </Pressable>
   );
@@ -161,13 +165,13 @@ export default function Merge() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, themed.container]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={headerHeight}
     >
       <View style={styles.header}>
         <NameInput value={name} onChangeText={setName} />
-        {items.length < 2 && <Text style={styles.hint}>Chọn ít nhất 2 file PDF</Text>}
+        {items.length < 2 && <Text style={[styles.hint, themed.hint]}>Chọn ít nhất 2 file PDF</Text>}
       </View>
       <DraggableFlatList
         data={items}
@@ -176,23 +180,23 @@ export default function Merge() {
         renderItem={renderItem}
         containerStyle={styles.list}
       />
-      {busy.busy && <ActivityIndicator style={styles.spinner} />}
+      {busy.busy && <ActivityIndicator style={styles.spinner} color={colors.primary} />}
       <View testID="actions" style={[styles.actions, { paddingBottom: 16 + insets.bottom }]}>
         <Pressable
           role="button"
-          style={[styles.button, busy.busy && styles.disabled]}
+          style={[styles.button, themed.button, busy.busy && styles.disabled]}
           disabled={busy.busy}
           onPress={pick}
         >
-          <Text style={styles.buttonText}>+ Thêm file</Text>
+          <Text style={[styles.buttonText, themed.buttonText]}>+ Thêm file</Text>
         </Pressable>
         <Pressable
           role="button"
-          style={[styles.button, mergeDisabled && styles.disabled]}
+          style={[styles.button, themed.button, mergeDisabled && styles.disabled]}
           disabled={mergeDisabled}
           onPress={merge}
         >
-          <Text style={styles.buttonText}>Gộp PDF</Text>
+          <Text style={[styles.buttonText, themed.buttonText]}>Gộp PDF</Text>
         </Pressable>
       </View>
     </KeyboardAvoidingView>
@@ -200,31 +204,41 @@ export default function Merge() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1 },
   header: { padding: 16, gap: 8 },
-  hint: { color: '#666', fontSize: 14 },
+  hint: { fontSize: 14 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
   },
-  rowActive: { backgroundColor: '#eef4ff' },
   fileName: { flex: 1, fontSize: 16 },
-  pages: { color: '#666', fontSize: 14 },
-  delete: { color: '#d1242f', fontSize: 15, fontWeight: '600', padding: 8 },
+  pages: { fontSize: 14 },
+  delete: { fontSize: 15, fontWeight: '600', padding: 8 },
   list: { flex: 1 },
   spinner: { margin: 8 },
   actions: { flexDirection: 'row', gap: 12, padding: 16 },
   button: {
     flex: 1,
-    backgroundColor: '#1f6feb',
     borderRadius: 8,
     paddingVertical: 14,
     alignItems: 'center',
   },
   disabled: { opacity: 0.5 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  buttonText: { fontSize: 16, fontWeight: '600' },
 });
+
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    container: { backgroundColor: c.background },
+    hint: { color: c.textMuted },
+    row: { backgroundColor: c.surface },
+    rowActive: { backgroundColor: c.surfaceActive },
+    fileName: { color: c.text },
+    pages: { color: c.textMuted },
+    delete: { color: c.danger },
+    button: { backgroundColor: c.primary },
+    buttonText: { color: c.onPrimary },
+  });

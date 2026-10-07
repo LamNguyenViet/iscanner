@@ -10,6 +10,7 @@ import { scanDocuments } from '../../src/scanner/scanner';
 import { DEFAULT_LAYOUT } from '../../src/pdf/layout';
 import { createScanDocument } from '../../src/workflows/scanWorkflow';
 import { normalizePage } from '../../src/imaging/enhance';
+import { settleTheme, styleOf, themed } from '../fixtures/theme';
 
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
@@ -68,16 +69,22 @@ async function flush() {
   });
 }
 
-async function renderScan() {
+let mockColorScheme = 'light';
+jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
+  __esModule: true,
+  default: () => mockColorScheme,
+}));
+
+async function renderScan(dark = false) {
   const store = createLibraryStore({ fs: createMemoryFs(), newId: () => 'id1' });
-  await render(
+  const ui = (
     <LibraryProvider store={store}>
       <Scan />
-    </LibraryProvider>,
+    </LibraryProvider>
   );
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
+  mockColorScheme = dark ? 'dark' : 'light';
+  await render(dark ? themed(ui) : ui);
+  await settleTheme();
   return store;
 }
 
@@ -509,5 +516,33 @@ describe('received files', () => {
     warn.mockRestore();
     expect(screen.getByText('Trang 1')).toBeTruthy();
     expect(mockDeleteFiles).not.toHaveBeenCalled();
+  });
+});
+
+describe('dark theme', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test('screen, page row and actions use the dark palette', async () => {
+    mockScan.mockResolvedValueOnce(['a']);
+    await renderScan(true);
+    expect(styleOf(screen.root!).backgroundColor).toBe('#121212');
+    let row = screen.getByText('Trang 1').parent;
+    while (row && styleOf(row).flexDirection !== 'row') row = row.parent;
+    expect(styleOf(row!).backgroundColor).toBe('#1e1e1e');
+    expect(styleOf(screen.getByText('Trang 1')).color).toBe('#e8e8e8');
+    expect(styleOf(screen.getByTestId('thumb')).backgroundColor).toBe('#2a2a2a');
+    expect(styleOf(screen.getByText('Sửa')).color).toBe('#4c8dff');
+    expect(styleOf(screen.getByText('Xoá')).color).toBe('#ff6b6b');
+  });
+
+  test('the processing overlay keeps its dark scrim and white text', async () => {
+    mockNormalize.mockImplementation(() => new Promise<string>(() => {}));
+    mockScan.mockResolvedValueOnce(['a']);
+    await renderScan(true);
+    const label = screen.getByText('Đang xử lý ảnh…');
+    expect(styleOf(label).color).toBe('#fff');
+    expect(styleOf(label.parent!).backgroundColor).toBe('rgba(0,0,0,0.5)');
   });
 });

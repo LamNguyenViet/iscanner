@@ -18,6 +18,7 @@ import {
   takePdfs,
 } from '../../src/share/incomingStore';
 import type { IncomingFile } from '../../src/share/types';
+import { settleTheme, styleOf, themed } from '../fixtures/theme';
 
 const mockReplace = jest.fn();
 const mockDismissTo = jest.fn();
@@ -86,13 +87,22 @@ async function flush() {
 // Unmounts the incoming screen even after another tree (e.g. the header button) was rendered.
 let unmountIncoming: () => unknown = () => {};
 
-async function renderIncoming(): Promise<LibraryStore> {
+let mockColorScheme = 'light';
+jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
+  __esModule: true,
+  default: () => mockColorScheme,
+}));
+
+async function renderIncoming(dark = false): Promise<LibraryStore> {
   const store = createLibraryStore({ fs: createMemoryFs(), newId: () => 'id1' });
-  const view = await render(
+  const ui = (
     <LibraryProvider store={store}>
       <Incoming />
-    </LibraryProvider>,
+    </LibraryProvider>
   );
+  mockColorScheme = dark ? 'dark' : 'light';
+  const view = await render(dark ? themed(ui) : ui);
+  await settleTheme();
   unmountIncoming = view.unmount;
   await flush();
   await flush();
@@ -389,5 +399,30 @@ describe('a new share while the screen is open', () => {
     expect(mockReadShared).toHaveBeenCalledTimes(1);
     expect(mockDeleteFiles).not.toHaveBeenCalled();
     expect(screen.getByText('hop-dong.pdf')).toBeTruthy();
+  });
+});
+
+describe('dark theme', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test('single-pdf confirm view uses the dark palette', async () => {
+    mockImport.mockResolvedValueOnce({ files: [pdf], skipped: [] });
+    await renderIncoming(true);
+    expect(styleOf(screen.root!).backgroundColor).toBe('#121212');
+    expect(styleOf(screen.getByText('hop-dong.pdf')).color).toBe('#e8e8e8');
+    expect(styleOf(screen.getByText('3 trang')).color).toBe('#a0a0a0');
+    const secondary = screen.getByRole('button', { name: 'Gộp với file khác' });
+    expect(styleOf(secondary)).toMatchObject({ backgroundColor: '#1e1e1e', borderColor: '#4c8dff' });
+    expect(styleOf(screen.getByText('Gộp với file khác')).color).toBe('#4c8dff');
+    expect(styleOf(screen.getByRole('button', { name: 'Lưu vào thư viện' })).backgroundColor).toBe('#4c8dff');
+  });
+
+  test('loading message uses the muted color', async () => {
+    mockImport.mockReturnValueOnce(new Promise(() => {}));
+    await renderIncoming(true);
+    expect(styleOf(screen.getByText('Đang nhận file…')).color).toBe('#a0a0a0');
+    expect(styleOf(screen.root!).backgroundColor).toBe('#121212');
   });
 });

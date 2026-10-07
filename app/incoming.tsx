@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { HeaderBackButton } from 'expo-router/react-navigation';
@@ -12,6 +12,8 @@ import { clearPending, hasPendingImages, setPending } from '../src/share/incomin
 import { planIncoming } from '../src/share/plan';
 import { incomingUriParam } from '../src/share/redirect';
 import type { IncomingFile } from '../src/share/types';
+import type { Palette } from '../src/theme/palette';
+import { useTheme } from '../src/theme/ThemeContext';
 import { useForegroundCheck } from '../src/workflows/useForegroundCheck';
 
 type Confirm = { pdf: IncomingFile; images: IncomingFile[]; bytes: Uint8Array; pageCount: number };
@@ -38,6 +40,8 @@ function stripPdfExtension(name: string): string {
 
 export default function Incoming() {
   const params = useLocalSearchParams<{ uri?: string }>();
+  const { colors } = useTheme();
+  const themed = useMemo(() => makeStyles(colors), [colors]);
   const { store, refresh } = useLibrary();
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [saving, setSaving] = useState(false);
@@ -200,15 +204,15 @@ export default function Incoming() {
 
   if (!confirm) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator />
-        <Text style={styles.status}>Đang nhận file…</Text>
+      <View style={[styles.center, themed.screen]}>
+        <ActivityIndicator color={colors.primary} />
+        <Text style={[styles.status, themed.muted]}>Đang nhận file…</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, themed.screen]}>
       <Stack.Screen
         options={{
           headerBackVisible: false,
@@ -216,28 +220,28 @@ export default function Incoming() {
         }}
       />
       <View style={styles.file}>
-        <Text style={styles.fileName} numberOfLines={2}>
+        <Text style={[styles.fileName, themed.text]} numberOfLines={2}>
           {confirm.pdf.name}
         </Text>
-        <Text style={styles.pages}>{confirm.pageCount} trang</Text>
+        <Text style={[styles.pages, themed.muted]}>{confirm.pageCount} trang</Text>
       </View>
-      {saving && <ActivityIndicator style={styles.spinner} />}
+      {saving && <ActivityIndicator style={styles.spinner} color={colors.primary} />}
       <View style={styles.actions}>
         <Pressable
           role="button"
-          style={[styles.button, saving && styles.disabled]}
+          style={[styles.button, themed.button, saving && styles.disabled]}
           disabled={saving}
           onPress={save}
         >
-          <Text style={styles.buttonText}>Lưu vào thư viện</Text>
+          <Text style={[styles.buttonText, themed.buttonText]}>Lưu vào thư viện</Text>
         </Pressable>
         <Pressable
           role="button"
-          style={[styles.button, styles.secondary, saving && styles.disabled]}
+          style={[styles.button, styles.secondary, themed.secondary, saving && styles.disabled]}
           disabled={saving}
           onPress={mergeWithOthers}
         >
-          <Text style={[styles.buttonText, styles.secondaryText]}>Gộp với file khác</Text>
+          <Text style={[styles.buttonText, themed.secondaryText]}>Gộp với file khác</Text>
         </Pressable>
       </View>
     </View>
@@ -245,28 +249,36 @@ export default function Incoming() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', padding: 16 },
+  container: { flex: 1, padding: 16 },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
-    backgroundColor: '#fff',
   },
-  status: { fontSize: 16, color: '#666' },
+  status: { fontSize: 16 },
   file: { paddingVertical: 24, gap: 8 },
   fileName: { fontSize: 18, fontWeight: '600' },
-  pages: { color: '#666', fontSize: 15 },
+  pages: { fontSize: 15 },
   spinner: { margin: 8 },
   actions: { gap: 12, marginTop: 'auto', paddingBottom: 16 },
   button: {
-    backgroundColor: '#1f6feb',
     borderRadius: 8,
     paddingVertical: 14,
     alignItems: 'center',
   },
-  secondary: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#1f6feb' },
+  secondary: { borderWidth: 1 },
   disabled: { opacity: 0.5 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  secondaryText: { color: '#1f6feb' },
+  buttonText: { fontSize: 16, fontWeight: '600' },
 });
+
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    screen: { backgroundColor: c.background },
+    text: { color: c.text },
+    muted: { color: c.textMuted },
+    button: { backgroundColor: c.primary },
+    buttonText: { color: c.onPrimary },
+    secondary: { backgroundColor: c.surface, borderColor: c.primary },
+    secondaryText: { color: c.primary },
+  });

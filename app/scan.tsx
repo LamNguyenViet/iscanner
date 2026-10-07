@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -31,6 +31,8 @@ import {
 } from '../src/pdf/layout';
 import { scanDocuments } from '../src/scanner/scanner';
 import { takeImages } from '../src/share/incomingStore';
+import type { Palette } from '../src/theme/palette';
+import { useTheme } from '../src/theme/ThemeContext';
 import { defaultName, sanitizeName } from '../src/utils/format';
 import { useBusy } from '../src/workflows/useBusy';
 import { createScanDocument } from '../src/workflows/scanWorkflow';
@@ -80,6 +82,8 @@ export default function Scan() {
   const { items, append, remove, setOrder, update } = useOrderedList<ScanPage>();
   const busy = useBusy();
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  const themed = useMemo(() => makeStyles(colors), [colors]);
   const headerHeight = useHeaderHeight();
   const [name, setName] = useState(() => defaultName('scan', new Date()));
   const [layout, setLayout] = useState<PageLayout>(DEFAULT_LAYOUT);
@@ -228,13 +232,13 @@ export default function Scan() {
 
   const renderItem = ({ item, drag, isActive }: RenderItemParams<Keyed<ScanPage>>) => (
     <Pressable
-      style={[styles.row, isActive && styles.rowActive]}
+      style={[styles.row, themed.row, isActive && themed.rowActive]}
       onLongPress={drag}
       disabled={isActive}
     >
       <View style={styles.pageInfo}>
-        <Text style={styles.pageLabel}>Trang {items.findIndex((i) => i.key === item.key) + 1}</Text>
-        <Text style={styles.alignLabel}>{ALIGN_LABELS[item.value.align]}</Text>
+        <Text style={[styles.pageLabel, themed.pageLabel]}>Trang {items.findIndex((i) => i.key === item.key) + 1}</Text>
+        <Text style={[styles.alignLabel, themed.alignLabel]}>{ALIGN_LABELS[item.value.align]}</Text>
       </View>
       {/* Inner Pressables become the touch responder, so each must start the drag itself. */}
       <Pressable
@@ -244,16 +248,16 @@ export default function Scan() {
       >
         <Image
           source={{ uri: item.value.uri }}
-          style={styles.thumb}
+          style={[styles.thumb, themed.thumb]}
           resizeMethod="resize"
           testID="thumb"
         />
       </Pressable>
       <Pressable onPress={() => setEditingKey(item.key)} onLongPress={drag}>
-        <Text style={styles.edit}>Sửa</Text>
+        <Text style={[styles.edit, themed.edit]}>Sửa</Text>
       </Pressable>
       <Pressable onPress={() => removePage(item)} onLongPress={drag}>
-        <Text style={styles.delete}>Xoá</Text>
+        <Text style={[styles.delete, themed.delete]}>Xoá</Text>
       </Pressable>
     </Pressable>
   );
@@ -264,7 +268,7 @@ export default function Scan() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, themed.container]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={headerHeight}
     >
@@ -291,23 +295,23 @@ export default function Scan() {
         renderItem={renderItem}
         containerStyle={styles.list}
       />
-      {busy.busy && !processing && <ActivityIndicator style={styles.spinner} />}
+      {busy.busy && !processing && <ActivityIndicator style={styles.spinner} color={colors.primary} />}
       <View testID="actions" style={[styles.actions, { paddingBottom: 16 + insets.bottom }]}>
         <Pressable
           accessibilityRole="button"
-          style={[styles.button, busy.busy && styles.disabled]}
+          style={[styles.button, themed.button, busy.busy && styles.disabled]}
           disabled={busy.busy}
           onPress={scan}
         >
-          <Text style={styles.buttonText}>+ Chụp thêm</Text>
+          <Text style={[styles.buttonText, themed.buttonText]}>+ Chụp thêm</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          style={[styles.button, createDisabled && styles.disabled]}
+          style={[styles.button, themed.button, createDisabled && styles.disabled]}
           disabled={createDisabled}
           onPress={create}
         >
-          <Text style={styles.buttonText}>Tạo PDF</Text>
+          <Text style={[styles.buttonText, themed.buttonText]}>Tạo PDF</Text>
         </Pressable>
       </View>
       {processing && (
@@ -332,7 +336,7 @@ export default function Scan() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1 },
   header: { padding: 16 },
   row: {
     flexDirection: 'row',
@@ -340,27 +344,24 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#fff',
   },
-  rowActive: { backgroundColor: '#eef4ff' },
   pageInfo: { flex: 1 },
   pageLabel: { fontSize: 16 },
-  alignLabel: { fontSize: 13, color: '#666', marginTop: 2 },
-  thumb: { width: 64, height: 88, backgroundColor: '#eee' },
-  edit: { color: '#1f6feb', fontSize: 15, fontWeight: '600', padding: 8 },
-  delete: { color: '#d1242f', fontSize: 15, fontWeight: '600', padding: 8 },
+  alignLabel: { fontSize: 13, marginTop: 2 },
+  thumb: { width: 64, height: 88 },
+  edit: { fontSize: 15, fontWeight: '600', padding: 8 },
+  delete: { fontSize: 15, fontWeight: '600', padding: 8 },
   list: { flex: 1 },
   spinner: { margin: 8 },
   actions: { flexDirection: 'row', gap: 12, padding: 16 },
   button: {
     flex: 1,
-    backgroundColor: '#1f6feb',
     borderRadius: 8,
     paddingVertical: 14,
     alignItems: 'center',
   },
   disabled: { opacity: 0.5 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  buttonText: { fontSize: 16, fontWeight: '600' },
   overlay: {
     ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -368,5 +369,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
   },
+  // The processing overlay stays a dark scrim with white text in both themes.
   overlayText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });
+
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    container: { backgroundColor: c.background },
+    row: { backgroundColor: c.surface },
+    rowActive: { backgroundColor: c.surfaceActive },
+    pageLabel: { color: c.text },
+    alignLabel: { color: c.textMuted },
+    thumb: { backgroundColor: c.placeholder },
+    edit: { color: c.primary },
+    delete: { color: c.danger },
+    button: { backgroundColor: c.primary },
+    buttonText: { color: c.onPrimary },
+  });

@@ -9,6 +9,7 @@ import { clearPending, setPending } from '../../src/share/incomingStore';
 import { pickPdfs } from '../../src/native/pickPdfs';
 import { hasPendingImages } from '../../src/share/incomingStore';
 import { createMergedDocument, loadPickedPdfs } from '../../src/workflows/mergeWorkflow';
+import { settleTheme, styleOf, themed } from '../fixtures/theme';
 
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
@@ -55,16 +56,22 @@ const mockDeleteFiles = deleteFiles as jest.Mock;
 const a = { uri: 'file:///a.pdf', name: 'a.pdf', pageCount: 2 };
 const b = { uri: 'file:///b.pdf', name: 'b.pdf', pageCount: 3 };
 
-async function renderMerge() {
+let mockColorScheme = 'light';
+jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
+  __esModule: true,
+  default: () => mockColorScheme,
+}));
+
+async function renderMerge(dark = false) {
   const store = createLibraryStore({ fs: createMemoryFs(), newId: () => 'id1' });
-  await render(
+  const ui = (
     <LibraryProvider store={store}>
       <Merge />
-    </LibraryProvider>,
+    </LibraryProvider>
   );
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
+  mockColorScheme = dark ? 'dark' : 'light';
+  await render(dark ? themed(ui) : ui);
+  await settleTheme();
 }
 
 let alertSpy: jest.SpyInstance;
@@ -243,4 +250,18 @@ describe('received files', () => {
     expect(mockReplace).toHaveBeenCalledWith('/viewer/id1');
     expect(mockReplace).not.toHaveBeenCalledWith('/scan');
   });
+});
+
+test('dark theme: screen, file row and buttons', async () => {
+  mockPick.mockResolvedValueOnce([{ uri: a.uri, name: a.name }]);
+  mockLoad.mockResolvedValueOnce({ loaded: [a, b], failed: [] });
+  await renderMerge(true);
+  expect(styleOf(screen.root!).backgroundColor).toBe('#121212');
+  let row = screen.getByText('a.pdf').parent;
+  while (row && styleOf(row).flexDirection !== 'row') row = row.parent;
+  expect(styleOf(row!).backgroundColor).toBe('#1e1e1e');
+  expect(styleOf(screen.getByText('a.pdf')).color).toBe('#e8e8e8');
+  expect(styleOf(screen.getByText('2 trang')).color).toBe('#a0a0a0');
+  expect(styleOf(screen.getByRole('button', { name: 'Gộp PDF' })).backgroundColor).toBe('#4c8dff');
+  jest.restoreAllMocks();
 });
