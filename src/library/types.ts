@@ -19,6 +19,10 @@ export interface FsAdapter {
   /** No-op if the file is missing. */
   delete(path: string): Promise<void>;
   ensureDir(path: string): Promise<void>;
+  /** File names (not paths) directly inside dir; [] if the directory is missing. */
+  list(dir: string): Promise<string[]>;
+  /** Appends text, creating the parent directory and the file if missing. */
+  append(path: string, text: string): Promise<void>;
   /** Absolute file:// URI. */
   uri(path: string): string;
 }

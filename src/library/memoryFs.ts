@@ -3,9 +3,11 @@ import type { FsAdapter } from './types';
 export function createMemoryFs(): FsAdapter & {
   files: Map<string, string | Uint8Array>;
   failNextWrite(path: string): void;
+  failNextAppend(path: string): void;
 } {
   const files = new Map<string, string | Uint8Array>();
   const failing = new Set<string>();
+  const failingAppend = new Set<string>();
 
   const checkFail = (path: string) => {
     if (failing.delete(path)) {
@@ -17,6 +19,26 @@ export function createMemoryFs(): FsAdapter & {
     files,
     failNextWrite(path) {
       failing.add(path);
+    },
+    failNextAppend(path) {
+      failingAppend.add(path);
+    },
+    async list(dir) {
+      const prefix = dir.endsWith('/') ? dir : `${dir}/`;
+      const names: string[] = [];
+      for (const key of files.keys()) {
+        if (key.startsWith(prefix) && !key.slice(prefix.length).includes('/')) {
+          names.push(key.slice(prefix.length));
+        }
+      }
+      return names;
+    },
+    async append(path, text) {
+      if (failingAppend.delete(path)) {
+        throw new Error(`Simulated append failure: ${path}`);
+      }
+      const prev = files.get(path);
+      files.set(path, (typeof prev === 'string' ? prev : '') + text);
     },
     async readText(path) {
       const value = files.get(path);

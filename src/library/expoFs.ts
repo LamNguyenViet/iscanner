@@ -44,6 +44,16 @@ export const expoFs: FsAdapter = {
   async ensureDir(path) {
     new Directory(Paths.document, path).create({ intermediates: true, idempotent: true });
   },
+  async list(dir) {
+    const d = new Directory(Paths.document, dir);
+    if (!d.exists) return [];
+    return d.list().filter((e) => e instanceof File).map((e) => e.name);
+  },
+  async append(path, text) {
+    const f = file(path);
+    if (!f.exists) f.create({ intermediates: true });
+    f.write(text, { append: true });
+  },
   uri(path) {
     return file(path).uri;
   },
