@@ -14,6 +14,9 @@ export const en: Strings = {
     dark: 'Dark',
     vietnamese: 'Tiếng Việt',
     english: 'English',
+    support: 'Support',
+    sendLogs: 'Send error logs',
+    noLogs: 'No logs yet.',
   },
   library: {
     empty: 'No documents yet. Scan or merge PDFs to get started.',

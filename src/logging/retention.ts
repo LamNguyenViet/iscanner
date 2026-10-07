@@ -1,5 +1,8 @@
 const NAME = /^(\d{4})-(\d{2})-(\d{2})\.log$/;
 
+/** True for a `YYYY-MM-DD.log` file name. */
+export const isLogFileName = (name: string): boolean => NAME.test(name);
+
 /** Log files older than the last `keepDays` local days (today included). Other names and future files are kept. */
 export function expiredLogFiles(names: string[], today: Date, keepDays = 7): string[] {
   const cutoff = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (keepDays - 1));

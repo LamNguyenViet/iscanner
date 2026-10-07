@@ -14,6 +14,9 @@ export const vi = {
     dark: 'Tối',
     vietnamese: 'Tiếng Việt',
     english: 'English',
+    support: 'Hỗ trợ',
+    sendLogs: 'Gửi log lỗi',
+    noLogs: 'Chưa có log nào.',
   },
   library: {
     empty: 'Chưa có tài liệu nào. Hãy scan hoặc gộp PDF để bắt đầu.',
