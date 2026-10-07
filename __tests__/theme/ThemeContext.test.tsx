@@ -1,6 +1,7 @@
 import { Appearance, Pressable, Text } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { createMemoryFs } from '../../src/library/memoryFs';
+import { log } from '../../src/logging/logger';
 import { ThemeProvider, useTheme } from '../../src/theme/ThemeContext';
 import type { ThemePreference } from '../../src/settings/settings';
 
@@ -130,4 +131,19 @@ test('without a provider useTheme returns the light defaults', async () => {
   expect(text('scheme')).toBe('light');
   expect(text('preference')).toBe('system');
   expect(text('background')).toBe('#fff');
+});
+
+test('logs the chosen theme and warns when saving fails', async () => {
+  const fs = createMemoryFs();
+  await render(
+    <ThemeProvider fs={fs}>
+      <Probe next="dark" />
+    </ThemeProvider>,
+  );
+  await settle();
+  fs.failNextWrite('settings.json');
+  await fireEvent.press(screen.getByRole('button'));
+  await settle();
+  expect(log.info).toHaveBeenCalledWith('settings.theme', { value: 'dark' });
+  expect(log.warn).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ cause: expect.anything() }));
 });

@@ -2,6 +2,8 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import RootLayout from '../../app/_layout';
 import { hasSharedFiles } from '../../src/native/sharedPayloads';
+import { installGlobalHandlers } from '../../src/logging/globalHandlers';
+import { log } from '../../src/logging/logger';
 
 const mockNavigate = jest.fn();
 const mockPush = jest.fn();
@@ -55,6 +57,9 @@ jest.mock('../../src/library/LibraryContext', () => ({
 jest.mock('../../src/native/sharedPayloads', () => ({ hasSharedFiles: jest.fn() }));
 const mockHasShared = hasSharedFiles as jest.Mock;
 
+jest.mock('expo-constants', () => ({ __esModule: true, default: { expoConfig: { version: '1.6.0' } } }));
+jest.mock('../../src/logging/globalHandlers', () => ({ installGlobalHandlers: jest.fn(() => jest.fn()) }));
+
 let appStateHandler: ((s: AppStateStatus) => void) | undefined;
 beforeEach(() => {
   jest.clearAllMocks();
@@ -64,9 +69,10 @@ beforeEach(() => {
   mockColorScheme = 'light';
   mockLocales = [{ languageCode: 'vi', languageTag: 'vi-VN' }];
   mockHasShared.mockReturnValue(false);
-  appStateHandler = undefined;
+  const handlers: ((s: AppStateStatus) => void)[] = [];
+  appStateHandler = (s) => handlers.forEach((h) => h(s));
   jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, h) => {
-    appStateHandler = h as (s: AppStateStatus) => void;
+    handlers.push(h as (s: AppStateStatus) => void);
     return { remove: jest.fn() } as unknown as ReturnType<typeof AppState.addEventListener>;
   });
 });
@@ -144,4 +150,23 @@ test('screen titles are Vietnamese on a Vietnamese device', async () => {
   await render(<RootLayout />);
   expect(mockScreens.merge.options.title).toBe('Gộp PDF');
   expect(mockScreens.settings.options.title).toBe('Cài đặt');
+});
+
+test('initializes the log once, records app.start and installs the global handlers', async () => {
+  mockLocales = [{ languageCode: 'en', languageTag: 'en-US' }];
+  await render(<RootLayout />);
+  expect(log.init).toHaveBeenCalledWith({ app: '1.6.0', os: expect.any(String) });
+  expect(log.info).toHaveBeenCalledWith('app.start', { language: 'en', theme: 'system' });
+  expect(installGlobalHandlers).toHaveBeenCalledTimes(1);
+  expect(installGlobalHandlers).toHaveBeenCalledWith(log);
+});
+
+test('flushes the log when the app goes to the background or becomes inactive', async () => {
+  await render(<RootLayout />);
+  await act(async () => appStateHandler!('active'));
+  expect(log.flush).not.toHaveBeenCalled();
+  await act(async () => appStateHandler!('background'));
+  expect(log.flush).toHaveBeenCalledTimes(1);
+  await act(async () => appStateHandler!('inactive'));
+  expect(log.flush).toHaveBeenCalledTimes(2);
 });

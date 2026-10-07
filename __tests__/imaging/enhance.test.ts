@@ -8,6 +8,7 @@ import {
 } from '../../src/imaging/enhance';
 import { fullQuad, type Quad } from '../../src/imaging/geometry';
 import { detectQuad, renderPage } from '../../src/native/opencv';
+import { log } from '../../src/logging/logger';
 
 jest.mock('../../src/native/opencv', () => ({
   detectQuad: jest.fn(),
@@ -131,10 +132,8 @@ function givenRender(input: { width: number; height: number }, output: { width: 
 
 const cacheFiles = () => [...mockFiles.keys()].filter((uri) => uri.startsWith('file:///cache/'));
 
-let logSpy: jest.SpyInstance;
 
 beforeEach(() => {
-  logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
   mockFiles.clear();
   mockImages.clear();
   mockResizes.length = 0;
@@ -144,7 +143,6 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  logSpy.mockRestore();
 });
 
 describe('constants', () => {
@@ -213,13 +211,13 @@ describe('normalizePage', () => {
     expect(second).not.toBe(first);
   });
 
-  it('logs the input and output size in development', async () => {
+  it('logs the input and output size at debug level', async () => {
     givenInput(4000, 3000);
     givenRender({ width: 4000, height: 3000 }, { width: 1920, height: 1440 });
 
     await normalizePage(INPUT);
 
-    expect(logSpy).toHaveBeenCalledWith('[normalizePage]', {
+    expect(log.debug).toHaveBeenCalledWith('[normalizePage]', {
       input: { width: 4000, height: 3000 },
       output: { width: 1920, height: 1440 },
     });
@@ -336,6 +334,7 @@ describe('detectPageQuad', () => {
       detected: false,
     });
     expect([...mockFiles.keys()]).toEqual([INPUT]);
+    expect(log.warn).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ cause: expect.any(Error) }));
   });
 
   it('removes the detection copy', async () => {

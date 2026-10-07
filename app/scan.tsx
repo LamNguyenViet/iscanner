@@ -20,6 +20,7 @@ import { SegmentedControl } from '../src/components/SegmentedControl';
 import { useLocale } from '../src/i18n/LocaleContext';
 import { normalizePage } from '../src/imaging/enhance';
 import { useLibrary } from '../src/library/LibraryContext';
+import { log } from '../src/logging/logger';
 import { deleteFiles } from '../src/native/deleteFiles';
 import { readBytes } from '../src/native/readBytes';
 import {
@@ -54,7 +55,7 @@ async function normalizeAll(uris: string[]): Promise<string[]> {
       pages.push(await normalizePage(uri));
       normalizedRaw.push(uri);
     } catch (e) {
-      console.warn('normalizePage failed; keeping the raw image', e);
+      log.warn('normalizePage failed; keeping the raw image', { cause: e });
       pages.push(uri);
     }
   }
@@ -138,6 +139,7 @@ export default function Scan() {
       });
       if (uris === undefined) return;
       if (uris.length === 0) {
+        log.info('scan.cancelled');
         backIfEmpty();
         return;
       }
@@ -183,6 +185,7 @@ export default function Scan() {
     }
     if (!meta) return;
     created.current = true;
+    log.info('scan.pdfCreated', { pages: items.length, pageSize: layout.pageSize });
     deleteFiles(items.map((i) => i.value.uri));
     // The document already exists; a failed refresh must not look like a failed create.
     await refresh().catch(() => {});
@@ -212,7 +215,7 @@ export default function Scan() {
       deleteFiles([first]);
       return normalized;
     } catch (e) {
-      console.warn('normalizePage failed; keeping the raw image', e);
+      log.warn('normalizePage failed; keeping the raw image', { cause: e });
       return first;
     }
   };

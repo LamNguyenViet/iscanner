@@ -1,3 +1,4 @@
+import { log } from '../../src/logging/logger';
 import { detectQuad, renderPage } from '../../src/native/opencv';
 import type { Quad } from '../../src/imaging/geometry';
 
@@ -176,10 +177,8 @@ jest.mock('react-native-fast-opencv', () => {
   };
 });
 
-let logSpy: jest.SpyInstance;
 
 beforeEach(() => {
-  logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
   mockContours.edges3 = [];
   mockContours.edges5 = [];
   mockContours.otsu = [];
@@ -193,7 +192,6 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  logSpy.mockRestore();
 });
 
 describe('renderPage', () => {
@@ -376,10 +374,10 @@ describe('detectQuad', () => {
     expect(mockRetrievalModes).toEqual([1]);
   });
 
-  it('logs a detection summary in development', () => {
+  it('logs a detection summary at debug level', () => {
     mockContours.edges3.push(page);
     detectQuad('small-base64', 800, 600);
-    expect(logSpy).toHaveBeenCalledWith(
+    expect(log.debug).toHaveBeenCalledWith(
       '[detectQuad]',
       expect.objectContaining({ imageArea: 480000, chosenArea: expect.any(Number) }),
     );

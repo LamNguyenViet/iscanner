@@ -16,6 +16,7 @@ import { NameInput } from '../src/components/NameInput';
 import { useErrorAlert } from '../src/errors/useErrorAlert';
 import { useLocale } from '../src/i18n/LocaleContext';
 import { useLibrary } from '../src/library/LibraryContext';
+import { log } from '../src/logging/logger';
 import { pickPdfs } from '../src/native/pickPdfs';
 import { deleteFiles } from '../src/native/deleteFiles';
 import { readBytes } from '../src/native/readBytes';
@@ -130,6 +131,7 @@ export default function Merge() {
     }
     if (!meta) return;
     merged.current = true;
+    log.info('merge.created', { files: items.length, pages: items.reduce((n, i) => n + i.value.pageCount, 0) });
     deleteFiles(items.map((i) => i.value.uri));
     // The document already exists; a failed refresh must not look like a failed merge.
     await refresh().catch(() => {});

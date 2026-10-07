@@ -5,6 +5,7 @@ import { HeaderBackButton } from 'expo-router/react-navigation';
 import { useErrorAlert } from '../src/errors/useErrorAlert';
 import { useLocale } from '../src/i18n/LocaleContext';
 import { useLibrary } from '../src/library/LibraryContext';
+import { log } from '../src/logging/logger';
 import { deleteFiles } from '../src/native/deleteFiles';
 import { FileReadError, toAppError, type AppError } from '../src/errors/AppError';
 import { readBytes } from '../src/native/readBytes';
@@ -97,6 +98,11 @@ export default function Incoming() {
         if (files.length > 0) deleteFiles(files.map((f) => f.uri));
         return;
       }
+      log.info('share.received', {
+        pdf: files.filter((f) => f.kind === 'pdf').length,
+        image: files.filter((f) => f.kind === 'image').length,
+        rejected: skipped.length,
+      });
       const plan = planIncoming(files);
       // Rejected files are listed once, whether or not anything usable remains. On the single-PDF path they
       // wait for the PDF's own result so a failure there joins them in the same popup.
@@ -180,6 +186,7 @@ export default function Incoming() {
       return;
     }
     undecided.current = null;
+    log.info('incoming.saved');
     deleteFiles([confirm.pdf.uri]);
     // The document already exists; a failed refresh must not look like a failed save.
     await refresh().catch(() => {});

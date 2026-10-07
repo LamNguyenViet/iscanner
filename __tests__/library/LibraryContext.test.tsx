@@ -3,6 +3,7 @@ import { act, render, screen, fireEvent } from '@testing-library/react-native';
 import { LibraryProvider, useLibrary } from '../../src/library/LibraryContext';
 import { createLibraryStore } from '../../src/library/libraryStore';
 import { createMemoryFs } from '../../src/library/memoryFs';
+import { log } from '../../src/logging/logger';
 
 function Consumer() {
   const { documents, loading, rename, remove } = useLibrary();
@@ -71,6 +72,7 @@ describe('LibraryContext', () => {
         await new Promise((resolve) => setTimeout(resolve, 10));
       });
       expect(screen.getByTestId('loading').props.children).toBe('no');
+      expect(log.warn).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ cause: expect.any(Error) }));
       expect(unhandled).not.toHaveBeenCalled();
     } finally {
       process.off('unhandledRejection', unhandled);

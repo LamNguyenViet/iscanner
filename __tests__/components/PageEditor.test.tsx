@@ -6,6 +6,7 @@ import { createMemoryFs } from '../../src/library/memoryFs';
 import { PageEditor, type ScanPage } from '../../src/components/PageEditor';
 import { applyEdit, detectPageQuad } from '../../src/imaging/enhance';
 import { fullQuad, orderQuad, type Quad } from '../../src/imaging/geometry';
+import { log } from '../../src/logging/logger';
 import { deleteFiles } from '../../src/native/deleteFiles';
 import type { PageLayout } from '../../src/pdf/layout';
 
@@ -201,21 +202,18 @@ test('cancelled retake keeps the current image', async () => {
 });
 
 test('a failed retake alerts and keeps the current image', async () => {
-  const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
   const error = new Error('scanner crashed');
   onRetake.mockRejectedValueOnce(error);
   await renderEditor();
   await press('Chụp lại');
   expectImageError();
-  expect(warnSpy).toHaveBeenCalledWith('retake failed', error);
+  expect(log.error).toHaveBeenCalledWith('IMAGE_PROCESS', expect.any(String), expect.objectContaining({ cause: error }));
   expect(mockDetect).toHaveBeenCalledTimes(1);
   await press('Xong');
   expect(onDone).toHaveBeenCalledWith({ uri: 'p1', align: 'center' });
-  warnSpy.mockRestore();
 });
 
 test('a retake rejecting with CameraPermissionError keeps its own popup', async () => {
-  jest.spyOn(console, 'warn').mockImplementation(() => {});
   onRetake.mockRejectedValueOnce(new CameraPermissionError());
   await renderEditor();
   await press('Chụp lại');

@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { log } from '../logging/logger';
 import { expoFs } from './expoFs';
 import { createLibraryStore } from './libraryStore';
 import type { DocumentMeta, LibraryStore } from './types';
@@ -34,7 +35,12 @@ export function LibraryProvider({
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    setDocuments(await store.list());
+    try {
+      setDocuments(await store.list());
+    } catch (e) {
+      log.warn('library refresh failed', { cause: e });
+      throw e;
+    }
   }, [store]);
 
   useEffect(() => {
@@ -44,8 +50,9 @@ export function LibraryProvider({
       .then((docs) => {
         if (active) setDocuments(docs);
       })
-      .catch(() => {
+      .catch((e) => {
         // keep the empty list; screens can retry with refresh()
+        log.warn('library list failed on load', { cause: e });
       })
       .finally(() => {
         if (active) setLoading(false);

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Appearance, useColorScheme } from 'react-native';
 import type { FsAdapter } from '../library/types';
+import { log } from '../logging/logger';
 import { lightPalette, paletteFor, type Palette } from './palette';
 import { loadSettings, saveSettings, toNativeScheme, type ThemePreference } from '../settings/settings';
 
@@ -44,7 +45,8 @@ export function ThemeProvider({ children, fs }: { children: ReactNode; fs?: FsAd
       setPreferenceState(p);
       Appearance.setColorScheme(toNativeScheme(p));
       // A failed save keeps the choice for this session only.
-      saveSettings({ theme: p }, fs).catch(() => {});
+      log.info('settings.theme', { value: p });
+      saveSettings({ theme: p }, fs).catch((e) => log.warn('saveSettings (theme) failed', { cause: e }));
     },
     [fs],
   );

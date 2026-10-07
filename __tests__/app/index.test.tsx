@@ -51,9 +51,12 @@ async function renderHome(withDoc: boolean, dark = false, english = false) {
   return store;
 }
 
+const mockLog = jest.requireMock('../../src/logging/logger').log;
+
 let alertSpy: jest.SpyInstance;
 beforeEach(() => {
   mockPush.mockClear();
+  mockLog.info.mockClear();
   alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 });
 afterEach(() => {
@@ -257,5 +260,30 @@ describe('errors', () => {
       'Đã có lỗi không mong muốn, vui lòng thử lại.\n\nMã lỗi: UNKNOWN',
       undefined,
     );
+  });
+});
+
+describe('events', () => {
+  beforeEach(() => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+  });
+
+  test('rename, delete and share are logged', async () => {
+    (shareDocument as jest.Mock).mockResolvedValueOnce(undefined);
+    await renderHome(true);
+    await fireEvent(screen.getByText('Hoa don'), 'longPress');
+    await fireEvent.press(screen.getByText('Chia sẻ'));
+    expect(mockLog.info).toHaveBeenCalledWith('document.shared');
+    await fireEvent(screen.getByText('Hoa don'), 'longPress');
+    await fireEvent.press(screen.getByText('Đổi tên'));
+    await fireEvent.press(screen.getByText('Lưu'));
+    expect(mockLog.info).toHaveBeenCalledWith('document.renamed');
+    await fireEvent(screen.getByText('Hoa don'), 'longPress');
+    await fireEvent.press(screen.getByText('Xoá'));
+    const buttons = alertSpy.mock.calls[0][2];
+    await act(async () => {
+      buttons.find((b: any) => b.style === 'destructive').onPress();
+    });
+    expect(mockLog.info).toHaveBeenCalledWith('document.deleted');
   });
 });

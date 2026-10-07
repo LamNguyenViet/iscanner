@@ -1,4 +1,5 @@
 import { Directory, File, Paths } from 'expo-file-system';
+import { log } from '../logging/logger';
 import { classifyIncoming } from './classify';
 import { displayNameFromUri } from './displayName';
 import { isIosInboxFile } from './inbox';
@@ -21,7 +22,8 @@ function extensionFor(bytes: Uint8Array, kind: 'pdf' | 'image'): string {
 function discard(file: File | undefined): void {
   try {
     file?.delete();
-  } catch {
+  } catch (e) {
+    log.warn('could not delete an imported or partial file', { cause: e });
     // already gone — ignore
   }
 }

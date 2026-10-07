@@ -1,3 +1,4 @@
+import { log } from '../logging/logger';
 import { expoFs } from '../library/expoFs';
 import type { FsAdapter } from '../library/types';
 
@@ -31,7 +32,8 @@ export function parseSettings(json: string | null): Settings {
 export async function loadSettings(fs: FsAdapter = expoFs): Promise<Settings> {
   try {
     return parseSettings(await fs.readText(SETTINGS_PATH));
-  } catch {
+  } catch (e) {
+    log.warn('loadSettings failed; using defaults', { cause: e });
     return parseSettings(null);
   }
 }

@@ -1,5 +1,6 @@
 import { FileReadError, FileTooLargeError, UnsupportedFileError } from '../../src/errors/AppError';
 import { importIncoming, MAX_INCOMING_BYTES } from '../../src/share/importIncoming';
+import { log } from '../../src/logging/logger';
 
 const mockStore = new Map<string, Uint8Array>();
 const mockSizes = new Map<string, number>();
@@ -126,6 +127,7 @@ describe('iOS Documents/Inbox sources', () => {
     const { files, skipped } = await importIncoming([{ uri: INBOX }]);
     expect(files).toHaveLength(1);
     expect(skipped).toEqual([]);
+    expect(log.warn).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ cause: expect.anything() }));
   });
 
   test('other file and content sources are never deleted', async () => {

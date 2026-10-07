@@ -132,7 +132,6 @@ export function PageEditor({
       uri = await onRetake();
     } catch (e) {
       // A cancelled scan resolves null; a throw is a real failure the user should hear about.
-      if (__DEV__) console.warn('retake failed', e);
       showError(e instanceof AppError ? e : new ImageProcessError({ cause: e }));
       uri = null;
     } finally {

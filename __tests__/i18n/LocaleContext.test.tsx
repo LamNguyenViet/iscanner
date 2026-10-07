@@ -2,6 +2,7 @@ import { Text } from 'react-native';
 import { act, render, screen } from '@testing-library/react-native';
 import { LocaleProvider, useLocale } from '../../src/i18n/LocaleContext';
 import { createMemoryFs } from '../../src/library/memoryFs';
+import { log } from '../../src/logging/logger';
 import { SETTINGS_PATH } from '../../src/settings/settings';
 
 let mockLocales: { languageCode: string | null; languageTag: string }[] = [];
@@ -90,4 +91,15 @@ test('children render only after the settings load settles', async () => {
 test('no provider', async () => {
   await render(<Probe />);
   expect(out()).toBe('Cài đặt|vi|system');
+});
+
+test('logs the chosen language and warns when saving fails', async () => {
+  const fs = createMemoryFs();
+  await render(<LocaleProvider fs={fs}><Probe /></LocaleProvider>);
+  await settle();
+  fs.failNextWrite('settings.json');
+  await act(async () => setPref('vi'));
+  await settle();
+  expect(log.info).toHaveBeenCalledWith('settings.language', { value: 'vi' });
+  expect(log.warn).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ cause: expect.anything() }));
 });

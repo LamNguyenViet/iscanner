@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import * as Sharing from 'expo-sharing';
+import { log } from '../../src/logging/logger';
 import { clearSharedFiles, hasSharedFiles, readSharedFiles } from '../../src/native/sharedPayloads';
 
 jest.mock('expo-sharing', () => ({
@@ -44,6 +45,7 @@ describe('readSharedFiles', () => {
       throw new Error('boom');
     });
     expect(await readSharedFiles()).toEqual([]);
+    expect(log.warn).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ cause: expect.any(Error) }));
     Platform.OS = 'ios';
     getPending.mockReturnValue([{ shareType: 'file', value: 'content://a/1' }]);
     expect(await readSharedFiles()).toEqual([]);

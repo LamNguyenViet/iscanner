@@ -54,6 +54,7 @@ const mockPick = pickPdfs as jest.Mock;
 const mockLoad = loadPickedPdfs as jest.Mock;
 const mockMerge = createMergedDocument as jest.Mock;
 const mockDeleteFiles = deleteFiles as jest.Mock;
+const mockLog = jest.requireMock('../../src/logging/logger').log;
 
 const a = { uri: 'file:///a.pdf', name: 'a.pdf', pageCount: 2 };
 const b = { uri: 'file:///b.pdf', name: 'b.pdf', pageCount: 3 };
@@ -167,6 +168,7 @@ test('merges and opens viewer', async () => {
   await fireEvent.press(screen.getByText('Gộp PDF'));
   expect(mockMerge).toHaveBeenCalledWith(expect.anything(), [a, b], expect.any(String));
   expect(mockReplace).toHaveBeenCalledWith('/viewer/id1');
+  expect(mockLog.info).toHaveBeenCalledWith('merge.created', { files: 2, pages: 5 });
 });
 
 test('file list is flex-constrained so the action row stays on screen', async () => {

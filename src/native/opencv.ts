@@ -13,6 +13,7 @@ import {
   ThresholdTypes,
   type Mat,
 } from 'react-native-fast-opencv';
+import { log } from '../logging/logger';
 import {
   fitLongEdge,
   PAGE_MIN_AREA_RATIO,
@@ -130,15 +131,13 @@ export function detectQuad(base64Jpeg: string, width: number, height: number): Q
       best = tryPass('otsu', closedBinary);
     }
 
-    if (__DEV__) {
-      console.log('[detectQuad]', {
-        passes,
-        candidates,
-        chosenArea: best ? Math.round(best.area) : null,
-        imageArea: width * height,
-        quad: best?.quad ?? null,
-      });
-    }
+    log.debug('[detectQuad]', {
+      passes,
+      candidates,
+      chosenArea: best ? Math.round(best.area) : null,
+      imageArea: width * height,
+      quad: best?.quad ?? null,
+    });
     return best ? best.quad : null;
   } finally {
     pool.releaseAll();

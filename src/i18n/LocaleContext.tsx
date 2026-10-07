@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocales } from 'expo-localization';
 import type { FsAdapter } from '../library/types';
+import { log } from '../logging/logger';
 import { loadSettings, saveSettings, type LanguagePreference } from '../settings/settings';
 import { resolveLanguage, stringsFor, type Language } from './language';
 import { vi, type Strings } from './vi';
@@ -43,7 +44,8 @@ export function LocaleProvider({ children, fs }: { children: ReactNode; fs?: FsA
     (p: LanguagePreference) => {
       setPreferenceState(p);
       // A failed save keeps the choice for this session only.
-      saveSettings({ language: p }, fs).catch(() => {});
+      log.info('settings.language', { value: p });
+      saveSettings({ language: p }, fs).catch((e) => log.warn('saveSettings (language) failed', { cause: e }));
     },
     [fs],
   );

@@ -19,6 +19,7 @@ import { NameInput } from '../src/components/NameInput';
 import { useLocale } from '../src/i18n/LocaleContext';
 import { useLibrary } from '../src/library/LibraryContext';
 import type { DocumentMeta } from '../src/library/types';
+import { log } from '../src/logging/logger';
 import { shareDocument } from '../src/native/share';
 import type { Palette } from '../src/theme/palette';
 import { useTheme } from '../src/theme/ThemeContext';
@@ -46,7 +47,10 @@ export default function Home() {
       {
         text: t.documentMenu.delete,
         style: 'destructive',
-        onPress: () => remove(doc.id).catch(showError),
+        onPress: () =>
+          remove(doc.id)
+            .then(() => log.info('document.deleted'))
+            .catch(showError),
       },
       { text: t.common.cancel, style: 'cancel' },
     ]);
@@ -56,7 +60,10 @@ export default function Home() {
     setRenaming(doc);
   };
 
-  const share = (doc: DocumentMeta) => shareDocument(store.fileUri(doc), doc.name).catch(showError);
+  const share = (doc: DocumentMeta) =>
+    shareDocument(store.fileUri(doc), doc.name)
+      .then(() => log.info('document.shared'))
+      .catch(showError);
 
   // Android's Alert keeps only 3 buttons (dropping Cancel), so Android gets a custom menu.
   const openMenu = (doc: DocumentMeta) => {
@@ -89,7 +96,9 @@ export default function Home() {
     const doc = renaming;
     if (!doc) return;
     setRenaming(null);
-    rename(doc.id, sanitizeName(draft, doc.name)).catch(showError);
+    rename(doc.id, sanitizeName(draft, doc.name))
+      .then(() => log.info('document.renamed'))
+      .catch(showError);
   };
 
   return (

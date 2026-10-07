@@ -7,11 +7,14 @@ import {
   usePathname,
 } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useMemo } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import Constants from 'expo-constants';
+import { useEffect, useMemo } from 'react';
+import { AppState, Platform, Pressable, StyleSheet, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { LocaleProvider, useLocale } from '../src/i18n/LocaleContext';
 import { LibraryProvider } from '../src/library/LibraryContext';
+import { installGlobalHandlers } from '../src/logging/globalHandlers';
+import { log } from '../src/logging/logger';
 import { hasSharedFiles } from '../src/native/sharedPayloads';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeContext';
 import { useForegroundCheck } from '../src/workflows/useForegroundCheck';
@@ -30,6 +33,30 @@ function useOpenWaitingShare() {
     },
     { onMount: true },
   );
+}
+
+/**
+ * Starts the system log once the saved language and theme are known: file header, `app.start`,
+ * crash handlers, and a flush whenever the app leaves the foreground.
+ */
+function useAppLogging() {
+  const { language } = useLocale();
+  const { preference: theme } = useTheme();
+  useEffect(() => {
+    void log
+      .init({ app: Constants.expoConfig?.version ?? 'unknown', os: `${Platform.OS} ${Platform.Version}` })
+      .then(() => log.info('app.start', { language, theme }));
+    const uninstall = installGlobalHandlers(log);
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background' || state === 'inactive') void log.flush();
+    });
+    return () => {
+      uninstall();
+      sub.remove();
+    };
+    // Once per launch: later language/theme changes are logged by their own settings events.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 }
 
 /** Header button that opens the settings screen. */
@@ -55,6 +82,7 @@ const styles = StyleSheet.create({
 /** Navigation headers and the status bar follow the app theme. */
 function ThemedStack() {
   // Only here: the navigator is mounted in this commit, so router.navigate is safe.
+  useAppLogging();
   useOpenWaitingShare();
   const { colors, scheme } = useTheme();
   const { t } = useLocale();

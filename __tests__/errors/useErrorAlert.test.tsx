@@ -4,6 +4,7 @@ import { PdfEncryptedError, PdfLoadError } from '../../src/errors/AppError';
 import { useErrorAlert } from '../../src/errors/useErrorAlert';
 import { LocaleProvider } from '../../src/i18n/LocaleContext';
 import { createMemoryFs } from '../../src/library/memoryFs';
+import { log } from '../../src/logging/logger';
 
 let mockLocales: { languageCode: string | null; languageTag: string }[] = [];
 jest.mock('expo-localization', () => ({ useLocales: () => mockLocales }));
@@ -16,10 +17,22 @@ function Probe() {
 const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); });
 let spy: jest.SpyInstance;
 beforeEach(() => {
+  jest.clearAllMocks();
   mockLocales = [{ languageCode: 'en', languageTag: 'en-US' }];
   spy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 });
 afterEach(() => spy.mockRestore());
+
+test('logs one error per error shown', async () => {
+  await render(<Probe />);
+  const e = new PdfLoadError({ fileName: 'x.pdf' });
+  show(e);
+  expect(log.error).toHaveBeenCalledTimes(1);
+  expect(log.error).toHaveBeenCalledWith('PDF_LOAD', e.message, expect.objectContaining({ file: 'x.pdf' }));
+  (log.error as jest.Mock).mockClear();
+  show([new PdfLoadError({ fileName: 'a.pdf' }), new PdfEncryptedError({ fileName: 'b.pdf' })]);
+  expect(log.error).toHaveBeenCalledTimes(2);
+});
 
 test('vi without a provider', async () => {
   await render(<Probe />);

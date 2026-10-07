@@ -1,5 +1,6 @@
 import { File, Paths } from 'expo-file-system';
 import { ImageManipulator, SaveFormat, type ImageRef } from 'expo-image-manipulator';
+import { log } from '../logging/logger';
 import { detectQuad, renderPage, type ImageSize, type Rotation } from '../native/opencv';
 import {
   clampQuad,
@@ -64,9 +65,7 @@ async function render(
 /** Sharpens the whole image and normalizes it (long edge ≤ 1920, JPEG 0.95). Input is kept. */
 export async function normalizePage(uri: string): Promise<string> {
   const result = await render(uri, { quad: null, rotation: 0 });
-  if (__DEV__) {
-    console.log('[normalizePage]', { input: result.input, output: result.output });
-  }
+  log.debug('[normalizePage]', { input: result.input, output: result.output });
   return result.uri;
 }
 
@@ -96,7 +95,8 @@ export async function detectPageQuad(
     // A degenerate detection (coinciding corners, concave, sliver) is no detection at all.
     if (!isQuadUsable(quad, size.width, size.height)) return fallback;
     return { quad, size, detected: true };
-  } catch {
+  } catch (e) {
+    log.warn('detectPageQuad failed; using the full image', { cause: e });
     return fallback;
   }
 }

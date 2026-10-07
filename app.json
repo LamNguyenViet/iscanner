@@ -2,7 +2,7 @@
   "expo": {
     "name": "iScanner",
     "slug": "iscanner",
-    "version": "1.5.0",
+    "version": "1.6.0",
     "locales": {
       "vi": "./locales/vi.json",
       "en": "./locales/en.json"
@@ -13,7 +13,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.dlbk.iscanner",
-      "buildNumber": "5",
+      "buildNumber": "6",
       "infoPlist": {
         "CFBundleDocumentTypes": [
           {
@@ -46,7 +46,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.dlbk.iscanner",
-      "versionCode": 5,
+      "versionCode": 6,
       "intentFilters": [
         {
           "action": "VIEW",

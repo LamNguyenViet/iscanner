@@ -75,6 +75,7 @@ const mockImport = importIncoming as jest.Mock;
 const mockDeleteFiles = deleteFiles as jest.Mock;
 const mockReadBytes = readBytes as jest.Mock;
 const mockPageCount = getPdfPageCount as jest.Mock;
+const mockLog = jest.requireMock('../../src/logging/logger').log;
 
 const file = (name: string, kind: 'pdf' | 'image'): IncomingFile => ({
   uri: `file:///cache/incoming/${name}`,
@@ -244,6 +245,15 @@ test('some rejected and some usable shows the list popup then continues', async 
   expect(mockReplace).toHaveBeenCalledWith('/scan');
 });
 
+test('logs share.received with the counts', async () => {
+  mockImport.mockResolvedValueOnce({
+    files: [pdf],
+    skipped: [new UnsupportedFileError({ fileName: 'a.docx' })],
+  });
+  await renderIncoming();
+  expect(mockLog.info).toHaveBeenCalledWith('share.received', { pdf: 1, image: 0, rejected: 1 });
+});
+
 test('images go to scan', async () => {
   mockImport.mockResolvedValueOnce({ files: [img], skipped: [] });
   await renderIncoming();
@@ -293,6 +303,7 @@ describe('single pdf', () => {
     );
     expect(mockDeleteFiles).toHaveBeenCalledWith([pdf.uri]);
     expect(mockReplace).toHaveBeenCalledWith('/viewer/id1');
+    expect(mockLog.info).toHaveBeenCalledWith('incoming.saved');
   });
 
   test('single pdf save with pending images goes to scan', async () => {

@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import * as Sharing from 'expo-sharing';
+import { log } from '../logging/logger';
 import { displayNameFromUri } from '../share/displayName';
 
 const FILE_URI = /^(content|file):\/\//i;
@@ -22,7 +23,8 @@ export async function readSharedFiles(): Promise<{ uri: string; name?: string }[
       }
     }
     return out;
-  } catch {
+  } catch (e) {
+    log.warn('readSharedFiles failed', { cause: e });
     return [];
   }
 }
@@ -35,7 +37,8 @@ export function hasSharedFiles(): boolean {
   if (Platform.OS !== 'android') return false;
   try {
     return Sharing.getSharedPayloads().length > 0;
-  } catch {
+  } catch (e) {
+    log.warn('hasSharedFiles failed', { cause: e });
     return false;
   }
 }

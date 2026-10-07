@@ -62,6 +62,7 @@ const mockScan = scanDocuments as jest.Mock;
 const mockCreate = createScanDocument as jest.Mock;
 const mockDeleteFiles = deleteFiles as jest.Mock;
 const mockNormalize = normalizePage as jest.Mock;
+const mockLog = jest.requireMock('../../src/logging/logger').log;
 
 // Lets pending promises settle and the list's deferred render timer fire inside act.
 async function flush() {
@@ -109,6 +110,12 @@ test('goes back when first scan is cancelled', async () => {
   expect(mockBack).toHaveBeenCalled();
 });
 
+test('logs scan.cancelled when the first scan returns nothing', async () => {
+  mockScan.mockResolvedValueOnce([]);
+  await renderScan();
+  expect(mockLog.info).toHaveBeenCalledWith('scan.cancelled');
+});
+
 test('keeps pages when re-scan is cancelled', async () => {
   mockScan.mockResolvedValueOnce(['a', 'b']).mockResolvedValueOnce([]);
   await renderScan();
@@ -136,6 +143,7 @@ test('creates pdf and opens viewer', async () => {
     DEFAULT_LAYOUT,
   );
   expect(mockReplace).toHaveBeenCalledWith('/viewer/id1');
+  expect(mockLog.info).toHaveBeenCalledWith('scan.pdfCreated', { pages: 2, pageSize: DEFAULT_LAYOUT.pageSize });
 });
 
 test('alerts on failure', async () => {
@@ -343,7 +351,6 @@ describe('normalization', () => {
   });
 
   test('keeps raw page when normalize fails', async () => {
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     mockNormalize.mockImplementation((uri: string) =>
       uri === 'b' ? Promise.reject(new Error('bad')) : Promise.resolve(uri + '-n'),
     );
@@ -356,7 +363,7 @@ describe('normalization', () => {
     expect(mockDeleteFiles.mock.calls.some((c) => c[0].includes('b'))).toBe(false);
     await fireEvent.press(screen.getByText('Tạo PDF'));
     expect(mockCreate.mock.calls[0][1].map((p: any) => p.uri)).toEqual(['a-n', 'b']);
-    warnSpy.mockRestore();
+    expect(mockLog.warn).toHaveBeenCalledWith(expect.any(String), { cause: expect.any(Error) });
   });
 });
 
@@ -531,7 +538,6 @@ describe('page editor', () => {
   });
 
   test('retake keeps the raw image when normalize fails', async () => {
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     mockScan.mockResolvedValueOnce(['a']);
     await renderScan();
     await fireEvent.press(screen.getByText('Sửa'));
@@ -544,7 +550,7 @@ describe('page editor', () => {
     });
     expect(result).toBe('r1');
     expect(mockDeleteFiles).not.toHaveBeenCalled();
-    warnSpy.mockRestore();
+    expect(mockLog.warn).toHaveBeenCalledWith(expect.any(String), { cause: expect.any(Error) });
   });
 });
 
