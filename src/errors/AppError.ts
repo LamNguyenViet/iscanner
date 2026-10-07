@@ -17,6 +17,14 @@ export class AppError extends Error {
   }
 }
 
+/** The same error (same class and cause) with a file name, unless it already has one. */
+export function withFileName(err: AppError, fileName: string): AppError {
+  if (err.fileName) return err;
+  const Ctor = err.constructor as new (opts?: { index?: number; fileName?: string; cause?: unknown }) => AppError;
+  const index = (err as { index?: number }).index;
+  return new Ctor({ index, fileName, cause: err.cause });
+}
+
 export class PdfLoadError extends AppError {
   readonly index?: number;
 

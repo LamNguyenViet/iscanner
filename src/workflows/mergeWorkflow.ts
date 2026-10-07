@@ -1,4 +1,4 @@
-import { FileReadError, toAppError, type AppError } from '../errors/AppError';
+import { AppError, FileReadError, PdfLoadError, withFileName } from '../errors/AppError';
 import { getPdfPageCount, mergePdfs } from '../pdf/mergePdfs';
 import type { DocumentMeta, LibraryStore } from '../library/types';
 import type { ReadBytes } from './scanWorkflow';
@@ -24,7 +24,7 @@ export async function loadPickedPdfs(
       const pageCount = await getPdfPageCount(bytes, file.name);
       loaded.push({ uri: file.uri, name: file.name, pageCount });
     } catch (e) {
-      failed.push(toAppError(e));
+      failed.push(e instanceof AppError ? withFileName(e, file.name) : new PdfLoadError({ fileName: file.name, cause: e }));
     }
   }
   return { loaded, failed };

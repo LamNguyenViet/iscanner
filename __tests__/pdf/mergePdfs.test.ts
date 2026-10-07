@@ -70,6 +70,29 @@ describe('mergePdfs', () => {
   });
 });
 
+describe('lazy load failures (Hermes)', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('a page count that throws after a successful load is PDF_LOAD with the file name', async () => {
+    jest.spyOn(PDFDocument, 'load').mockResolvedValueOnce({
+      getPageCount: () => {
+        throw new TypeError("Cannot read property 'Pages' of undefined");
+      },
+    } as unknown as PDFDocument);
+    const err = await getPdfPageCount(new Uint8Array([1]), 'x.pdf').catch((e) => e);
+    expect(err).toBeInstanceOf(PdfLoadError);
+    expect(err.fileName).toBe('x.pdf');
+  });
+
+  it('copyPages failures become PdfLoadError with the source index', async () => {
+    const A = await createPdfFromImages([img(10)]);
+    jest.spyOn(PDFDocument.prototype, 'copyPages').mockRejectedValueOnce(new TypeError('boom'));
+    const err = await mergePdfs([A]).catch((e) => e);
+    expect(err).toBeInstanceOf(PdfLoadError);
+    expect(err.index).toBe(0);
+  });
+});
+
 describe('decompression bomb (untrusted shared PDFs)', () => {
   afterEach(() => jest.restoreAllMocks());
 
