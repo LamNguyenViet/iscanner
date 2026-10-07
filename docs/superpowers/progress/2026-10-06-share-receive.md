@@ -100,3 +100,9 @@
   - no file named by the sender is written to the cache;
   - cancel → library with no back arrow.
 - Tests: jest **323/323**, typecheck clean. expo-doctor reports 5 packages one patch behind upstream; this branch did not cause it.
+- **Open issue fixed with the user's approval** (`0331f76`): `isIosInboxFile` now accepts only files sitting directly in `Documents/Inbox` and rejects `.`/`..` segments and backslashes. Re-review tried 15+ attack variants and none got through.
+- **Status: done.** Merged into `master` and pushed to GitHub `main`. Remaining:
+  - Test with the real Zalo app (MIME type and file name).
+  - Test "Open in" on a real iPhone.
+  - Optional native module to read `DISPLAY_NAME` for nicer file names (R8).
+  - Optional age-gated sweep of `cache/incoming` at startup.
