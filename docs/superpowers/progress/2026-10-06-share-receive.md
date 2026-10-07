@@ -21,8 +21,8 @@
 |---|---|---|---|---|
 | 1 | Classify / plan / pending store | ✅ | `b586789` | review clean |
 | 2 | Import to cache + payload wrapper | ✅ | `26cf873` | review clean |
-| 3 | app.json + native-intent + incoming screen | ⏳ | | |
-| 4 | Merge/scan consume pending files | ⬜ | | |
+| 3 | app.json + native-intent + incoming screen | ✅ | `2e13bed` | review clean |
+| 4 | Merge/scan consume pending files | ⏳ | | |
 | 5 | Device verification + docs | ⬜ | | |
 
 ## Task details
@@ -42,3 +42,18 @@
 - `src/native/sharedPayloads.ts`: `readSharedFiles()` (Android only, file/image payloads, name from `originalName`) and `clearSharedFiles()`.
 - Reading `content://` with `expo-file-system` is supported; confirmed in `FileSystemPath.kt` and `ContentProviderFile.kt`.
 - Tests: 253/253.
+
+### Task 3 (✅ `2e13bed`)
+- `app.json` contains the `expo-sharing` plugin (Android SEND/SEND_MULTIPLE for pdf, image/*, octet-stream; iOS off), a VIEW `content` intent filter, and the iOS `CFBundleDocumentTypes` entries (PDF/Image, Alternate) with `LSSupportsOpeningDocumentsInPlace: false`. `expo config --type introspect` is OK and expo-doctor passes 21/21.
+- `app/+native-intent.ts` redirects through `src/share/redirect.ts`:
+  - `file://` and `content://` go to `/incoming?uri=…` (**double-encoded**: ruling R3, confirmed that expo-router decodes twice).
+  - `iscanner://expo-sharing` goes to `/incoming`.
+  - Every other path is left unchanged.
+- `app/incoming.tsx` (`Nhận file`):
+  - Imports the files, alerts about skipped ones, then routes to none / single-pdf (Lưu vào thư viện / Gộp với file khác) / merge / scan.
+  - Copies are deleted on every exit path.
+- Deferred minors for the final review:
+  - **A second share that arrives while `/incoming` is on top is ignored.**
+  - **Pending images are orphaned on an unexpected unmount.**
+  - Two alerts appear back to back.
+- Tests: 280/280.
