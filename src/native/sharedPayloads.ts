@@ -2,16 +2,23 @@ import { Platform } from 'react-native';
 import * as Sharing from 'expo-sharing';
 import { displayNameFromUri } from '../share/displayName';
 
-/** Files other apps shared into iScanner (Android only). Never throws. */
+const FILE_URI = /^(content|file):\/\//i;
+
+/**
+ * Files other apps shared into iScanner (Android only): the sender's original URIs, which
+ * `importIncoming` copies under generated names. Never throws.
+ *
+ * Deliberately not `getResolvedSharedPayloadsAsync`: it copies every shared file to
+ * `cacheDir/<sender-supplied DISPLAY_NAME>`, so a crafted name like `../files/x` could overwrite
+ * iScanner's private files. The name here is for display only and is derived from the URI.
+ */
 export async function readSharedFiles(): Promise<{ uri: string; name?: string }[]> {
   if (Platform.OS !== 'android') return [];
   try {
-    const payloads = await Sharing.getResolvedSharedPayloadsAsync();
     const out: { uri: string; name?: string }[] = [];
-    for (const p of payloads) {
-      if ((p.contentType === 'file' || p.contentType === 'image') && p.contentUri) {
-        const name = p.originalName || (p.value ? displayNameFromUri(p.value) : undefined);
-        out.push({ uri: p.contentUri, name });
+    for (const p of Sharing.getSharedPayloads()) {
+      if ((p.shareType === 'file' || p.shareType === 'image') && FILE_URI.test(p.value ?? '')) {
+        out.push({ uri: p.value, name: displayNameFromUri(p.value) });
       }
     }
     return out;

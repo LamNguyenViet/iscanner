@@ -7,35 +7,47 @@ jest.mock('expo-sharing', () => ({
   getSharedPayloads: jest.fn(),
   clearSharedPayloads: jest.fn(),
 }));
-const getPayloads = Sharing.getResolvedSharedPayloadsAsync as jest.Mock;
+const getResolved = Sharing.getResolvedSharedPayloadsAsync as jest.Mock;
 const getPending = Sharing.getSharedPayloads as jest.Mock;
 
 beforeEach(() => {
   Platform.OS = 'android';
-  getPayloads.mockReset();
+  getResolved.mockReset();
   getPending.mockReset();
 });
 
-test('maps file and image payloads, ignores text and url', async () => {
-  getPayloads.mockResolvedValue([
-    { contentType: 'file', contentUri: 'content://a/1', originalName: 'a.pdf', value: 'content://a/1' },
-    { contentType: 'image', contentUri: 'content://a/2', originalName: null, value: 'content://a/x%20y.jpg' },
-    { contentType: 'text', contentUri: null, value: 'hello' },
-    { contentType: 'website', contentUri: 'https://x.y', value: 'https://x.y' },
-    { contentType: 'file', contentUri: null, value: '' },
-  ]);
-  expect(await readSharedFiles()).toEqual([
-    { uri: 'content://a/1', name: 'a.pdf' },
-    { uri: 'content://a/2', name: 'x y.jpg' },
-  ]);
-});
+describe('readSharedFiles', () => {
+  test('returns the original file and image URIs, ignoring text, url, video and non-file values', async () => {
+    getPending.mockReturnValue([
+      { shareType: 'file', mimeType: 'application/pdf', value: 'content://a/doc%3Ahop-dong.pdf' },
+      { shareType: 'image', mimeType: 'image/jpeg', value: 'content://a/x%20y.jpg' },
+      { shareType: 'text', mimeType: 'text/plain', value: 'hello' },
+      { shareType: 'url', mimeType: 'text/plain', value: 'https://x.y' },
+      { shareType: 'video', mimeType: 'video/mp4', value: 'content://a/v.mp4' },
+      { shareType: 'file', mimeType: 'application/pdf', value: '' },
+      { shareType: 'file', mimeType: 'application/pdf', value: 'https://evil/x.pdf' },
+    ]);
+    expect(await readSharedFiles()).toEqual([
+      { uri: 'content://a/doc%3Ahop-dong.pdf', name: 'hop-dong.pdf' },
+      { uri: 'content://a/x%20y.jpg', name: 'x y.jpg' },
+    ]);
+  });
 
-test('returns [] when the API rejects or off Android', async () => {
-  getPayloads.mockRejectedValue(new Error('boom'));
-  expect(await readSharedFiles()).toEqual([]);
-  Platform.OS = 'ios';
-  getPayloads.mockResolvedValue([{ contentType: 'file', contentUri: 'file:///a', value: '' }]);
-  expect(await readSharedFiles()).toEqual([]);
+  test('never uses the resolving API (it copies files to cache under a sender-chosen name)', async () => {
+    getPending.mockReturnValue([{ shareType: 'file', value: 'content://a/1' }]);
+    await readSharedFiles();
+    expect(getResolved).not.toHaveBeenCalled();
+  });
+
+  test('returns [] when the API throws or off Android', async () => {
+    getPending.mockImplementation(() => {
+      throw new Error('boom');
+    });
+    expect(await readSharedFiles()).toEqual([]);
+    Platform.OS = 'ios';
+    getPending.mockReturnValue([{ shareType: 'file', value: 'content://a/1' }]);
+    expect(await readSharedFiles()).toEqual([]);
+  });
 });
 
 describe('hasSharedFiles', () => {

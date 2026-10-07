@@ -11,7 +11,7 @@ iScanner appears as a target when the user shares or "opens with" PDFs/images fr
 | Topic | Decision |
 |---|---|
 | Scope | **Android**: share sheet (`SEND`, `SEND_MULTIPLE`) + "Open with" (`VIEW`). **iOS**: "Open in / Copy to iScanner" via document types. **No iOS Share Extension.** |
-| Mechanism | Existing `expo-sharing` 57.0.22 config plugin + `getResolvedSharedPayloadsAsync` (experimental) for Android shares; expo-router `app/+native-intent.ts` for file URLs (Android `VIEW`, iOS open-in). No new dependency. |
+| Mechanism | Existing `expo-sharing` 57.0.22 config plugin + `getSharedPayloads` (experimental, no native copy) for Android shares; expo-router `app/+native-intent.ts` for file URLs (Android `VIEW`, iOS open-in). No new dependency. |
 | Handling | **1 PDF** → confirm screen: `Lưu vào thư viện` / `Gộp với file khác`. **≥ 2 PDFs** → merge screen pre-filled. **Images only** → scan review pre-filled (Full HD normalized). **Mixed** → do both: PDF step first (rules above), then the scan review opens with the images. |
 
 Out of scope: iOS Share Extension, sharing text/URLs/videos, Office documents (doc/docx/xlsx), sharing into an existing document.
@@ -56,7 +56,7 @@ planIncoming(files: IncomingFile[]): IncomingPlan  // pure
 In-memory, take-once: `setPending({ pdfs, images })`, `takePdfs(): IncomingFile[]`, `takeImages(): IncomingFile[]`, `hasPendingImages(): boolean`, `clearPending(): IncomingFile[]` (returns what was dropped so callers can delete files).
 
 ### 3.3 `src/native/sharedPayloads.ts`
-Thin wrapper (mocked in tests): `readSharedFiles(): Promise<{ uri: string; name?: string }[]>` → `getResolvedSharedPayloadsAsync()` filtered to `contentType` `file`/`image` with a `contentUri`; `clearSharedFiles()` → `clearSharedPayloads()`. Android only (returns `[]` elsewhere).
+Thin wrapper (mocked in tests): `readSharedFiles(): Promise<{ uri: string; name?: string }[]>` → `getSharedPayloads()` filtered to `shareType` `file`/`image` whose `value` is a `content://` or `file://` URI; the original URI is the import source and the name is derived from it (display only). Not `getResolvedSharedPayloadsAsync`: it copies each file to `cacheDir/<sender DISPLAY_NAME>` (path traversal). `clearSharedFiles()` → `clearSharedPayloads()`. Android only (returns `[]` elsewhere).
 
 ### 3.4 `app/+native-intent.ts`
 expo-router `redirectSystemPath({ path, initial })`: if `path` starts with `file://` or `content://` → `/incoming?uri=<encodeURIComponent(path)>`; if it is the expo-sharing share entry (check what expo-sharing/Android delivers on `SEND` — if the app launches with no path or a known marker, route to `/incoming`), keep other paths unchanged. Must never throw (return the original path on error).
