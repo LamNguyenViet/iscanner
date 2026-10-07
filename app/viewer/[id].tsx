@@ -64,7 +64,7 @@ export default function Viewer() {
           <Text style={[styles.text, themed.text]}>Không mở được tài liệu</Text>
         </View>
       ) : (
-        <Pdf source={{ uri }} style={styles.pdf} onError={() => setPdfError(true)} />
+        <Pdf source={{ uri }} style={[styles.pdf, themed.screen]} onError={() => setPdfError(true)} />
       )}
     </View>
   );

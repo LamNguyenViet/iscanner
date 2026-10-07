@@ -114,3 +114,9 @@ test('dark theme: viewer background', async () => {
   await renderViewer(true);
   expect(styleOf(screen.root!).backgroundColor).toBe('#121212');
 });
+
+test('dark theme: the PDF view background around the pages is dark', async () => {
+  await renderViewer(true);
+  const props = mockPdfProps.mock.calls.at(-1)![0] as { style: unknown };
+  expect(styleOf({ props }).backgroundColor).toBe('#121212');
+});
