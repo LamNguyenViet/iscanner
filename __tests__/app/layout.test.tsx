@@ -12,8 +12,32 @@ jest.mock('expo-router', () => {
     Stack,
     router: { navigate: (...args: unknown[]) => mockNavigate(...args) },
     usePathname: () => mockPathname,
+    ThemeProvider: ({ value, children }: { value: unknown; children: React.ReactNode }) => {
+      mockNavTheme = value;
+      return children;
+    },
+    DefaultTheme: { dark: false, colors: { notification: 'n' } },
+    DarkTheme: { dark: true, colors: { notification: 'n' } },
   };
 });
+let mockNavTheme: unknown;
+const mockStatusBar = jest.fn();
+jest.mock('expo-status-bar', () => ({
+  StatusBar: (props: unknown) => {
+    mockStatusBar(props);
+    return null;
+  },
+}));
+jest.mock('../../src/theme/preference', () => ({
+  ...jest.requireActual('../../src/theme/preference'),
+  loadPreference: () => Promise.resolve('system'),
+  savePreference: () => Promise.resolve(),
+}));
+let mockColorScheme = 'light';
+jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
+  __esModule: true,
+  default: () => mockColorScheme,
+}));
 jest.mock('../../src/library/LibraryContext', () => ({
   LibraryProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
@@ -24,6 +48,7 @@ let appStateHandler: ((s: AppStateStatus) => void) | undefined;
 beforeEach(() => {
   jest.clearAllMocks();
   mockPathname = '/';
+  mockColorScheme = 'light';
   mockHasShared.mockReturnValue(false);
   appStateHandler = undefined;
   jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, h) => {
@@ -58,4 +83,18 @@ test('leaves it to the incoming screen when that screen is already open', async 
   await render(<RootLayout />);
   await act(async () => appStateHandler!('active'));
   expect(mockNavigate).not.toHaveBeenCalled();
+});
+
+test('the status bar follows the theme', async () => {
+  await render(<RootLayout />);
+  expect(mockStatusBar).toHaveBeenCalledWith(expect.objectContaining({ style: 'auto' }));
+});
+
+test('navigation headers use the dark palette in dark mode', async () => {
+  mockColorScheme = 'dark';
+  await render(<RootLayout />);
+  expect(mockNavTheme).toMatchObject({
+    dark: true,
+    colors: { background: '#121212', card: '#1e1e1e', text: '#e8e8e8', primary: '#4c8dff', border: '#333', notification: 'n' },
+  });
 });

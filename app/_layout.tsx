@@ -1,7 +1,17 @@
-import { router, Stack, usePathname } from 'expo-router';
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider as NavigationThemeProvider,
+  router,
+  Stack,
+  usePathname,
+} from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useMemo } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { LibraryProvider } from '../src/library/LibraryContext';
 import { hasSharedFiles } from '../src/native/sharedPayloads';
+import { ThemeProvider, useTheme } from '../src/theme/ThemeContext';
 import { useForegroundCheck } from '../src/workflows/useForegroundCheck';
 
 /**
@@ -20,19 +30,46 @@ function useOpenWaitingShare() {
   );
 }
 
+/** Navigation headers and the status bar follow the app theme. */
+function ThemedStack() {
+  const { colors, scheme } = useTheme();
+  const navTheme = useMemo(() => {
+    const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        primary: colors.primary,
+        background: colors.background,
+        card: colors.surface,
+        text: colors.text,
+        border: colors.border,
+      },
+    };
+  }, [colors, scheme]);
+  return (
+    <NavigationThemeProvider value={navTheme}>
+      <StatusBar style="auto" />
+      <Stack>
+        <Stack.Screen name="index" options={{ title: 'iScanner' }} />
+        <Stack.Screen name="scan" options={{ title: 'Scan tài liệu' }} />
+        <Stack.Screen name="merge" options={{ title: 'Gộp PDF' }} />
+        <Stack.Screen name="viewer/[id]" options={{ title: 'Tài liệu' }} />
+        <Stack.Screen name="incoming" options={{ title: 'Nhận file' }} />
+      </Stack>
+    </NavigationThemeProvider>
+  );
+}
+
 export default function RootLayout() {
   useOpenWaitingShare();
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <LibraryProvider>
-        <Stack>
-          <Stack.Screen name="index" options={{ title: 'iScanner' }} />
-          <Stack.Screen name="scan" options={{ title: 'Scan tài liệu' }} />
-          <Stack.Screen name="merge" options={{ title: 'Gộp PDF' }} />
-          <Stack.Screen name="viewer/[id]" options={{ title: 'Tài liệu' }} />
-          <Stack.Screen name="incoming" options={{ title: 'Nhận file' }} />
-        </Stack>
-      </LibraryProvider>
+      <ThemeProvider>
+        <LibraryProvider>
+          <ThemedStack />
+        </LibraryProvider>
+      </ThemeProvider>
     </GestureHandlerRootView>
   );
 }
