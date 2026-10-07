@@ -13,6 +13,7 @@
 - (1.2.0) **Nhận file chia sẻ** từ Zalo và app khác: Android — iScanner có trong menu Chia sẻ (PDF, ảnh, một hoặc nhiều file) và "Mở bằng" cho PDF/ảnh; iOS — "Mở bằng / Sao chép vào iScanner". 1 PDF → `Lưu vào thư viện` hoặc `Gộp với file khác`; nhiều PDF → màn Gộp PDF; ảnh → màn review scan; vừa PDF vừa ảnh → gộp PDF trước rồi tới scan ảnh. File không hỗ trợ hoặc > 100 MB bị bỏ qua (có thông báo).
 - (1.3.0) **Giao diện Sáng / Tối / Theo hệ thống**: nút ⚙︎ trên màn Thư viện. `Theo hệ thống` (mặc định) đổi theo cài đặt của máy ngay cả khi app đang mở; lựa chọn được lưu lại. Màn Chỉnh trang luôn nền tối, ảnh và trang PDF giữ nguyên màu.
 - (1.4.0) **Đa ngôn ngữ Tiếng Việt / English**: mặc định theo ngôn ngữ máy (máy tiếng Việt → Tiếng Việt, còn lại → English); đổi trong ⚙︎ **Cài đặt** (cùng chỗ chọn giao diện) hoặc trong cài đặt ngôn ngữ riêng cho từng app của Android 13+ / iOS. Lựa chọn được lưu lại.
+- (1.5.0) **Thông báo lỗi rõ ràng**: mỗi loại lỗi có lớp riêng (`PdfLoadError`, `PdfEncryptedError`, `FileTooLargeError`…) và popup theo ngôn ngữ đang dùng, nói rõ chuyện gì xảy ra và nên làm gì, kèm `Mã lỗi: …` ở cuối. Nhiều file lỗi cùng lúc → một popup liệt kê từng file và lý do.
 
 ## Lưu ý quan trọng
 
@@ -109,3 +110,7 @@ Giới hạn của Apple ID miễn phí: app hết hạn sau **7 ngày** (cài l
 - [ ] (1.4.0) `Theo hệ thống`: đổi ngôn ngữ máy (hoặc ngôn ngữ riêng của iScanner trong Cài đặt Android 13+) khi app đang mở → app đổi theo, không mất trang scan đang làm.
 - [ ] (1.4.0) Tắt hẳn rồi mở lại app → giữ ngôn ngữ đã chọn; chia sẻ file vào app khi đang tắt → màn `Nhận file` mở đúng ngôn ngữ đã chọn.
 - [ ] (1.4.0) iPhone: câu xin quyền camera hiện đúng ngôn ngữ; iScanner có mục Ngôn ngữ riêng trong Cài đặt iOS.
+- [ ] (1.5.0) Gộp 1 file PDF hỏng → popup `Không load được file` / "Không load được file, vui lòng kiểm tra lại định dạng file PDF." kèm tên file và `Mã lỗi: PDF_LOAD` (English: "Cannot load file, check your document's format file PDF.").
+- [ ] (1.5.0) Gộp 1 PDF có mật khẩu + 1 PDF hỏng + 1 PDF tốt → file tốt vẫn vào danh sách; một popup liệt kê 2 file lỗi kèm lý do.
+- [ ] (1.5.0) Chia sẻ vào iScanner một file không hỗ trợ (.txt/.zip) hoặc > 100 MB → một popup duy nhất nêu tên file và lý do, rồi về Thư viện.
+- [ ] (1.5.0) Từ chối quyền camera rồi bấm Scan → popup `Cần quyền camera` có nút `Mở Cài đặt`; máy không có Google Play → popup `Không thể scan tài liệu` giải thích cần Google Play services.
