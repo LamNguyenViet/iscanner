@@ -3,6 +3,7 @@ import { importIncoming, MAX_INCOMING_BYTES } from '../../src/share/importIncomi
 const mockStore = new Map<string, Uint8Array>();
 const mockSizes = new Map<string, number>();
 const mockFailing = new Set<string>();
+const mockUndeletable = new Set<string>();
 
 jest.mock('expo-file-system', () => {
   const join = (parts: any[]) =>
@@ -26,6 +27,7 @@ jest.mock('expo-file-system', () => {
       mockStore.set(this.uri, b);
     }
     delete() {
+      if (mockUndeletable.has(this.uri)) throw new Error('busy');
       mockStore.delete(this.uri);
     }
   }
@@ -46,6 +48,7 @@ beforeEach(() => {
   mockStore.clear();
   mockSizes.clear();
   mockFailing.clear();
+  mockUndeletable.clear();
 });
 
 const incomingKeys = () => [...mockStore.keys()].filter((k) => k.includes('/incoming/'));
@@ -95,4 +98,38 @@ test('skips unsupported', async () => {
   expect(files).toEqual([]);
   expect(skipped).toEqual([{ name: 'junk', reason: 'unsupported' }]);
   expect(incomingKeys()).toEqual([]);
+});
+
+describe('iOS Documents/Inbox sources', () => {
+  const INBOX = 'file:///var/mobile/ABC/Documents/Inbox/a.pdf';
+
+  test('are deleted after a successful import', async () => {
+    mockStore.set(INBOX, PDF);
+    const { files } = await importIncoming([{ uri: INBOX }]);
+    expect(files).toHaveLength(1);
+    expect(mockStore.has(INBOX)).toBe(false);
+  });
+
+  test('are kept when skipped', async () => {
+    mockStore.set(INBOX, new Uint8Array([1, 2, 3, 4, 5, 6]));
+    await importIncoming([{ uri: INBOX }]);
+    expect(mockStore.has(INBOX)).toBe(true);
+  });
+
+  test('a failed delete does not fail the import', async () => {
+    mockStore.set(INBOX, PDF);
+    mockUndeletable.add(INBOX);
+    const { files, skipped } = await importIncoming([{ uri: INBOX }]);
+    expect(files).toHaveLength(1);
+    expect(skipped).toEqual([]);
+  });
+
+  test('other file and content sources are never deleted', async () => {
+    const other = 'file:///var/mobile/ABC/Documents/pdfs/x.pdf';
+    mockStore.set(other, PDF);
+    mockStore.set('content://x/ok', PDF);
+    await importIncoming([{ uri: other }, { uri: 'content://x/ok' }]);
+    expect(mockStore.has(other)).toBe(true);
+    expect(mockStore.has('content://x/ok')).toBe(true);
+  });
 });

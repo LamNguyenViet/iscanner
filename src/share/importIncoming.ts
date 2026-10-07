@@ -1,6 +1,7 @@
 import { Directory, File, Paths } from 'expo-file-system';
 import { classifyIncoming } from './classify';
 import { displayNameFromUri } from './displayName';
+import { isIosInboxFile } from './inbox';
 import type { IncomingFile } from './types';
 
 export type SkippedFile = { name: string; reason: 'unsupported' | 'too-large' | 'unreadable' };
@@ -27,7 +28,8 @@ function discard(file: File | undefined): void {
 
 /**
  * Copy each shared source (content:// or file://) into cache/incoming right away — shared URI grants
- * can expire — checking size and type. A bad source is skipped, never thrown.
+ * can expire — checking size and type. A bad source is skipped, never thrown. An imported iOS
+ * Documents/Inbox source is then deleted (best-effort).
  */
 export async function importIncoming(
   sources: { uri: string; name?: string }[],
@@ -65,6 +67,7 @@ export async function importIncoming(
       copy.create({ intermediates: true, overwrite: true });
       copy.write(bytes);
       files.push({ uri: copy.uri, name, kind, size: bytes.length });
+      if (isIosInboxFile(source.uri)) discard(src);
     } catch {
       discard(copy);
       skipped.push({ name, reason: 'unreadable' });
