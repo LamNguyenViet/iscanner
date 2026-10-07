@@ -103,6 +103,7 @@
       [
         "expo-localization",
         {
+          "allowDynamicLocaleChangesAndroid": true,
           "supportedLocales": {
             "ios": [
               "vi",

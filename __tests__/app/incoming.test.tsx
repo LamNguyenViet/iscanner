@@ -5,6 +5,7 @@ import { LocaleProvider } from '../../src/i18n/LocaleContext';
 import { LibraryProvider } from '../../src/library/LibraryContext';
 import { createLibraryStore } from '../../src/library/libraryStore';
 import { createMemoryFs } from '../../src/library/memoryFs';
+import { SETTINGS_PATH } from '../../src/settings/settings';
 import type { LibraryStore } from '../../src/library/types';
 import { deleteFiles } from '../../src/native/deleteFiles';
 import { readBytes } from '../../src/native/readBytes';
@@ -237,7 +238,7 @@ describe('single pdf', () => {
   test('shows the file name and page count', async () => {
     mockImport.mockResolvedValueOnce({ files: [pdf], skipped: [] });
     await renderIncoming();
-    expect(screen.getByText('hop-dong.pdf')).toBeTruthy();
+    expect(screen.getByText('hop-dong')).toBeTruthy();
     expect(screen.getByText('3 trang')).toBeTruthy();
     expect(mockReplace).not.toHaveBeenCalled();
   });
@@ -363,7 +364,7 @@ describe('a new share while the screen is open', () => {
   test('replaces the file waiting for a choice', async () => {
     mockImport.mockResolvedValueOnce({ files: [pdf], skipped: [] });
     await renderIncoming();
-    expect(screen.getByText('hop-dong.pdf')).toBeTruthy();
+    expect(screen.getByText('hop-dong')).toBeTruthy();
 
     mockHasShared.mockReturnValue(true);
     mockReadShared.mockResolvedValueOnce([{ uri: 'content://files/2', name: 'b.pdf' }]);
@@ -372,8 +373,8 @@ describe('a new share while the screen is open', () => {
 
     expect(mockDeleteFiles).toHaveBeenCalledWith([pdf.uri]);
     expect(mockImport).toHaveBeenLastCalledWith([{ uri: 'content://files/2', name: 'b.pdf' }]);
-    expect(screen.getByText('b.pdf')).toBeTruthy();
-    expect(screen.queryByText('hop-dong.pdf')).toBeNull();
+    expect(screen.getByText('b')).toBeTruthy();
+    expect(screen.queryByText('hop-dong')).toBeNull();
   });
 
   test('reads the shared files even if the screen was opened from a file URI', async () => {
@@ -386,7 +387,7 @@ describe('a new share while the screen is open', () => {
     mockImport.mockResolvedValueOnce({ files: [pdf2], skipped: [] });
     await comeToForeground();
     expect(mockReadShared).toHaveBeenCalledTimes(1);
-    expect(screen.getByText('b.pdf')).toBeTruthy();
+    expect(screen.getByText('b')).toBeTruthy();
   });
 
   test('is left alone while the first share is still importing', async () => {
@@ -403,7 +404,7 @@ describe('a new share while the screen is open', () => {
     await comeToForeground();
     expect(mockReadShared).toHaveBeenCalledTimes(1);
     expect(mockDeleteFiles).not.toHaveBeenCalled();
-    expect(screen.getByText('hop-dong.pdf')).toBeTruthy();
+    expect(screen.getByText('hop-dong')).toBeTruthy();
   });
 });
 
@@ -416,7 +417,7 @@ describe('dark theme', () => {
     mockImport.mockResolvedValueOnce({ files: [pdf], skipped: [] });
     await renderIncoming(true);
     expect(styleOf(screen.root!).backgroundColor).toBe('#121212');
-    expect(styleOf(screen.getByText('hop-dong.pdf')).color).toBe('#e8e8e8');
+    expect(styleOf(screen.getByText('hop-dong')).color).toBe('#e8e8e8');
     expect(styleOf(screen.getByText('3 trang')).color).toBe('#a0a0a0');
     const secondary = screen.getByRole('button', { name: 'Gộp với file khác' });
     expect(styleOf(secondary)).toMatchObject({ backgroundColor: '#1e1e1e', borderColor: '#4c8dff' });
@@ -465,5 +466,36 @@ describe('English', () => {
     await flush();
     const docs = await store.list();
     expect(docs[0].name).toBe('Document');
+  });
+
+  test('a PDF named ".pdf" is shown and saved as Document', async () => {
+    const dotPdf = { ...pdf, name: '.pdf' };
+    mockImport.mockResolvedValueOnce({ files: [dotPdf], skipped: [] });
+    const store = await renderIncoming(false, true);
+    expect(screen.getByText('Document')).toBeTruthy();
+    expect(screen.queryByText('.pdf')).toBeNull();
+    await fireEvent.press(screen.getByText('Save to library'));
+    await flush();
+    expect((await store.list())[0].name).toBe('Document');
+  });
+
+  test('cold start on a vi device with saved English alerts in English', async () => {
+    mockLocales = [{ languageCode: 'vi', languageTag: 'vi-VN' }];
+    const fs = createMemoryFs();
+    await fs.writeText(SETTINGS_PATH, '{"language":"en"}');
+    mockImport.mockResolvedValueOnce({ files: [], skipped: [{ name: 'a.docx', reason: 'unsupported' }] });
+    const store = createLibraryStore({ fs: createMemoryFs(), newId: () => 'id1' });
+    await render(
+      <LocaleProvider fs={fs}>
+        <LibraryProvider store={store}>
+          <Incoming />
+        </LibraryProvider>
+      </LocaleProvider>,
+    );
+    await flush();
+    await flush();
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    expect(alertSpy).toHaveBeenCalledWith('No valid PDF or image files');
+    mockLocales = [{ languageCode: 'en', languageTag: 'en-US' }];
   });
 });

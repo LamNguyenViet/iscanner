@@ -73,6 +73,10 @@ export function PageEditor({
 }: PageEditorProps) {
   const { t } = useLocale();
   const failed = t.editor.failed;
+  // Read through a ref so a live language change does not give `detect` a new identity (it would re-run
+  // detection and wipe the user's corner edits).
+  const failedRef = useRef(failed);
+  failedRef.current = failed;
   const [currentUri, setCurrentUri] = useState(page.uri);
   const [retakenUri, setRetakenUri] = useState<string | null>(null);
   const [align, setAlign] = useState<Align>(page.align);
@@ -104,9 +108,9 @@ export function PageEditor({
       setSize(result.size);
       setQuad(result.quad);
     } catch {
-      if (id === loadId.current) Alert.alert(failed);
+      if (id === loadId.current) Alert.alert(failedRef.current);
     }
-  }, [failed]);
+  }, []);
 
   useEffect(() => {
     if (visible) void detect(currentUri, true);

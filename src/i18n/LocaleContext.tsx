@@ -23,12 +23,16 @@ const LocaleContext = createContext<LocaleValue>({
 /** Provides the active string table; in 'system' mode the device language applies live. */
 export function LocaleProvider({ children, fs }: { children: ReactNode; fs?: FsAdapter }) {
   const [preference, setPreferenceState] = useState<LanguagePreference>('system');
+  // Children wait for the saved preference so nothing captures a first-render table in the wrong language.
+  const [loaded, setLoaded] = useState(false);
   const deviceCode = useLocales()[0]?.languageCode;
 
   useEffect(() => {
     let active = true;
     loadSettings(fs).then(({ language }) => {
-      if (active) setPreferenceState(language);
+      if (!active) return;
+      setPreferenceState(language);
+      setLoaded(true);
     });
     return () => {
       active = false;
@@ -48,6 +52,7 @@ export function LocaleProvider({ children, fs }: { children: ReactNode; fs?: FsA
     const language = resolveLanguage(preference, deviceCode);
     return { t: stringsFor(language), language, preference, setPreference };
   }, [preference, deviceCode, setPreference]);
+  if (!loaded) return null;
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
 }
 

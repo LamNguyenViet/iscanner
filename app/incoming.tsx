@@ -45,6 +45,8 @@ export default function Incoming() {
   const { store, refresh } = useLibrary();
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [saving, setSaving] = useState(false);
+  // One rule for the label and the saved name.
+  const pdfName = confirm ? stripPdfExtension(confirm.pdf.name) || t.common.untitled : '';
   const started = useRef(false);
   // True from the start of a receive until its result is shown (or it navigated away).
   const receiving = useRef(false);
@@ -158,7 +160,7 @@ export default function Incoming() {
     let id: string;
     try {
       const meta = await store.add(confirm.bytes, {
-        name: stripPdfExtension(confirm.pdf.name) || t.common.untitled,
+        name: pdfName,
         pageCount: confirm.pageCount,
         source: 'merge',
       });
@@ -221,7 +223,7 @@ export default function Incoming() {
       />
       <View style={styles.file}>
         <Text style={[styles.fileName, themed.text]} numberOfLines={2}>
-          {confirm.pdf.name || t.common.untitled}
+          {pdfName}
         </Text>
         <Text style={[styles.pages, themed.muted]}>{t.format.pages(confirm.pageCount)}</Text>
       </View>

@@ -73,6 +73,20 @@ test('system follows a device locale change', async () => {
   expect(out()).toBe('Cài đặt|vi|system');
 });
 
+test('children render only after the settings load settles', async () => {
+  const fs = createMemoryFs();
+  await fs.writeText(SETTINGS_PATH, '{"language":"vi"}');
+  let release!: () => void;
+  const gate = new Promise<void>((r) => (release = r));
+  const gated = { ...fs, readText: async (p: string) => { await gate; return fs.readText(p); } };
+  await render(<LocaleProvider fs={gated}><Probe /></LocaleProvider>);
+  await settle();
+  expect(screen.queryByTestId('out')).toBeNull();
+  release();
+  await settle();
+  expect(out()).toBe('Cài đặt|vi|vi');
+});
+
 test('no provider', async () => {
   await render(<Probe />);
   expect(out()).toBe('Cài đặt|vi|system');

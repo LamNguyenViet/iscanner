@@ -362,4 +362,30 @@ describe('English', () => {
     }
     expect(screen.getByLabelText('Corner 1')).toBeTruthy();
   });
+  test('a live language change does not re-run detection', async () => {
+    const fs = createMemoryFs();
+    const editor = () => (
+      <LocaleProvider fs={fs}>
+        <PageEditor
+          visible
+          page={PAGE}
+          pageNumber={1}
+          layout={LAYOUT}
+          onCancel={onCancel}
+          onDone={onDone}
+          onRetake={onRetake}
+        />
+      </LocaleProvider>
+    );
+    await render(editor());
+    await flush();
+    expect(screen.getByText('Page 1')).toBeTruthy();
+    expect(mockDetect).toHaveBeenCalledTimes(1);
+    mockLocales = [{ languageCode: 'vi', languageTag: 'vi-VN' }];
+    await screen.rerender(editor());
+    await flush();
+    expect(screen.getByText('Trang 1')).toBeTruthy();
+    expect(mockDetect).toHaveBeenCalledTimes(1);
+    mockLocales = [{ languageCode: 'en', languageTag: 'en-US' }];
+  });
 });
