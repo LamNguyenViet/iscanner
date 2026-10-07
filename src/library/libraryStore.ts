@@ -94,10 +94,13 @@ export function createLibraryStore(deps: {
       const documents = await readIndex();
       const target = documents.find((d) => d.id === id);
       if (!target) return;
-      await guard(async () => {
-        await writeIndex(documents.filter((d) => d.id !== id));
+      await guard(() => writeIndex(documents.filter((d) => d.id !== id)));
+      // The document is already gone from the index; a file that cannot be deleted is just an orphan.
+      try {
         await fs.delete(`${PDF_DIR}/${target.fileName}`);
-      });
+      } catch {
+        // best-effort
+      }
     },
 
     fileUri(meta) {

@@ -107,7 +107,7 @@ test('reports failed files', async () => {
   await renderMerge();
   expect(alertSpy).toHaveBeenCalledWith(
     'Không load được file',
-    'x.pdf — sai định dạng\n\nMã lỗi: PDF_LOAD',
+    'x.pdf\nKhông load được file, vui lòng kiểm tra lại định dạng file PDF.\n\nMã lỗi: PDF_LOAD',
     undefined,
   );
   expect(screen.getByText('a.pdf')).toBeTruthy();
@@ -352,7 +352,7 @@ describe('English', () => {
     await renderMerge(false, true);
     expect(alertSpy).toHaveBeenCalledWith(
       'Cannot load file',
-      'x.pdf — invalid format\n\nError code: PDF_LOAD',
+      "x.pdf\nCannot load file, check your document's format file PDF.\n\nError code: PDF_LOAD",
       undefined,
     );
   });

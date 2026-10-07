@@ -226,6 +226,23 @@ describe('errors', () => {
     );
   });
 
+  test('a delete rejected with StorageError shows the STORAGE popup and keeps the document', async () => {
+    const store = await renderHome(true);
+    jest.spyOn(store, 'remove').mockRejectedValueOnce(new StorageError());
+    await fireEvent(screen.getByText('Hoa don'), 'longPress');
+    await fireEvent.press(screen.getByText('Xoá'));
+    const buttons = alertSpy.mock.calls[0][2];
+    await act(async () => {
+      buttons.find((b: any) => b.style === 'destructive').onPress();
+    });
+    expect(alertSpy).toHaveBeenLastCalledWith(
+      'Không lưu được tài liệu',
+      'Không lưu được tài liệu. Hãy kiểm tra dung lượng trống của máy.\n\nMã lỗi: STORAGE',
+      undefined,
+    );
+    expect(screen.getByText('Hoa don')).toBeTruthy();
+  });
+
   test('a delete failure with a plain Error shows the UNKNOWN popup', async () => {
     const store = await renderHome(true);
     jest.spyOn(store, 'remove').mockRejectedValueOnce(new Error('boom'));

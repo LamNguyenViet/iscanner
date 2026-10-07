@@ -65,6 +65,22 @@ describe('libraryStore', () => {
     expect(fs.files.has('pdfs/id1.pdf')).toBe(false);
   });
 
+  it('remove rejects with StorageError when the index write fails and keeps the doc listed', async () => {
+    const { store, fs } = setup();
+    await store.add(bytes, { name: 'A', pageCount: 1, source: 'scan' });
+    fs.failNextWrite('library.json');
+    await expect(store.remove('id1')).rejects.toBeInstanceOf(StorageError);
+    expect((await store.list()).map((d) => d.id)).toEqual(['id1']);
+  });
+
+  it('remove resolves and drops the doc when only the file delete fails', async () => {
+    const { store, fs } = setup();
+    await store.add(bytes, { name: 'A', pageCount: 1, source: 'scan' });
+    jest.spyOn(fs, 'delete').mockRejectedValueOnce(new Error('io'));
+    await expect(store.remove('id1')).resolves.toBeUndefined();
+    expect(await store.list()).toEqual([]);
+  });
+
   it('remove of unknown id is a no-op', async () => {
     const { store, fs } = setup();
     await store.add(bytes, { name: 'A', pageCount: 1, source: 'scan' });

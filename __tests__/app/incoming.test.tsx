@@ -166,7 +166,7 @@ test('when every file was rejected one per-file popup replaces the no-files aler
   expect(mockDismissTo).toHaveBeenCalledWith('/');
 });
 
-test('a single rejected file keeps the per-file line', async () => {
+test('a single rejected file shows its name and the full message', async () => {
   mockImport.mockResolvedValueOnce({
     files: [],
     skipped: [new UnsupportedFileError({ fileName: 'a.docx' })],
@@ -175,7 +175,7 @@ test('a single rejected file keeps the per-file line', async () => {
   expect(alertSpy).toHaveBeenCalledTimes(1);
   expect(alertSpy).toHaveBeenCalledWith(
     'File không được hỗ trợ',
-    'a.docx — không hỗ trợ\n\nMã lỗi: FILE_UNSUPPORTED',
+    'a.docx\niScanner chỉ nhận file PDF và ảnh JPEG/PNG.\n\nMã lỗi: FILE_UNSUPPORTED',
     undefined,
   );
   expect(mockDismissTo).toHaveBeenCalledWith('/');
@@ -336,7 +336,7 @@ describe('single pdf', () => {
     await renderIncoming();
     expect(alertSpy).toHaveBeenCalledWith(
       'Không đọc được file',
-      `${pdf.name} — không đọc được\n\nMã lỗi: FILE_READ`,
+      `${pdf.name}\nKhông đọc được file. Hãy mở lại file từ ứng dụng gốc rồi chia sẻ lại.\n\nMã lỗi: FILE_READ`,
       undefined,
     );
     expect(mockDeleteFiles).toHaveBeenCalledWith([pdf.uri]);
@@ -350,12 +350,42 @@ describe('single pdf', () => {
     await renderIncoming();
     expect(alertSpy).toHaveBeenCalledWith(
       'Không load được file',
-      `${pdf.name} — sai định dạng\n\nMã lỗi: PDF_LOAD`,
+      `${pdf.name}\nKhông load được file, vui lòng kiểm tra lại định dạng file PDF.\n\nMã lỗi: PDF_LOAD`,
       undefined,
     );
     expect(mockDeleteFiles).toHaveBeenCalledWith([pdf.uri]);
     expect(mockDismissTo).toHaveBeenCalledWith('/');
     expect(mockReplace).not.toHaveBeenCalledWith('/');
+  });
+
+  test('rejected files and a corrupt single pdf share one popup listing both', async () => {
+    mockImport.mockResolvedValueOnce({
+      files: [pdf],
+      skipped: [new UnsupportedFileError({ fileName: 'a.zip' })],
+    });
+    mockPageCount.mockRejectedValueOnce(new PdfLoadError({ fileName: pdf.name }));
+    await renderIncoming();
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    expect(alertSpy).toHaveBeenCalledWith(
+      'File không được hỗ trợ',
+      `a.zip — không hỗ trợ\n${pdf.name} — sai định dạng\n\nMã lỗi: FILE_UNSUPPORTED`,
+      undefined,
+    );
+    expect(mockDismissTo).toHaveBeenCalledWith('/');
+  });
+
+  test('rejected files with a usable single pdf are shown once', async () => {
+    mockImport.mockResolvedValueOnce({
+      files: [pdf],
+      skipped: [new UnsupportedFileError({ fileName: 'a.zip' })],
+    });
+    await renderIncoming();
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    expect(alertSpy).toHaveBeenCalledWith(
+      'File không được hỗ trợ',
+      'a.zip\niScanner chỉ nhận file PDF và ảnh JPEG/PNG.\n\nMã lỗi: FILE_UNSUPPORTED',
+      undefined,
+    );
   });
 
   test('corrupt pdf with images goes to scan', async () => {
@@ -364,7 +394,7 @@ describe('single pdf', () => {
     await renderIncoming();
     expect(alertSpy).toHaveBeenCalledWith(
       'Không load được file',
-      `${pdf.name} — sai định dạng\n\nMã lỗi: PDF_LOAD`,
+      `${pdf.name}\nKhông load được file, vui lòng kiểm tra lại định dạng file PDF.\n\nMã lỗi: PDF_LOAD`,
       undefined,
     );
     expect(mockReplace).toHaveBeenCalledWith('/scan');
@@ -528,7 +558,7 @@ describe('English', () => {
     await renderIncoming(false, true);
     expect(alertSpy).toHaveBeenCalledWith(
       'Unsupported file',
-      'a.docx — unsupported\n\nError code: FILE_UNSUPPORTED',
+      'a.docx\niScanner only accepts PDF files and JPEG/PNG images.\n\nError code: FILE_UNSUPPORTED',
       undefined,
     );
   });
@@ -575,7 +605,7 @@ describe('English', () => {
     expect(alertSpy).toHaveBeenCalledTimes(1);
     expect(alertSpy).toHaveBeenCalledWith(
       'Unsupported file',
-      'a.docx — unsupported\n\nError code: FILE_UNSUPPORTED',
+      'a.docx\niScanner only accepts PDF files and JPEG/PNG images.\n\nError code: FILE_UNSUPPORTED',
       undefined,
     );
     mockLocales = [{ languageCode: 'en', languageTag: 'en-US' }];

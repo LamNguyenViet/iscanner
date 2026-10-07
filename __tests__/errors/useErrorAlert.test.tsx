@@ -23,7 +23,7 @@ afterEach(() => spy.mockRestore());
 
 test('vi without a provider', async () => {
   await render(<Probe />);
-  show(new PdfLoadError({ fileName: 'x.pdf' }));
+  show(new PdfLoadError());
   expect(spy).toHaveBeenCalledWith(
     'Không load được file',
     'Không load được file, vui lòng kiểm tra lại định dạng file PDF.\n\nMã lỗi: PDF_LOAD',
@@ -71,12 +71,12 @@ test('empty array is a no-op', async () => {
   expect(spy).not.toHaveBeenCalled();
 });
 
-test('list option keeps the per-file line for a single failed file', async () => {
+test('a single failed file shows its name and the full message', async () => {
   await render(<Probe />);
-  show(new PdfLoadError({ fileName: 'x.pdf' }), { list: true });
+  show(new PdfLoadError({ fileName: 'x.pdf' }));
   expect(spy).toHaveBeenCalledWith(
     'Không load được file',
-    'x.pdf — sai định dạng\n\nMã lỗi: PDF_LOAD',
+    'x.pdf\nKhông load được file, vui lòng kiểm tra lại định dạng file PDF.\n\nMã lỗi: PDF_LOAD',
     undefined,
   );
 });

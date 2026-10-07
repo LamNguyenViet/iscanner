@@ -91,7 +91,7 @@ export default function Merge() {
       }
       if (result.loaded.length > 0) append(result.loaded);
       if (result.failed.length > 0) {
-        showError(result.failed, { list: true });
+        showError(result.failed);
       }
       if (result.loaded.length === 0) backIfEmpty();
     } catch (e) {

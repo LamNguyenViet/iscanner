@@ -6,7 +6,7 @@ import { useErrorAlert } from '../src/errors/useErrorAlert';
 import { useLocale } from '../src/i18n/LocaleContext';
 import { useLibrary } from '../src/library/LibraryContext';
 import { deleteFiles } from '../src/native/deleteFiles';
-import { FileReadError, toAppError } from '../src/errors/AppError';
+import { FileReadError, toAppError, type AppError } from '../src/errors/AppError';
 import { readBytes } from '../src/native/readBytes';
 import { clearSharedFiles, hasSharedFiles, readSharedFiles } from '../src/native/sharedPayloads';
 import { getPdfPageCount } from '../src/pdf/mergePdfs';
@@ -98,8 +98,9 @@ export default function Incoming() {
         return;
       }
       const plan = planIncoming(files);
-      // Rejected files are listed once, whether or not anything usable remains.
-      if (skipped.length > 0) showError(skipped, { list: true });
+      // Rejected files are listed once, whether or not anything usable remains. On the single-PDF path they
+      // wait for the PDF's own result so a failure there joins them in the same popup.
+      if (skipped.length > 0 && plan.kind !== 'single-pdf') showError(skipped);
       switch (plan.kind) {
         case 'none':
           // The per-file popup already said why; the notice is only for nothing received at all.
@@ -115,7 +116,7 @@ export default function Incoming() {
           router.replace('/scan');
           return;
         case 'single-pdf':
-          await prepareSinglePdf(plan.pdf, plan.images);
+          await prepareSinglePdf(plan.pdf, plan.images, skipped);
           return;
       }
     } catch (e) {
@@ -139,7 +140,7 @@ export default function Incoming() {
     receive(true);
   });
 
-  const prepareSinglePdf = async (pdf: IncomingFile, images: IncomingFile[]) => {
+  const prepareSinglePdf = async (pdf: IncomingFile, images: IncomingFile[], skipped: AppError[]) => {
     setPending({ pdfs: [], images });
     undecided.current = pdf.uri;
     try {
@@ -151,13 +152,13 @@ export default function Incoming() {
       }
       const pageCount = await getPdfPageCount(bytes, pdf.name);
       if (!mounted.current) return;
+      if (skipped.length > 0) showError(skipped);
       setConfirm({ pdf, images, bytes, pageCount });
     } catch (e) {
       if (!mounted.current) return;
       undecided.current = null;
       deleteFiles([pdf.uri]);
-      const err = toAppError(e);
-      showError(err, { list: Boolean(err.fileName) });
+      showError([...skipped, toAppError(e)]);
       continueAfterPdf();
     }
   };

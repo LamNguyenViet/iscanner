@@ -23,7 +23,7 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { ImageProcessError } from '../errors/AppError';
+import { AppError, ImageProcessError } from '../errors/AppError';
 import { useErrorAlert } from '../errors/useErrorAlert';
 import { useLocale } from '../i18n/LocaleContext';
 import { applyEdit, detectPageQuad, type Rotation } from '../imaging/enhance';
@@ -133,7 +133,7 @@ export function PageEditor({
     } catch (e) {
       // A cancelled scan resolves null; a throw is a real failure the user should hear about.
       if (__DEV__) console.warn('retake failed', e);
-      showError(new ImageProcessError({ cause: e }));
+      showError(e instanceof AppError ? e : new ImageProcessError({ cause: e }));
       uri = null;
     } finally {
       setBusy(false);

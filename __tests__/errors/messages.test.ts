@@ -68,9 +68,19 @@ test('nameless file uses untitled', () => {
   expect(errorsContent([new PdfLoadError(), new PdfLoadError()], en).message).toBe('Document — invalid format\nDocument — invalid format');
 });
 
-test('single error equals errorContent', () => {
-  const e = new PdfLoadError({ fileName: 'x.pdf' });
+test('single error without a file name equals errorContent', () => {
+  const e = new PdfLoadError();
   expect(errorsContent([e], vi)).toEqual(errorContent(e, vi));
+});
+
+test('single error with a file name is the file name then the full message', () => {
+  const e = new PdfLoadError({ fileName: 'x.pdf' });
+  expect(errorsContent([e], vi)).toEqual({
+    title: 'Không load được file',
+    message: 'x.pdf\nKhông load được file, vui lòng kiểm tra lại định dạng file PDF.',
+    code: 'PDF_LOAD',
+  });
+  expect(errorsContent([e], en).message).toBe("x.pdf\nCannot load file, check your document's format file PDF.");
 });
 
 test('code line', () => {

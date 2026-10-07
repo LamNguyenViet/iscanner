@@ -31,7 +31,7 @@ import {
 import { scanDocuments } from '../src/scanner/scanner';
 import { takeImages } from '../src/share/incomingStore';
 import type { Palette } from '../src/theme/palette';
-import { CameraPermissionError, ScannerUnavailableError, UnknownError } from '../src/errors/AppError';
+import { CameraPermissionError, ScannerUnavailableError } from '../src/errors/AppError';
 import { useErrorAlert } from '../src/errors/useErrorAlert';
 import { useTheme } from '../src/theme/ThemeContext';
 import { defaultName, sanitizeName } from '../src/utils/format';
@@ -115,7 +115,7 @@ export default function Scan() {
     } else {
       // The scanner's permission error text may be localized, so an unrecognized error
       // still points to Settings.
-      showError(new UnknownError({ cause: e }), {
+      showError(e, {
         buttons: [
           { text: t.scan.openSettings, onPress: openSettings },
           { text: t.scan.close, style: 'cancel', onPress: backIfEmpty },

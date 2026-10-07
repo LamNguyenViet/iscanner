@@ -1,5 +1,6 @@
 import { Alert, StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { CameraPermissionError } from '../../src/errors/AppError';
 import { LocaleProvider } from '../../src/i18n/LocaleContext';
 import { createMemoryFs } from '../../src/library/memoryFs';
 import { PageEditor, type ScanPage } from '../../src/components/PageEditor';
@@ -211,6 +212,18 @@ test('a failed retake alerts and keeps the current image', async () => {
   await press('Xong');
   expect(onDone).toHaveBeenCalledWith({ uri: 'p1', align: 'center' });
   warnSpy.mockRestore();
+});
+
+test('a retake rejecting with CameraPermissionError keeps its own popup', async () => {
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+  onRetake.mockRejectedValueOnce(new CameraPermissionError());
+  await renderEditor();
+  await press('Chụp lại');
+  expect(alertSpy).toHaveBeenCalledWith(
+    'Cần quyền camera',
+    'Hãy cấp quyền camera cho iScanner trong Cài đặt.\n\nMã lỗi: CAMERA_PERMISSION',
+    undefined,
+  );
 });
 
 test('a cancelled retake does not alert', async () => {

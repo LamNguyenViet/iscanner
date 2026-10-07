@@ -163,6 +163,17 @@ test('a StorageError on create shows the STORAGE popup', async () => {
   );
 });
 
+test('an AppError thrown by the scanner keeps its own code and the settings buttons', async () => {
+  mockScan.mockRejectedValueOnce(new StorageError());
+  await renderScan();
+  expect(alertSpy).toHaveBeenCalledWith(
+    'Không lưu được tài liệu',
+    'Không lưu được tài liệu. Hãy kiểm tra dung lượng trống của máy.\n\nMã lỗi: STORAGE',
+    expect.any(Array),
+  );
+  expect(alertSpy.mock.calls[0][2].map((b: any) => b.text)).toEqual(['Mở Cài đặt', 'Đóng']);
+});
+
 test('scanner unavailable shows one close button and goes back', async () => {
   mockScan.mockRejectedValueOnce(new ScannerUnavailableError());
   await renderScan();
