@@ -11,6 +11,7 @@
 - (1.1.0) **Bố cục PDF**: khổ giấy `A4` / `Letter` / `Theo ảnh`, lề `Không` / `Nhỏ` / `Vừa`, căn từng trang `Trên` / `Giữa` / `Dưới` / `Lấp đầy` (có xem trước).
 - (1.1.0) **Ảnh Full HD**: mỗi trang được thu nhỏ về cạnh dài tối đa 1920 px (không phóng to ảnh nhỏ), làm nét và lưu JPEG chất lượng 95.
 - (1.2.0) **Nhận file chia sẻ** từ Zalo và app khác: Android — iScanner có trong menu Chia sẻ (PDF, ảnh, một hoặc nhiều file) và "Mở bằng" cho PDF/ảnh; iOS — "Mở bằng / Sao chép vào iScanner". 1 PDF → `Lưu vào thư viện` hoặc `Gộp với file khác`; nhiều PDF → màn Gộp PDF; ảnh → màn review scan; vừa PDF vừa ảnh → gộp PDF trước rồi tới scan ảnh. File không hỗ trợ hoặc > 100 MB bị bỏ qua (có thông báo).
+- (1.3.0) **Giao diện Sáng / Tối / Theo hệ thống**: nút ⚙︎ trên màn Thư viện. `Theo hệ thống` (mặc định) đổi theo cài đặt của máy ngay cả khi app đang mở; lựa chọn được lưu lại. Màn Chỉnh trang luôn nền tối, ảnh và trang PDF giữ nguyên màu.
 
 ## Lưu ý quan trọng
 
@@ -97,3 +98,8 @@ Giới hạn của Apple ID miễn phí: app hết hạn sau **7 ngày** (cài l
 - [ ] (1.2.0) Android: mở một PDF trong app Files → `Mở bằng` → `iScanner`.
 - [ ] (1.2.0) iPhone: mở PDF/ảnh trong Zalo/Files/Mail → nút chia sẻ → `iScanner` (hoặc `Sao chép vào iScanner`) → app mở màn `Nhận file`.
 - [ ] (1.2.0) Android: mở lại iScanner từ Đa nhiệm sau khi đã chia sẻ — không bị nhận lại file cũ.
+- [ ] (1.3.0) ⚙︎ trên màn Thư viện → menu `Giao diện` có `✓` ở lựa chọn hiện tại (mặc định `Theo hệ thống`).
+- [ ] (1.3.0) Chọn `Tối` → mọi màn (Thư viện, Scan, Gộp PDF, Nhận file, Tài liệu), thanh tiêu đề, thanh trạng thái, hộp thoại Xoá, menu nhấn giữ và bàn phím khi đổi tên đều tối; chọn `Sáng` → trở lại sáng.
+- [ ] (1.3.0) `Theo hệ thống`: đổi chế độ tối trong Cài đặt máy khi app đang mở → app đổi theo ngay.
+- [ ] (1.3.0) Tắt hẳn rồi mở lại app → vẫn giữ lựa chọn giao diện.
+- [ ] (1.3.0) iPhone: ba lựa chọn giao diện hoạt động; action sheet và Alert theo giao diện đã chọn.
