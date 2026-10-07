@@ -1,6 +1,6 @@
 import { createMemoryFs } from '../../src/library/memoryFs';
 import { installGlobalHandlers } from '../../src/logging/globalHandlers';
-import { createLogger, log } from '../../src/logging/logger';
+import { createLogger } from '../../src/logging/logger';
 
 const F1 = 'logs/2026-10-07.log';
 
@@ -86,7 +86,13 @@ describe('installGlobalHandlers', () => {
 });
 
 describe('log singleton', () => {
-  it('can be imported without touching native modules', () => {
-    expect(typeof log.info).toBe('function');
+  it('can be imported without loading expoFs eagerly', () => {
+    jest.isolateModules(() => {
+      jest.doMock('../../src/library/expoFs', () => {
+        throw new Error('loaded eagerly');
+      });
+      expect(() => require('../../src/logging/logger')).not.toThrow();
+    });
+    jest.dontMock('../../src/library/expoFs');
   });
 });

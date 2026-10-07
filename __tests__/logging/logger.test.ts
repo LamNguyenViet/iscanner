@@ -42,6 +42,13 @@ describe('logger', () => {
     expect(rec.cause.message).toBe('why');
   });
 
+  it('writes error immediately without flush or timers', async () => {
+    const { fs, logger } = setup();
+    logger.error('E_NOW', 'now');
+    await jest.advanceTimersByTimeAsync(0);
+    expect(lines(fs, F1).map((r) => r.code)).toEqual(['E_NOW']);
+  });
+
   it('does not attach app/os to info or warn', async () => {
     const { fs, logger } = setup();
     await logger.init({ app: '1.6.0', os: 'android 34' });
