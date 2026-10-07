@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -14,6 +13,7 @@ import { router } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NameInput } from '../src/components/NameInput';
+import { useErrorAlert } from '../src/errors/useErrorAlert';
 import { useLocale } from '../src/i18n/LocaleContext';
 import { useLibrary } from '../src/library/LibraryContext';
 import { pickPdfs } from '../src/native/pickPdfs';
@@ -33,6 +33,7 @@ import { useOrderedList, type Keyed } from '../src/workflows/useOrderedList';
 
 export default function Merge() {
   const { t } = useLocale();
+  const showError = useErrorAlert();
   const { store, refresh } = useLibrary();
   const { items, append, remove, setOrder } = useOrderedList<LoadedPdf>();
   const busy = useBusy();
@@ -90,14 +91,11 @@ export default function Merge() {
       }
       if (result.loaded.length > 0) append(result.loaded);
       if (result.failed.length > 0) {
-        Alert.alert(
-          t.merge.readFailedTitle,
-          result.failed.map((e) => e.fileName || t.common.untitled).join('\n') + '\n' + t.merge.corruptSuffix,
-        );
+        showError(result.failed, { list: true });
       }
       if (result.loaded.length === 0) backIfEmpty();
-    } catch {
-      Alert.alert(t.merge.readFailedTitle, t.merge.pickFailed);
+    } catch (e) {
+      showError(e);
       backIfEmpty();
     }
   };
@@ -126,8 +124,8 @@ export default function Merge() {
           sanitizeName(name, defaultName('merge', new Date(), t)),
         ),
       );
-    } catch {
-      Alert.alert(t.merge.createFailed);
+    } catch (e) {
+      showError(e);
       return;
     }
     if (!meta) return;

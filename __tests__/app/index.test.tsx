@@ -1,4 +1,6 @@
 import { ActionSheetIOS, Alert, Platform } from 'react-native';
+import { ShareError, StorageError } from '../../src/errors/AppError';
+import { shareDocument } from '../../src/native/share';
 import { act, render, screen, fireEvent } from '@testing-library/react-native';
 import Home from '../../app/index';
 import { LocaleProvider } from '../../src/i18n/LocaleContext';
@@ -8,6 +10,7 @@ import { createMemoryFs } from '../../src/library/memoryFs';
 import { settleTheme, styleOf, themed } from '../fixtures/theme';
 
 const mockPush = jest.fn();
+jest.mock('../../src/native/share', () => ({ shareDocument: jest.fn() }));
 let mockLocales = [{ languageCode: 'en', languageTag: 'en-US' }];
 jest.mock('expo-localization', () => ({ useLocales: () => mockLocales }));
 jest.mock('react-native-safe-area-context', () => ({
@@ -45,6 +48,7 @@ async function renderHome(withDoc: boolean, dark = false, english = false) {
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
+  return store;
 }
 
 let alertSpy: jest.SpyInstance;
@@ -189,5 +193,52 @@ describe('English', () => {
     const callback = sheetSpy.mock.calls[0][1];
     await act(async () => callback(2));
     expect(alertSpy).toHaveBeenCalledWith('Delete this document?', undefined, expect.any(Array));
+  });
+});
+
+describe('errors', () => {
+  beforeEach(() => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+  });
+
+  test('a share failure shows the SHARE popup', async () => {
+    (shareDocument as jest.Mock).mockRejectedValueOnce(new ShareError());
+    await renderHome(true);
+    await fireEvent(screen.getByText('Hoa don'), 'longPress');
+    await fireEvent.press(screen.getByText('Chia sẻ'));
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Không chia sẻ được',
+      'Không mở được bảng chia sẻ, vui lòng thử lại.\n\nMã lỗi: SHARE',
+      undefined,
+    );
+  });
+
+  test('a rename failure shows the STORAGE popup', async () => {
+    const store = await renderHome(true);
+    jest.spyOn(store, 'rename').mockRejectedValueOnce(new StorageError());
+    await fireEvent(screen.getByText('Hoa don'), 'longPress');
+    await fireEvent.press(screen.getByText('Đổi tên'));
+    await fireEvent.press(screen.getByText('Lưu'));
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Không lưu được tài liệu',
+      'Không lưu được tài liệu. Hãy kiểm tra dung lượng trống của máy.\n\nMã lỗi: STORAGE',
+      undefined,
+    );
+  });
+
+  test('a delete failure with a plain Error shows the UNKNOWN popup', async () => {
+    const store = await renderHome(true);
+    jest.spyOn(store, 'remove').mockRejectedValueOnce(new Error('boom'));
+    await fireEvent(screen.getByText('Hoa don'), 'longPress');
+    await fireEvent.press(screen.getByText('Xoá'));
+    const buttons = alertSpy.mock.calls[0][2];
+    await act(async () => {
+      buttons.find((b: any) => b.style === 'destructive').onPress();
+    });
+    expect(alertSpy).toHaveBeenLastCalledWith(
+      'Có lỗi xảy ra',
+      'Đã có lỗi không mong muốn, vui lòng thử lại.\n\nMã lỗi: UNKNOWN',
+      undefined,
+    );
   });
 });

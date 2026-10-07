@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Linking,
@@ -32,7 +31,8 @@ import {
 import { scanDocuments } from '../src/scanner/scanner';
 import { takeImages } from '../src/share/incomingStore';
 import type { Palette } from '../src/theme/palette';
-import { CameraPermissionError } from '../src/errors/AppError';
+import { CameraPermissionError, ScannerUnavailableError, UnknownError } from '../src/errors/AppError';
+import { useErrorAlert } from '../src/errors/useErrorAlert';
 import { useTheme } from '../src/theme/ThemeContext';
 import { defaultName, sanitizeName } from '../src/utils/format';
 import { useBusy } from '../src/workflows/useBusy';
@@ -64,6 +64,7 @@ async function normalizeAll(uris: string[]): Promise<string[]> {
 
 export default function Scan() {
   const { t } = useLocale();
+  const showError = useErrorAlert();
   const { store, refresh } = useLibrary();
   const { items, append, remove, setOrder, update } = useOrderedList<ScanPage>();
   const busy = useBusy();
@@ -101,23 +102,27 @@ export default function Scan() {
     backIfEmpty();
   };
 
-  const showPermissionAlert = () =>
-    Alert.alert(t.scan.permissionTitle, undefined, [
-      { text: t.scan.openSettings, onPress: openSettings },
-      { text: t.common.cancel, style: 'cancel', onPress: backIfEmpty },
-    ]);
-
-  // The scanner's permission error text may be localized, so the generic error
-  // also points to Settings.
-  const showScanErrorAlert = () =>
-    Alert.alert(
-      t.scan.scanFailedTitle,
-      t.scan.scanFailedBody,
-      [
-        { text: t.scan.openSettings, onPress: openSettings },
-        { text: t.scan.close, style: 'cancel', onPress: backIfEmpty },
-      ],
-    );
+  const showScanError = (e: unknown) => {
+    if (e instanceof CameraPermissionError) {
+      showError(e, {
+        buttons: [
+          { text: t.scan.openSettings, onPress: openSettings },
+          { text: t.common.cancel, style: 'cancel', onPress: backIfEmpty },
+        ],
+      });
+    } else if (e instanceof ScannerUnavailableError) {
+      showError(e, { buttons: [{ text: t.scan.close, style: 'cancel', onPress: backIfEmpty }] });
+    } else {
+      // The scanner's permission error text may be localized, so an unrecognized error
+      // still points to Settings.
+      showError(new UnknownError({ cause: e }), {
+        buttons: [
+          { text: t.scan.openSettings, onPress: openSettings },
+          { text: t.scan.close, style: 'cancel', onPress: backIfEmpty },
+        ],
+      });
+    }
+  };
 
   const scanFrom = async (getUris: () => Promise<string[]>) => {
     try {
@@ -143,11 +148,7 @@ export default function Scan() {
       }
       append(uris.map((uri) => ({ uri, align: 'center' as const })));
     } catch (e) {
-      if (e instanceof CameraPermissionError) {
-        showPermissionAlert();
-      } else {
-        showScanErrorAlert();
-      }
+      showScanError(e);
     }
   };
 
@@ -176,8 +177,8 @@ export default function Scan() {
           layout,
         ),
       );
-    } catch {
-      Alert.alert(t.scan.createFailed);
+    } catch (e) {
+      showError(e);
       return;
     }
     if (!meta) return;

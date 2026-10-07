@@ -36,6 +36,14 @@ function detectResult(quad: Quad, detected: boolean) {
 }
 
 let alertSpy: jest.SpyInstance;
+
+function expectImageError() {
+  expect(alertSpy).toHaveBeenCalledWith(
+    'Không xử lý được ảnh',
+    'Không xử lý được ảnh này, vui lòng chụp lại.\n\nMã lỗi: IMAGE_PROCESS',
+    undefined,
+  );
+}
 let onCancel: jest.Mock;
 let onDone: jest.Mock;
 let onRetake: jest.Mock;
@@ -139,7 +147,7 @@ test('blocks done on unusable quad', async () => {
   mockDetect.mockResolvedValue(detectResult(tiny, true));
   await renderEditor();
   await press('Xong');
-  expect(alertSpy).toHaveBeenCalledWith('Không xử lý được ảnh');
+  expectImageError();
   expect(onDone).not.toHaveBeenCalled();
   expect(mockApply).not.toHaveBeenCalled();
 });
@@ -149,7 +157,7 @@ test('failure alerts and stays open', async () => {
   await renderEditor();
   await press('Xoay ⟳');
   await press('Xong');
-  expect(alertSpy).toHaveBeenCalledWith('Không xử lý được ảnh');
+  expectImageError();
   expect(onDone).not.toHaveBeenCalled();
   expect(screen.getByText('Xong')).toBeTruthy();
 });
@@ -197,7 +205,7 @@ test('a failed retake alerts and keeps the current image', async () => {
   onRetake.mockRejectedValueOnce(error);
   await renderEditor();
   await press('Chụp lại');
-  expect(alertSpy).toHaveBeenCalledWith('Không xử lý được ảnh');
+  expectImageError();
   expect(warnSpy).toHaveBeenCalledWith('retake failed', error);
   expect(mockDetect).toHaveBeenCalledTimes(1);
   await press('Xong');

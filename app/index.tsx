@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useErrorAlert } from '../src/errors/useErrorAlert';
 import { DocumentActions } from '../src/components/DocumentActions';
 import { DocumentRow } from '../src/components/DocumentRow';
 import { NameInput } from '../src/components/NameInput';
@@ -31,7 +32,7 @@ export default function Home() {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const { t } = useLocale();
-  const showError = () => Alert.alert(t.errors.generic);
+  const showError = useErrorAlert();
   const themed = useMemo(() => makeStyles(colors), [colors]);
 
   useFocusEffect(

@@ -1,5 +1,5 @@
 import { Alert, Linking } from 'react-native';
-import { CameraPermissionError } from '../../src/errors/AppError';
+import { CameraPermissionError, ScannerUnavailableError, StorageError } from '../../src/errors/AppError';
 import { act, render, screen, fireEvent } from '@testing-library/react-native';
 import Scan from '../../app/scan';
 import { LocaleProvider } from '../../src/i18n/LocaleContext';
@@ -143,15 +143,52 @@ test('alerts on failure', async () => {
   mockCreate.mockRejectedValueOnce(new Error('boom'));
   await renderScan();
   await fireEvent.press(screen.getByText('Tạo PDF'));
-  expect(alertSpy).toHaveBeenCalledWith('Không thể tạo PDF');
+  expect(alertSpy).toHaveBeenCalledWith(
+    'Có lỗi xảy ra',
+    'Đã có lỗi không mong muốn, vui lòng thử lại.\n\nMã lỗi: UNKNOWN',
+    undefined,
+  );
   expect(mockReplace).not.toHaveBeenCalled();
+});
+
+test('a StorageError on create shows the STORAGE popup', async () => {
+  mockScan.mockResolvedValueOnce(['a']);
+  mockCreate.mockRejectedValueOnce(new StorageError());
+  await renderScan();
+  await fireEvent.press(screen.getByText('Tạo PDF'));
+  expect(alertSpy).toHaveBeenCalledWith(
+    'Không lưu được tài liệu',
+    'Không lưu được tài liệu. Hãy kiểm tra dung lượng trống của máy.\n\nMã lỗi: STORAGE',
+    undefined,
+  );
+});
+
+test('scanner unavailable shows one close button and goes back', async () => {
+  mockScan.mockRejectedValueOnce(new ScannerUnavailableError());
+  await renderScan();
+  expect(alertSpy).toHaveBeenCalledWith(
+    'Không thể scan tài liệu',
+    expect.stringMatching(/^Máy chưa hỗ trợ trình quét tài liệu.*\n\nMã lỗi: SCANNER_UNAVAILABLE$/s),
+    expect.any(Array),
+  );
+  const buttons = alertSpy.mock.calls[0][2];
+  expect(buttons.map((b: any) => b.text)).toEqual(['Đóng']);
+  await act(async () => {
+    buttons[0].onPress();
+  });
+  expect(mockBack).toHaveBeenCalledTimes(1);
 });
 
 test('camera permission alert on first scan goes back on cancel', async () => {
   mockScan.mockRejectedValueOnce(new CameraPermissionError());
   await renderScan();
-  expect(alertSpy).toHaveBeenCalledWith('Cần quyền camera', undefined, expect.any(Array));
+  expect(alertSpy).toHaveBeenCalledWith(
+    'Cần quyền camera',
+    'Hãy cấp quyền camera cho iScanner trong Cài đặt.\n\nMã lỗi: CAMERA_PERMISSION',
+    expect.any(Array),
+  );
   const buttons = alertSpy.mock.calls[0][2];
+  expect(buttons.map((b: any) => b.text)).toEqual(['Mở Cài đặt', 'Huỷ']);
   await act(async () => {
     buttons.find((b: any) => b.text === 'Huỷ').onPress();
   });
@@ -180,8 +217,8 @@ test('generic scan error offers settings and goes back', async () => {
   mockScan.mockRejectedValueOnce(new Error('Kamera nicht verfügbar'));
   await renderScan();
   expect(alertSpy).toHaveBeenCalledWith(
-    'Không thể scan tài liệu',
-    'Nếu bạn đã từ chối quyền camera, hãy cấp quyền trong Cài đặt.',
+    'Có lỗi xảy ra',
+    'Đã có lỗi không mong muốn, vui lòng thử lại.\n\nMã lỗi: UNKNOWN',
     expect.any(Array),
   );
   const buttons = alertSpy.mock.calls[0][2];
@@ -582,15 +619,23 @@ describe('English', () => {
     mockCreate.mockRejectedValueOnce(new Error('boom'));
     await renderScan(false, true);
     await fireEvent.press(screen.getByText('Create PDF'));
-    expect(alertSpy).toHaveBeenCalledWith('Could not create the PDF');
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Something went wrong',
+      'An unexpected error occurred. Please try again.\n\nError code: UNKNOWN',
+      undefined,
+    );
   });
 
   test('camera permission alert', async () => {
     mockScan.mockRejectedValueOnce(new CameraPermissionError());
     await renderScan(false, true);
-    expect(alertSpy).toHaveBeenCalledWith('Camera permission needed', undefined, [
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Camera permission needed',
+      'Allow iScanner to use the camera in Settings.\n\nError code: CAMERA_PERMISSION',
+      [
       { text: 'Open Settings', onPress: expect.any(Function) },
       { text: 'Cancel', style: 'cancel', onPress: expect.any(Function) },
-    ]);
+      ],
+    );
   });
 });

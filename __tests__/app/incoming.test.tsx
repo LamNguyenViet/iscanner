@@ -1,5 +1,10 @@
 import { Alert, AppState, type AppStateStatus } from 'react-native';
-import { FileTooLargeError, UnsupportedFileError } from '../../src/errors/AppError';
+import {
+  FileTooLargeError,
+  PdfLoadError,
+  StorageError,
+  UnsupportedFileError,
+} from '../../src/errors/AppError';
 import { act, render, screen, fireEvent } from '@testing-library/react-native';
 import Incoming from '../../app/incoming';
 import { LocaleProvider } from '../../src/i18n/LocaleContext';
@@ -143,21 +148,47 @@ test('none goes home with alert', async () => {
   expect(mockReplace).not.toHaveBeenCalledWith('/');
 });
 
-test('when every file was skipped only the no-files alert is shown', async () => {
+test('when every file was rejected one per-file popup replaces the no-files alert', async () => {
+  mockImport.mockResolvedValueOnce({
+    files: [],
+    skipped: [
+      new UnsupportedFileError({ fileName: 'a.docx' }),
+      new FileTooLargeError({ fileName: 'b.mp4' }),
+    ],
+  });
+  await renderIncoming();
+  expect(alertSpy).toHaveBeenCalledTimes(1);
+  expect(alertSpy).toHaveBeenCalledWith(
+    'File không được hỗ trợ',
+    'a.docx — không hỗ trợ\nb.mp4 — quá lớn (> 100 MB)\n\nMã lỗi: FILE_UNSUPPORTED',
+    undefined,
+  );
+  expect(mockDismissTo).toHaveBeenCalledWith('/');
+});
+
+test('a single rejected file keeps the per-file line', async () => {
   mockImport.mockResolvedValueOnce({
     files: [],
     skipped: [new UnsupportedFileError({ fileName: 'a.docx' })],
   });
   await renderIncoming();
   expect(alertSpy).toHaveBeenCalledTimes(1);
-  expect(alertSpy).toHaveBeenCalledWith('Không có file PDF hoặc ảnh hợp lệ');
+  expect(alertSpy).toHaveBeenCalledWith(
+    'File không được hỗ trợ',
+    'a.docx — không hỗ trợ\n\nMã lỗi: FILE_UNSUPPORTED',
+    undefined,
+  );
   expect(mockDismissTo).toHaveBeenCalledWith('/');
 });
 
-test('an import failure alerts and goes back to the library', async () => {
+test('an import failure shows the UNKNOWN popup and goes back to the library', async () => {
   mockImport.mockRejectedValueOnce(new Error('boom'));
   await renderIncoming();
-  expect(alertSpy).toHaveBeenCalledWith('Không có file PDF hoặc ảnh hợp lệ');
+  expect(alertSpy).toHaveBeenCalledWith(
+    'Có lỗi xảy ra',
+    'Đã có lỗi không mong muốn, vui lòng thử lại.\n\nMã lỗi: UNKNOWN',
+    undefined,
+  );
   expect(mockDismissTo).toHaveBeenCalledWith('/');
 });
 
@@ -195,7 +226,7 @@ test('uri param used instead of shared payloads', async () => {
   expect(mockImport).toHaveBeenCalledWith([{ uri: 'content://p/doc%3A1' }]);
 });
 
-test('shows skipped count', async () => {
+test('some rejected and some usable shows the list popup then continues', async () => {
   mockImport.mockResolvedValueOnce({
     files: [img],
     skipped: [
@@ -204,7 +235,13 @@ test('shows skipped count', async () => {
     ],
   });
   await renderIncoming();
-  expect(alertSpy).toHaveBeenCalledWith('Bỏ qua 2 file không hỗ trợ hoặc quá lớn');
+  expect(alertSpy).toHaveBeenCalledTimes(1);
+  expect(alertSpy).toHaveBeenCalledWith(
+    'File không được hỗ trợ',
+    'a.docx — không hỗ trợ\nb.mp4 — quá lớn (> 100 MB)\n\nMã lỗi: FILE_UNSUPPORTED',
+    undefined,
+  );
+  expect(mockReplace).toHaveBeenCalledWith('/scan');
 });
 
 test('images go to scan', async () => {
@@ -269,6 +306,20 @@ describe('single pdf', () => {
     expect(takeImages()).toEqual([img]);
   });
 
+  test('a save failure shows the STORAGE popup and stays on the confirm view', async () => {
+    mockImport.mockResolvedValueOnce({ files: [pdf], skipped: [] });
+    const store = await renderIncoming();
+    jest.spyOn(store, 'add').mockRejectedValueOnce(new StorageError());
+    await fireEvent.press(screen.getByText('Lưu vào thư viện'));
+    await flush();
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Không lưu được tài liệu',
+      'Không lưu được tài liệu. Hãy kiểm tra dung lượng trống của máy.\n\nMã lỗi: STORAGE',
+      undefined,
+    );
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
   test('merge with other files', async () => {
     mockImport.mockResolvedValueOnce({ files: [pdf, img], skipped: [] });
     await renderIncoming();
@@ -279,11 +330,29 @@ describe('single pdf', () => {
     expect(mockDeleteFiles).not.toHaveBeenCalled();
   });
 
+  test('unreadable pdf gives FILE_READ, goes home and deletes the copy', async () => {
+    mockImport.mockResolvedValueOnce({ files: [pdf], skipped: [] });
+    mockReadBytes.mockRejectedValueOnce(new Error('io'));
+    await renderIncoming();
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Không đọc được file',
+      `${pdf.name} — không đọc được\n\nMã lỗi: FILE_READ`,
+      undefined,
+    );
+    expect(mockDeleteFiles).toHaveBeenCalledWith([pdf.uri]);
+    expect(mockDismissTo).toHaveBeenCalledWith('/');
+    expect(mockReplace).not.toHaveBeenCalledWith('/');
+  });
+
   test('corrupt pdf alerts and goes home, deleting the copy', async () => {
     mockImport.mockResolvedValueOnce({ files: [pdf], skipped: [] });
-    mockPageCount.mockRejectedValueOnce(new Error('ENCRYPTED'));
+    mockPageCount.mockRejectedValueOnce(new PdfLoadError({ fileName: pdf.name }));
     await renderIncoming();
-    expect(alertSpy).toHaveBeenCalledWith('Không đọc được file');
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Không load được file',
+      `${pdf.name} — sai định dạng\n\nMã lỗi: PDF_LOAD`,
+      undefined,
+    );
     expect(mockDeleteFiles).toHaveBeenCalledWith([pdf.uri]);
     expect(mockDismissTo).toHaveBeenCalledWith('/');
     expect(mockReplace).not.toHaveBeenCalledWith('/');
@@ -291,9 +360,13 @@ describe('single pdf', () => {
 
   test('corrupt pdf with images goes to scan', async () => {
     mockImport.mockResolvedValueOnce({ files: [pdf, img], skipped: [] });
-    mockPageCount.mockRejectedValueOnce(new Error('ENCRYPTED'));
+    mockPageCount.mockRejectedValueOnce(new PdfLoadError({ fileName: pdf.name }));
     await renderIncoming();
-    expect(alertSpy).toHaveBeenCalledWith('Không đọc được file');
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Không load được file',
+      `${pdf.name} — sai định dạng\n\nMã lỗi: PDF_LOAD`,
+      undefined,
+    );
     expect(mockReplace).toHaveBeenCalledWith('/scan');
     expect(takeImages()).toEqual([img]);
   });
@@ -447,13 +520,17 @@ describe('English', () => {
     expect(alertSpy).toHaveBeenCalledWith('No valid PDF or image files');
   });
 
-  test('skipped alert', async () => {
+  test('rejected file alert', async () => {
     mockImport.mockResolvedValueOnce({
       files: [img],
-      skipped: [{ name: 'a.docx', reason: 'unsupported' }],
+      skipped: [new UnsupportedFileError({ fileName: 'a.docx' })],
     });
     await renderIncoming(false, true);
-    expect(alertSpy).toHaveBeenCalledWith('Skipped 1 unsupported or oversized file');
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Unsupported file',
+      'a.docx — unsupported\n\nError code: FILE_UNSUPPORTED',
+      undefined,
+    );
   });
 
   test('a nameless single PDF is shown and saved as Document', async () => {
@@ -484,7 +561,7 @@ describe('English', () => {
     mockLocales = [{ languageCode: 'vi', languageTag: 'vi-VN' }];
     const fs = createMemoryFs();
     await fs.writeText(SETTINGS_PATH, '{"language":"en"}');
-    mockImport.mockResolvedValueOnce({ files: [], skipped: [{ name: 'a.docx', reason: 'unsupported' }] });
+    mockImport.mockResolvedValueOnce({ files: [], skipped: [new UnsupportedFileError({ fileName: 'a.docx' })] });
     const store = createLibraryStore({ fs: createMemoryFs(), newId: () => 'id1' });
     await render(
       <LocaleProvider fs={fs}>
@@ -496,7 +573,11 @@ describe('English', () => {
     await flush();
     await flush();
     expect(alertSpy).toHaveBeenCalledTimes(1);
-    expect(alertSpy).toHaveBeenCalledWith('No valid PDF or image files');
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Unsupported file',
+      'a.docx — unsupported\n\nError code: FILE_UNSUPPORTED',
+      undefined,
+    );
     mockLocales = [{ languageCode: 'en', languageTag: 'en-US' }];
   });
 });

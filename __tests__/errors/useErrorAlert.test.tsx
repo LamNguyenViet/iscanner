@@ -70,3 +70,13 @@ test('empty array is a no-op', async () => {
   show([]);
   expect(spy).not.toHaveBeenCalled();
 });
+
+test('list option keeps the per-file line for a single failed file', async () => {
+  await render(<Probe />);
+  show(new PdfLoadError({ fileName: 'x.pdf' }), { list: true });
+  expect(spy).toHaveBeenCalledWith(
+    'Không load được file',
+    'x.pdf — sai định dạng\n\nMã lỗi: PDF_LOAD',
+    undefined,
+  );
+});

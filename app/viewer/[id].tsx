@@ -1,7 +1,8 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import Pdf from 'react-native-pdf';
+import { useErrorAlert } from '../../src/errors/useErrorAlert';
 import { useLocale } from '../../src/i18n/LocaleContext';
 import { useLibrary } from '../../src/library/LibraryContext';
 import { shareDocument } from '../../src/native/share';
@@ -21,6 +22,7 @@ export default function Viewer() {
   const doc = documents.find((d) => d.id === id);
   const { colors } = useTheme();
   const { t } = useLocale();
+  const showError = useErrorAlert();
   const themed = useMemo(() => makeStyles(colors), [colors]);
   const uri = doc ? store.fileUri(doc) : undefined;
   const pdfSource = useMemo(() => ({ uri }), [uri]);
@@ -62,7 +64,7 @@ export default function Viewer() {
         options={{
           title: doc.name,
           headerRight: () => (
-            <Pressable onPress={() => shareDocument(store.fileUri(doc), doc.name).catch(() => Alert.alert(t.errors.generic))}>
+            <Pressable onPress={() => shareDocument(store.fileUri(doc), doc.name).catch(showError)}>
               <Text style={[styles.share, themed.share]}>{t.viewer.share}</Text>
             </Pressable>
           ),

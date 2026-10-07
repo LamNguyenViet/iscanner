@@ -1,3 +1,5 @@
+import { Alert } from 'react-native';
+import { ShareError } from '../../src/errors/AppError';
 import { act, render, screen, fireEvent } from '@testing-library/react-native';
 import Viewer from '../../app/viewer/[id]';
 import { LocaleProvider } from '../../src/i18n/LocaleContext';
@@ -86,6 +88,20 @@ test('renders pdf for known id and shares it', async () => {
   await render(<>{mockHeaderRight!()}</>);
   await fireEvent.press(screen.getByText('Chia sẻ'));
   expect(mockShare).toHaveBeenCalledWith(uri, 'Hoa don');
+});
+
+test('a share failure shows the SHARE popup', async () => {
+  await renderViewer();
+  mockShare.mockRejectedValueOnce(new ShareError());
+  const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  await render(<>{mockHeaderRight!()}</>);
+  await fireEvent.press(screen.getByText('Chia sẻ'));
+  expect(alertSpy).toHaveBeenCalledWith(
+    'Không chia sẻ được',
+    'Không mở được bảng chia sẻ, vui lòng thử lại.\n\nMã lỗi: SHARE',
+    undefined,
+  );
+  alertSpy.mockRestore();
 });
 
 test('refreshes once when the id is not loaded yet', async () => {

@@ -2,9 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { HeaderBackButton } from 'expo-router/react-navigation';
+import { useErrorAlert } from '../src/errors/useErrorAlert';
 import { useLocale } from '../src/i18n/LocaleContext';
 import { useLibrary } from '../src/library/LibraryContext';
 import { deleteFiles } from '../src/native/deleteFiles';
+import { FileReadError, toAppError } from '../src/errors/AppError';
 import { readBytes } from '../src/native/readBytes';
 import { clearSharedFiles, hasSharedFiles, readSharedFiles } from '../src/native/sharedPayloads';
 import { getPdfPageCount } from '../src/pdf/mergePdfs';
@@ -40,6 +42,7 @@ function stripPdfExtension(name: string): string {
 export default function Incoming() {
   const params = useLocalSearchParams<{ uri?: string }>();
   const { t } = useLocale();
+  const showError = useErrorAlert();
   const { colors } = useTheme();
   const themed = useMemo(() => makeStyles(colors), [colors]);
   const { store, refresh } = useLibrary();
@@ -95,13 +98,12 @@ export default function Incoming() {
         return;
       }
       const plan = planIncoming(files);
-      // With nothing usable the no-files alert says it all.
-      if (skipped.length > 0 && plan.kind !== 'none') {
-        Alert.alert(t.incoming.skipped(skipped.length));
-      }
+      // Rejected files are listed once, whether or not anything usable remains.
+      if (skipped.length > 0) showError(skipped, { list: true });
       switch (plan.kind) {
         case 'none':
-          Alert.alert(t.incoming.noFiles);
+          // The per-file popup already said why; the notice is only for nothing received at all.
+          if (skipped.length === 0) Alert.alert(t.incoming.noFiles);
           goHome();
           return;
         case 'merge':
@@ -116,9 +118,9 @@ export default function Incoming() {
           await prepareSinglePdf(plan.pdf, plan.images);
           return;
       }
-    } catch {
+    } catch (e) {
       if (!mounted.current) return;
-      Alert.alert(t.incoming.noFiles);
+      showError(e);
       goHome();
     } finally {
       receiving.current = false;
@@ -141,15 +143,21 @@ export default function Incoming() {
     setPending({ pdfs: [], images });
     undecided.current = pdf.uri;
     try {
-      const bytes = await readBytes(pdf.uri);
-      const pageCount = await getPdfPageCount(bytes);
+      let bytes: Uint8Array;
+      try {
+        bytes = await readBytes(pdf.uri);
+      } catch (e) {
+        throw new FileReadError({ fileName: pdf.name, cause: e });
+      }
+      const pageCount = await getPdfPageCount(bytes, pdf.name);
       if (!mounted.current) return;
       setConfirm({ pdf, images, bytes, pageCount });
-    } catch {
+    } catch (e) {
       if (!mounted.current) return;
       undecided.current = null;
       deleteFiles([pdf.uri]);
-      Alert.alert(t.incoming.readFailed);
+      const err = toAppError(e);
+      showError(err, { list: Boolean(err.fileName) });
       continueAfterPdf();
     }
   };
@@ -165,9 +173,9 @@ export default function Incoming() {
         source: 'merge',
       });
       id = meta.id;
-    } catch {
+    } catch (e) {
       setSaving(false);
-      Alert.alert(t.errors.generic);
+      showError(e);
       return;
     }
     undecided.current = null;

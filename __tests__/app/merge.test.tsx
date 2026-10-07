@@ -1,5 +1,5 @@
 import { Alert } from 'react-native';
-import { PdfLoadError } from '../../src/errors/AppError';
+import { PdfEncryptedError, PdfLoadError, StorageError } from '../../src/errors/AppError';
 import { act, render, screen, fireEvent } from '@testing-library/react-native';
 import Merge from '../../app/merge';
 import { LocaleProvider } from '../../src/i18n/LocaleContext';
@@ -105,9 +105,58 @@ test('reports failed files', async () => {
   mockPick.mockResolvedValueOnce([{ uri: a.uri, name: a.name }]);
   mockLoad.mockResolvedValueOnce({ loaded: [a, b], failed: [new PdfLoadError({ fileName: 'x.pdf' })] });
   await renderMerge();
-  expect(alertSpy).toHaveBeenCalledWith('Không đọc được file', expect.stringContaining('x.pdf'));
+  expect(alertSpy).toHaveBeenCalledWith(
+    'Không load được file',
+    'x.pdf — sai định dạng\n\nMã lỗi: PDF_LOAD',
+    undefined,
+  );
   expect(screen.getByText('a.pdf')).toBeTruthy();
   expect(screen.getByText('b.pdf')).toBeTruthy();
+});
+
+test('one encrypted and one corrupt file give one list popup titled for the first', async () => {
+  mockPick.mockResolvedValueOnce([{ uri: a.uri, name: a.name }]);
+  mockLoad.mockResolvedValueOnce({
+    loaded: [a, b],
+    failed: [new PdfEncryptedError({ fileName: 'e.pdf' }), new PdfLoadError({ fileName: 'x.pdf' })],
+  });
+  await renderMerge();
+  expect(alertSpy).toHaveBeenCalledTimes(1);
+  expect(alertSpy).toHaveBeenCalledWith(
+    'File PDF có mật khẩu',
+    'e.pdf — có mật khẩu\nx.pdf — sai định dạng\n\nMã lỗi: PDF_ENCRYPTED',
+    undefined,
+  );
+});
+
+test('a pick failure with a plain Error shows the UNKNOWN popup and goes back', async () => {
+  mockPick.mockRejectedValueOnce(new Error('picker crashed'));
+  await renderMerge();
+  expect(alertSpy).toHaveBeenCalledWith(
+    'Có lỗi xảy ra',
+    'Đã có lỗi không mong muốn, vui lòng thử lại.\n\nMã lỗi: UNKNOWN',
+    undefined,
+  );
+  expect(mockBack).toHaveBeenCalled();
+});
+
+test('a merge failure shows the UNKNOWN popup, a StorageError the STORAGE popup', async () => {
+  mockPick.mockResolvedValue([{ uri: a.uri, name: a.name }]);
+  mockLoad.mockResolvedValue({ loaded: [a, b], failed: [] });
+  mockMerge.mockRejectedValueOnce(new Error('boom')).mockRejectedValueOnce(new StorageError());
+  await renderMerge();
+  await fireEvent.press(screen.getByText('Gộp PDF'));
+  expect(alertSpy).toHaveBeenLastCalledWith(
+    'Có lỗi xảy ra',
+    'Đã có lỗi không mong muốn, vui lòng thử lại.\n\nMã lỗi: UNKNOWN',
+    undefined,
+  );
+  await fireEvent.press(screen.getByText('Gộp PDF'));
+  expect(alertSpy).toHaveBeenLastCalledWith(
+    'Không lưu được tài liệu',
+    'Không lưu được tài liệu. Hãy kiểm tra dung lượng trống của máy.\n\nMã lỗi: STORAGE',
+    undefined,
+  );
 });
 
 test('merges and opens viewer', async () => {
@@ -302,8 +351,9 @@ describe('English', () => {
     mockLoad.mockResolvedValueOnce({ loaded: [a, b], failed: [new PdfLoadError({ fileName: 'x.pdf' })] });
     await renderMerge(false, true);
     expect(alertSpy).toHaveBeenCalledWith(
-      'Could not read the file',
-      'x.pdf\nThe file may be corrupted or password-protected.',
+      'Cannot load file',
+      'x.pdf — invalid format\n\nError code: PDF_LOAD',
+      undefined,
     );
   });
 });
@@ -320,8 +370,9 @@ describe('nameless shared PDFs', () => {
     await renderMerge(false, true);
     expect(screen.getByText('Document')).toBeTruthy();
     expect(alertSpy).toHaveBeenCalledWith(
-      'Could not read the file',
-      'Document\nx.pdf\nThe file may be corrupted or password-protected.',
+      'Cannot load file',
+      'Document — invalid format\nx.pdf — invalid format\n\nError code: PDF_LOAD',
+      undefined,
     );
   });
 

@@ -7,7 +7,6 @@ import {
 } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   StyleSheet,
@@ -24,6 +23,8 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { ImageProcessError } from '../errors/AppError';
+import { useErrorAlert } from '../errors/useErrorAlert';
 import { useLocale } from '../i18n/LocaleContext';
 import { applyEdit, detectPageQuad, type Rotation } from '../imaging/enhance';
 import {
@@ -72,11 +73,11 @@ export function PageEditor({
   onRetake,
 }: PageEditorProps) {
   const { t } = useLocale();
-  const failed = t.editor.failed;
+  const showError = useErrorAlert();
   // Read through a ref so a live language change does not give `detect` a new identity (it would re-run
   // detection and wipe the user's corner edits).
-  const failedRef = useRef(failed);
-  failedRef.current = failed;
+  const showErrorRef = useRef(showError);
+  showErrorRef.current = showError;
   const [currentUri, setCurrentUri] = useState(page.uri);
   const [retakenUri, setRetakenUri] = useState<string | null>(null);
   const [align, setAlign] = useState<Align>(page.align);
@@ -107,8 +108,8 @@ export function PageEditor({
       if (id !== loadId.current) return;
       setSize(result.size);
       setQuad(result.quad);
-    } catch {
-      if (id === loadId.current) Alert.alert(failedRef.current);
+    } catch (e) {
+      if (id === loadId.current) showErrorRef.current(new ImageProcessError({ cause: e }));
     }
   }, []);
 
@@ -132,7 +133,7 @@ export function PageEditor({
     } catch (e) {
       // A cancelled scan resolves null; a throw is a real failure the user should hear about.
       if (__DEV__) console.warn('retake failed', e);
-      Alert.alert(failed);
+      showError(new ImageProcessError({ cause: e }));
       uri = null;
     } finally {
       setBusy(false);
@@ -151,7 +152,7 @@ export function PageEditor({
       return;
     }
     if (!isQuadUsable(quad, size.width, size.height)) {
-      Alert.alert(failed);
+      showError(new ImageProcessError());
       return;
     }
     if (rotation === 0 && isFullQuad(quad, size.width, size.height)) {
@@ -168,9 +169,9 @@ export function PageEditor({
       if (retakenUri) void deleteFiles([retakenUri]);
       setBusy(false);
       onDone({ uri, align });
-    } catch {
+    } catch (e) {
       setBusy(false);
-      Alert.alert(failed);
+      showError(new ImageProcessError({ cause: e }));
     }
   };
 
