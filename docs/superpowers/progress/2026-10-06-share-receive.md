@@ -84,3 +84,19 @@
 - iOS: it cannot be prebuilt on Windows. `expo config --type introspect` shows CFBundleDocumentTypes (PDF and Image, Alternate) and `LSSupportsOpeningDocumentsInPlace=false`, and the **entitlements are empty** (no App Group), so it works with a free Apple ID. It still needs a test on a real iPhone.
 - README now has the 1.2.0 features and a checklist.
 - Not testable on the emulator: the real Zalo app, and the MIME type Zalo actually sends.
+
+## Final whole-branch review (2026-10-07)
+- Opus review verdict: **With fixes**. 0 Critical; 2 Important:
+  1. **Security:** `getResolvedSharedPayloadsAsync` made expo-sharing write the file to `cacheDir/<name supplied by the sender>`. That allowed path traversal over iScanner's private files, left a copy in the cache on every share, bypassed the 100 MB limit, and let same-named files overwrite each other.
+  2. On iOS, files opened through "Open in" were left in `Documents/Inbox` for good.
+- Fix wave `881a54a`..`8b2e398`:
+  - **R5:** switched to `getSharedPayloads()`, which copies nothing natively; the app reads `content://` directly.
+  - **R6:** the Inbox copy is deleted after import (`src/share/inbox.ts`).
+  - Minors fixed: `dismissTo('/')` so no extra back arrow; images are cleaned up on unmount while undecided; only `file`/`content` schemes are accepted; a single alert.
+- **R8 (trade-off):** SDK 57 cannot read a shared file's real `DISPLAY_NAME` without writing a file under that name, which is exactly the hole being closed, so names are derived from the URI. Some senders will show opaque names, for example `1000`. Follow-up: a small native module that only reads `DISPLAY_NAME`.
+- Scoped re-review: ADDRESSED except **one open issue: the Inbox guard accepts `..` segments**. A deep link could make the iOS app delete a library file outside the Inbox; this is hard to exploit because it needs the container UUID. Process allows no second fix wave, so this is waiting on the user's decision.
+- Device re-check after the fixes (emulator):
+  - share → Nhận file with the right name;
+  - no file named by the sender is written to the cache;
+  - cancel → library with no back arrow.
+- Tests: jest **323/323**, typecheck clean. expo-doctor reports 5 packages one patch behind upstream; this branch did not cause it.
