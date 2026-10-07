@@ -60,6 +60,9 @@ describe('toAppError', () => {
   test('real EncryptedPDFError', () => {
     expect(toAppError(new EncryptedPDFError())).toBeInstanceOf(PdfEncryptedError);
   });
+  test('an unrelated error mentioning encryption stays UnknownError', () => {
+    expect(toAppError(new Error('storage is encrypted'))).toBeInstanceOf(UnknownError);
+  });
   test('others become UnknownError with cause', () => {
     const boom = new Error('boom');
     const a = toAppError(boom);

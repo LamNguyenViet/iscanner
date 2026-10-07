@@ -111,11 +111,10 @@ export class UnknownError extends AppError {
   }
 }
 
-// The pdf library's EncryptedPDFError keeps name 'Error' and is only identifiable by its constructor name (or
-// its message when a minifier mangles class names). Matching here keeps this module free of the library.
+// The pdf library's EncryptedPDFError keeps name 'Error' and is identifiable by its constructor name.
 function isEncryptedPdfError(e: unknown): boolean {
   if (!(e instanceof Error)) return false;
-  return e.name === 'EncryptedPDFError' || e.constructor?.name === 'EncryptedPDFError' || /encrypted/i.test(e.message);
+  return e.name === 'EncryptedPDFError' || e.constructor?.name === 'EncryptedPDFError';
 }
 
 /** Normalizes anything thrown. */
