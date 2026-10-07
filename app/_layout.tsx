@@ -8,7 +8,7 @@ import {
 } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import Constants from 'expo-constants';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { AppState, Platform, Pressable, StyleSheet, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { LocaleProvider, useLocale } from '../src/i18n/LocaleContext';
@@ -41,11 +41,14 @@ function useOpenWaitingShare() {
  */
 function useAppLogging() {
   const { language } = useLocale();
-  const { preference: theme } = useTheme();
+  const { preference: theme, loaded } = useTheme();
+  const ready = useRef<Promise<void>>(Promise.resolve());
+  const started = useRef(false);
   useEffect(() => {
-    void log
-      .init({ app: Constants.expoConfig?.version ?? 'unknown', os: `${Platform.OS} ${Platform.Version}` })
-      .then(() => log.info('app.start', { language, theme }));
+    ready.current = log.init({
+      app: Constants.expoConfig?.version ?? 'unknown',
+      os: `${Platform.OS} ${Platform.Version}`,
+    });
     const uninstall = installGlobalHandlers(log);
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'background' || state === 'inactive') void log.flush();
@@ -54,9 +57,13 @@ function useAppLogging() {
       uninstall();
       sub.remove();
     };
-    // Once per launch: later language/theme changes are logged by their own settings events.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Theme loads independently of the language, so wait for its saved value; log exactly once.
+  useEffect(() => {
+    if (!loaded || started.current) return;
+    started.current = true;
+    void ready.current.then(() => log.info('app.start', { language, theme }));
+  }, [loaded, language, theme]);
 }
 
 /** Header button that opens the settings screen. */

@@ -5,6 +5,7 @@ import Pdf from 'react-native-pdf';
 import { useErrorAlert } from '../../src/errors/useErrorAlert';
 import { useLocale } from '../../src/i18n/LocaleContext';
 import { useLibrary } from '../../src/library/LibraryContext';
+import { log } from '../../src/logging/logger';
 import { shareDocument } from '../../src/native/share';
 import type { Palette } from '../../src/theme/palette';
 import { useTheme } from '../../src/theme/ThemeContext';
@@ -64,7 +65,13 @@ export default function Viewer() {
         options={{
           title: doc.name,
           headerRight: () => (
-            <Pressable onPress={() => shareDocument(store.fileUri(doc), doc.name).catch(showError)}>
+            <Pressable
+              onPress={() =>
+                shareDocument(store.fileUri(doc), doc.name)
+                  .then(() => log.info('document.shared'))
+                  .catch(showError)
+              }
+            >
               <Text style={[styles.share, themed.share]}>{t.viewer.share}</Text>
             </Pressable>
           ),

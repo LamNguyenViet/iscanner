@@ -6,6 +6,7 @@ import { LocaleProvider } from '../../src/i18n/LocaleContext';
 import { LibraryProvider } from '../../src/library/LibraryContext';
 import { createLibraryStore } from '../../src/library/libraryStore';
 import { createMemoryFs } from '../../src/library/memoryFs';
+import { log } from '../../src/logging/logger';
 import { settleTheme, styleOf, themed } from '../fixtures/theme';
 
 const mockBack = jest.fn();
@@ -88,6 +89,7 @@ test('renders pdf for known id and shares it', async () => {
   await render(<>{mockHeaderRight!()}</>);
   await fireEvent.press(screen.getByText('Chia sẻ'));
   expect(mockShare).toHaveBeenCalledWith(uri, 'Hoa don');
+  expect(log.info).toHaveBeenCalledWith('document.shared');
 });
 
 test('a share failure shows the SHARE popup', async () => {

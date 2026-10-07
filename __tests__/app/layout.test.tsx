@@ -161,6 +161,19 @@ test('initializes the log once, records app.start and installs the global handle
   expect(installGlobalHandlers).toHaveBeenCalledWith(log);
 });
 
+test('app.start logs the saved theme even when it loads after the language', async () => {
+  let release!: () => void;
+  const gate = new Promise<void>((r) => (release = r));
+  const saved = { theme: 'dark', language: 'en' };
+  let calls = 0;
+  // The language provider (a child) reads first and resolves at once; the theme read is held back.
+  mockLoad = () => (++calls === 1 ? Promise.resolve(saved) : gate.then(() => saved));
+  await render(<RootLayout />);
+  await act(async () => release());
+  const starts = (log.info as jest.Mock).mock.calls.filter((c) => c[0] === 'app.start');
+  expect(starts).toEqual([['app.start', { language: 'en', theme: 'dark' }]]);
+});
+
 test('flushes the log when the app goes to the background or becomes inactive', async () => {
   await render(<RootLayout />);
   await act(async () => appStateHandler!('active'));

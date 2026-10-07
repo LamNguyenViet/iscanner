@@ -10,6 +10,8 @@ type ThemeValue = {
   scheme: 'light' | 'dark';
   preference: ThemePreference;
   setPreference(p: ThemePreference): void;
+  /** True once the saved preference has been read. */
+  loaded: boolean;
 };
 
 // Outside a provider (e.g. screen tests) everything renders light.
@@ -18,6 +20,7 @@ const ThemeContext = createContext<ThemeValue>({
   scheme: 'light',
   preference: 'system',
   setPreference: () => {},
+  loaded: true,
 });
 
 /**
@@ -26,6 +29,7 @@ const ThemeContext = createContext<ThemeValue>({
  */
 export function ThemeProvider({ children, fs }: { children: ReactNode; fs?: FsAdapter }) {
   const [preference, setPreferenceState] = useState<ThemePreference>('system');
+  const [loaded, setLoaded] = useState(false);
   const scheme: 'light' | 'dark' = useColorScheme() === 'dark' ? 'dark' : 'light';
 
   useEffect(() => {
@@ -34,6 +38,7 @@ export function ThemeProvider({ children, fs }: { children: ReactNode; fs?: FsAd
       if (!active) return;
       setPreferenceState(p);
       Appearance.setColorScheme(toNativeScheme(p));
+      setLoaded(true);
     });
     return () => {
       active = false;
@@ -52,8 +57,8 @@ export function ThemeProvider({ children, fs }: { children: ReactNode; fs?: FsAd
   );
 
   const value = useMemo(
-    () => ({ colors: paletteFor(scheme), scheme, preference, setPreference }),
-    [scheme, preference, setPreference],
+    () => ({ colors: paletteFor(scheme), scheme, preference, setPreference, loaded }),
+    [scheme, preference, setPreference, loaded],
   );
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
