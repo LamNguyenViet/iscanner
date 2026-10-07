@@ -1,6 +1,6 @@
 import {
   AppError, CameraPermissionError, FileReadError, FileTooLargeError, ImageProcessError, PdfEncryptedError,
-  PdfLoadError, ScannerUnavailableError, ShareError, StorageError, UnknownError, UnsupportedFileError, toAppError,
+  PdfLoadError, ScannerUnavailableError, ShareError, StorageError, UpdateCorruptError, UpdateDownloadError, UpdateInstallError, UnknownError, UnsupportedFileError, toAppError,
 } from '../../src/errors/AppError';
 import { EncryptedPDFError } from '../../src/pdf/pdfLib';
 
@@ -15,6 +15,9 @@ const simple: [string, new (o?: { fileName?: string; cause?: unknown }) => AppEr
   ['StorageError', StorageError, 'STORAGE'],
   ['ShareError', ShareError, 'SHARE'],
   ['UnknownError', UnknownError, 'UNKNOWN'],
+  ['UpdateDownloadError', UpdateDownloadError, 'UPDATE_DOWNLOAD'],
+  ['UpdateCorruptError', UpdateCorruptError, 'UPDATE_CORRUPT'],
+  ['UpdateInstallError', UpdateInstallError, 'UPDATE_INSTALL'],
 ];
 
 test.each(simple)('%s', (name, Cls, code) => {

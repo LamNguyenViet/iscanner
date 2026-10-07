@@ -78,3 +78,23 @@ test('saveSettings rejects when the write fails and later saves still work', asy
   await saveSettings({ theme: 'light' }, fs);
   expect(JSON.parse(fs.files.get('settings.json') as string)).toMatchObject({ theme: 'light' });
 });
+
+const upd = { lastCheckedAt: 5, forceMinBuild: 8, snooze: { build: 9, until: 10 }, lastBuild: 7 };
+
+test('parseSettings keeps a valid update block', () => {
+  expect(parseSettings(JSON.stringify({ theme: 'dark', update: upd }))).toEqual({ theme: 'dark', language: 'system', update: upd });
+  expect(parseSettings('{"update":{}}').update).toEqual({});
+});
+
+test.each([
+  { lastCheckedAt: 'x' }, { forceMinBuild: 1.5 }, { snooze: { build: 9 } }, { lastBuild: 0 }, 'str', null, [],
+])('parseSettings drops an invalid update block %j', (bad) => {
+  const r = parseSettings(JSON.stringify({ theme: 'dark', language: 'en', update: bad }));
+  expect(r.update).toBeUndefined();
+  expect(r).toMatchObject({ theme: 'dark', language: 'en' });
+});
+
+test('old settings files still parse without update', () => {
+  expect(parseSettings('{"theme":"dark"}')).toEqual({ theme: 'dark', language: 'system' });
+  expect(parseSettings('{"theme":"dark","language":"en"}')).toEqual({ theme: 'dark', language: 'en' });
+});

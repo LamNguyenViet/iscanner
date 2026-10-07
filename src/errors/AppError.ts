@@ -1,6 +1,7 @@
 export type ErrorCode =
   | 'PDF_LOAD' | 'PDF_ENCRYPTED' | 'FILE_TOO_LARGE' | 'FILE_UNSUPPORTED' | 'FILE_READ'
-  | 'CAMERA_PERMISSION' | 'SCANNER_UNAVAILABLE' | 'IMAGE_PROCESS' | 'STORAGE' | 'SHARE' | 'UNKNOWN';
+  | 'CAMERA_PERMISSION' | 'SCANNER_UNAVAILABLE' | 'IMAGE_PROCESS' | 'STORAGE' | 'SHARE' | 'UNKNOWN'
+  | 'UPDATE_DOWNLOAD' | 'UPDATE_CORRUPT' | 'UPDATE_INSTALL';
 
 export class AppError extends Error {
   readonly code: ErrorCode;
@@ -116,6 +117,30 @@ export class UnknownError extends AppError {
     super('UNKNOWN', opts);
     Object.setPrototypeOf(this, new.target.prototype);
     this.name = 'UnknownError';
+  }
+}
+
+export class UpdateDownloadError extends AppError {
+  constructor(opts?: { fileName?: string; cause?: unknown }) {
+    super('UPDATE_DOWNLOAD', opts);
+    Object.setPrototypeOf(this, new.target.prototype);
+    this.name = 'UpdateDownloadError';
+  }
+}
+
+export class UpdateCorruptError extends AppError {
+  constructor(opts?: { fileName?: string; cause?: unknown }) {
+    super('UPDATE_CORRUPT', opts);
+    Object.setPrototypeOf(this, new.target.prototype);
+    this.name = 'UpdateCorruptError';
+  }
+}
+
+export class UpdateInstallError extends AppError {
+  constructor(opts?: { fileName?: string; cause?: unknown }) {
+    super('UPDATE_INSTALL', opts);
+    Object.setPrototypeOf(this, new.target.prototype);
+    this.name = 'UpdateInstallError';
   }
 }
 

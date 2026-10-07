@@ -17,6 +17,8 @@ export const en: Strings = {
     support: 'Support',
     sendLogs: 'Send error logs',
     noLogs: 'No logs yet.',
+    version: (v, b) => `Version ${v} (${b})`,
+    checkUpdate: 'Check for updates',
   },
   library: {
     empty: 'No documents yet. Scan or merge PDFs to get started.',
@@ -91,6 +93,9 @@ export const en: Strings = {
     STORAGE: { title: 'Cannot save document', message: "The document couldn't be saved. Check your device's free storage." },
     SHARE: { title: 'Cannot share', message: "The share sheet couldn't be opened. Please try again." },
     UNKNOWN: { title: 'Something went wrong', message: 'An unexpected error occurred. Please try again.' },
+    UPDATE_DOWNLOAD: { title: "Couldn't download the update", message: 'Check your connection and try again.' },
+    UPDATE_CORRUPT: { title: 'Update file is damaged', message: "The downloaded file didn't match. Please try again." },
+    UPDATE_INSTALL: { title: "Couldn't open the installer", message: 'Allow iScanner to install apps in Settings, then try again.' },
     reason: {
       PDF_LOAD: 'invalid format',
       PDF_ENCRYPTED: 'password-protected',
@@ -99,6 +104,19 @@ export const en: Strings = {
       FILE_READ: 'unreadable',
     },
     codeLine: (code: string) => `Error code: ${code}`,
+  },
+  update: {
+    forceTitle: 'Update required',
+    forceBody: 'This version is no longer supported. Please update to continue.',
+    optionalTitle: 'A new version is available',
+    optionalBody: 'Update to get the latest features and fixes.',
+    updateNow: 'Update',
+    later: 'Later',
+    downloading: (mb) => (mb === undefined ? 'Downloading update…' : `Downloading update… (≈ ${mb} MB)`),
+    installHint: 'If Android asks, allow iScanner to install apps, then tap Update again.',
+    current: (v, b) => `Current version: ${v} (${b})`,
+    upToDate: "You're on the latest version.",
+    checkFailed: "Couldn't check for updates. Please try again when online.",
   },
   titles: {
     library: 'iScanner',

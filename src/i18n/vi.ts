@@ -17,6 +17,8 @@ export const vi = {
     support: 'Hỗ trợ',
     sendLogs: 'Gửi log lỗi',
     noLogs: 'Chưa có log nào.',
+    version: (v: string, b: number) => `Phiên bản ${v} (${b})`,
+    checkUpdate: 'Kiểm tra cập nhật',
   },
   library: {
     empty: 'Chưa có tài liệu nào. Hãy scan hoặc gộp PDF để bắt đầu.',
@@ -91,6 +93,9 @@ export const vi = {
     STORAGE: { title: 'Không lưu được tài liệu', message: 'Không lưu được tài liệu. Hãy kiểm tra dung lượng trống của máy.' },
     SHARE: { title: 'Không chia sẻ được', message: 'Không mở được bảng chia sẻ, vui lòng thử lại.' },
     UNKNOWN: { title: 'Có lỗi xảy ra', message: 'Đã có lỗi không mong muốn, vui lòng thử lại.' },
+    UPDATE_DOWNLOAD: { title: 'Không tải được bản cập nhật', message: 'Kiểm tra kết nối mạng rồi thử lại.' },
+    UPDATE_CORRUPT: { title: 'File cập nhật bị lỗi', message: 'File tải về không khớp, vui lòng thử lại.' },
+    UPDATE_INSTALL: { title: 'Không mở được trình cài đặt', message: 'Hãy cho phép iScanner cài ứng dụng trong Cài đặt rồi thử lại.' },
     reason: {
       PDF_LOAD: 'sai định dạng',
       PDF_ENCRYPTED: 'có mật khẩu',
@@ -99,6 +104,19 @@ export const vi = {
       FILE_READ: 'không đọc được',
     } as Partial<Record<ErrorCode, string>>,
     codeLine: (code: string) => `Mã lỗi: ${code}`,
+  },
+  update: {
+    forceTitle: 'Cần cập nhật iScanner',
+    forceBody: 'Phiên bản này đã cũ. Vui lòng cập nhật để tiếp tục sử dụng.',
+    optionalTitle: 'Đã có phiên bản mới',
+    optionalBody: 'Cập nhật để có các tính năng và bản sửa lỗi mới nhất.',
+    updateNow: 'Cập nhật',
+    later: 'Để sau',
+    downloading: (mb?: number) => (mb === undefined ? 'Đang tải bản cập nhật…' : `Đang tải bản cập nhật… (≈ ${mb} MB)`),
+    installHint: 'Nếu Android hỏi, hãy cho phép iScanner cài ứng dụng rồi bấm Cập nhật lại.',
+    current: (v: string, b: number) => `Phiên bản hiện tại: ${v} (${b})`,
+    upToDate: 'Bạn đang dùng phiên bản mới nhất.',
+    checkFailed: 'Không kiểm tra được cập nhật. Vui lòng thử lại khi có mạng.',
   },
   titles: {
     library: 'iScanner',

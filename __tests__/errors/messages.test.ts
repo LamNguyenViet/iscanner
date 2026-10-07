@@ -10,6 +10,8 @@ const make: Record<ErrorCode, () => AppError> = {
   FILE_READ: () => new E.FileReadError(), CAMERA_PERMISSION: () => new E.CameraPermissionError(),
   SCANNER_UNAVAILABLE: () => new E.ScannerUnavailableError(), IMAGE_PROCESS: () => new E.ImageProcessError(),
   STORAGE: () => new E.StorageError(), SHARE: () => new E.ShareError(), UNKNOWN: () => new E.UnknownError(),
+  UPDATE_DOWNLOAD: () => new E.UpdateDownloadError(), UPDATE_CORRUPT: () => new E.UpdateCorruptError(),
+  UPDATE_INSTALL: () => new E.UpdateInstallError(),
 };
 
 const viCopy: Record<ErrorCode, [string, string]> = {
@@ -24,6 +26,9 @@ const viCopy: Record<ErrorCode, [string, string]> = {
   STORAGE: ['Không lưu được tài liệu', 'Không lưu được tài liệu. Hãy kiểm tra dung lượng trống của máy.'],
   SHARE: ['Không chia sẻ được', 'Không mở được bảng chia sẻ, vui lòng thử lại.'],
   UNKNOWN: ['Có lỗi xảy ra', 'Đã có lỗi không mong muốn, vui lòng thử lại.'],
+  UPDATE_DOWNLOAD: ['Không tải được bản cập nhật', 'Kiểm tra kết nối mạng rồi thử lại.'],
+  UPDATE_CORRUPT: ['File cập nhật bị lỗi', 'File tải về không khớp, vui lòng thử lại.'],
+  UPDATE_INSTALL: ['Không mở được trình cài đặt', 'Hãy cho phép iScanner cài ứng dụng trong Cài đặt rồi thử lại.'],
 };
 const enCopy: Record<ErrorCode, [string, string]> = {
   PDF_LOAD: ['Cannot load file', "Cannot load file, check your document's format file PDF."],
@@ -37,6 +42,9 @@ const enCopy: Record<ErrorCode, [string, string]> = {
   STORAGE: ['Cannot save document', "The document couldn't be saved. Check your device's free storage."],
   SHARE: ['Cannot share', "The share sheet couldn't be opened. Please try again."],
   UNKNOWN: ['Something went wrong', 'An unexpected error occurred. Please try again.'],
+  UPDATE_DOWNLOAD: ["Couldn't download the update", 'Check your connection and try again.'],
+  UPDATE_CORRUPT: ['Update file is damaged', "The downloaded file didn't match. Please try again."],
+  UPDATE_INSTALL: ["Couldn't open the installer", 'Allow iScanner to install apps in Settings, then try again.'],
 };
 
 const codes = Object.keys(make) as ErrorCode[];
@@ -86,4 +94,15 @@ test('single error with a file name is the file name then the full message', () 
 test('code line', () => {
   expect(vi.errors.codeLine('PDF_LOAD')).toBe('Mã lỗi: PDF_LOAD');
   expect(en.errors.codeLine('PDF_LOAD')).toBe('Error code: PDF_LOAD');
+});
+
+test('update copy functions', () => {
+  expect(vi.update.downloading(88)).toBe('Đang tải bản cập nhật… (≈ 88 MB)');
+  expect(vi.update.downloading()).toBe('Đang tải bản cập nhật…');
+  expect(en.update.downloading(88)).toBe('Downloading update… (≈ 88 MB)');
+  expect(en.update.downloading()).toBe('Downloading update…');
+  expect(vi.update.current('1.7.0', 7)).toBe('Phiên bản hiện tại: 1.7.0 (7)');
+  expect(en.update.current('1.7.0', 7)).toBe('Current version: 1.7.0 (7)');
+  expect(vi.settings.version('1.7.0', 7)).toBe('Phiên bản 1.7.0 (7)');
+  expect(en.settings.version('1.7.0', 7)).toBe('Version 1.7.0 (7)');
 });
