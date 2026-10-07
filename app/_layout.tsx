@@ -54,6 +54,8 @@ const styles = StyleSheet.create({
 
 /** Navigation headers and the status bar follow the app theme. */
 function ThemedStack() {
+  // Only here: the navigator is mounted in this commit, so router.navigate is safe.
+  useOpenWaitingShare();
   const { colors, scheme } = useTheme();
   const { t } = useLocale();
   const navTheme = useMemo(() => {
@@ -89,7 +91,6 @@ function ThemedStack() {
 }
 
 export default function RootLayout() {
-  useOpenWaitingShare();
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider>

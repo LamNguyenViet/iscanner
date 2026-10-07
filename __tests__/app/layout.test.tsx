@@ -38,9 +38,10 @@ jest.mock('expo-status-bar', () => ({
 }));
 jest.mock('../../src/settings/settings', () => ({
   ...jest.requireActual('../../src/settings/settings'),
-  loadSettings: () => Promise.resolve({ theme: 'system', language: 'system' }),
+  loadSettings: () => mockLoad(),
   saveSettings: () => Promise.resolve(),
 }));
+let mockLoad: () => Promise<unknown> = () => Promise.resolve({ theme: 'system', language: 'system' });
 let mockLocales = [{ languageCode: 'vi', languageTag: 'vi-VN' }];
 jest.mock('expo-localization', () => ({ useLocales: () => mockLocales }));
 let mockColorScheme = 'light';
@@ -57,6 +58,8 @@ const mockHasShared = hasSharedFiles as jest.Mock;
 let appStateHandler: ((s: AppStateStatus) => void) | undefined;
 beforeEach(() => {
   jest.clearAllMocks();
+  for (const k of Object.keys(mockScreens)) delete mockScreens[k];
+  mockLoad = () => Promise.resolve({ theme: 'system', language: 'system' });
   mockPathname = '/';
   mockColorScheme = 'light';
   mockLocales = [{ languageCode: 'vi', languageTag: 'vi-VN' }];
@@ -71,6 +74,19 @@ beforeEach(() => {
 test('a share waiting at startup opens the incoming screen', async () => {
   mockHasShared.mockReturnValue(true);
   await render(<RootLayout />);
+  expect(mockNavigate).toHaveBeenCalledWith('/incoming');
+});
+
+test('a waiting share is opened only once the navigator has mounted', async () => {
+  let release!: () => void;
+  const gate = new Promise<void>((r) => (release = r));
+  mockLoad = () => gate.then(() => ({ theme: 'system', language: 'system' }));
+  mockHasShared.mockReturnValue(true);
+  await render(<RootLayout />);
+  expect(mockScreens.index).toBeUndefined();
+  expect(mockNavigate).not.toHaveBeenCalled();
+  await act(async () => release());
+  expect(mockScreens.index).toBeDefined();
   expect(mockNavigate).toHaveBeenCalledWith('/incoming');
 });
 
