@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { Appearance, StyleSheet } from 'react-native';
+import { Appearance, StyleSheet, type StyleProp, type TextStyle } from 'react-native';
 import { act } from '@testing-library/react-native';
 import { createMemoryFs } from '../../src/library/memoryFs';
 import { ThemeProvider } from '../../src/theme/ThemeContext';
@@ -19,5 +19,5 @@ export const settleTheme = () =>
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
 
-export const styleOf = (node: { props: { style?: unknown } }) =>
-  StyleSheet.flatten(node.props.style as never) ?? {};
+export const styleOf = (node: { props: { style?: unknown } }): TextStyle =>
+  StyleSheet.flatten(node.props.style as StyleProp<TextStyle>) ?? {};
