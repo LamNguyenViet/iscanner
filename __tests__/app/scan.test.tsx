@@ -84,6 +84,7 @@ async function renderScan() {
 let alertSpy: jest.SpyInstance;
 beforeEach(() => {
   jest.clearAllMocks();
+  clearPending();
   alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   mockNormalize.mockImplementation((uri: string) => Promise.resolve(uri + '-n'));
 });

@@ -18,7 +18,7 @@ import { useLibrary } from '../src/library/LibraryContext';
 import { pickPdfs } from '../src/native/pickPdfs';
 import { deleteFiles } from '../src/native/deleteFiles';
 import { readBytes } from '../src/native/readBytes';
-import { hasPendingImages, takePdfs } from '../src/share/incomingStore';
+import { clearPending, hasPendingImages, takePdfs } from '../src/share/incomingStore';
 import { defaultName, sanitizeName } from '../src/utils/format';
 import {
   createMergedDocument,
@@ -42,16 +42,28 @@ export default function Merge() {
   const fileUris = useRef<string[]>([]);
   fileUris.current = items.map((i) => i.value.uri);
   const merged = useRef(false);
+  // Set when the screen hands its pending images over to /scan itself.
+  const handedOff = useRef(false);
 
   useEffect(
     () => () => {
-      if (!merged.current) deleteFiles(fileUris.current);
+      if (!merged.current) {
+        deleteFiles(fileUris.current);
+        // Received images nobody consumed would otherwise leak and misroute a later merge.
+        if (!handedOff.current) deleteFiles(clearPending().map((f) => f.uri));
+      }
     },
     [],
   );
 
   const backIfEmpty = () => {
-    if (count.current === 0) router.back();
+    if (count.current !== 0) return;
+    if (hasPendingImages()) {
+      handedOff.current = true;
+      router.replace('/scan');
+    } else {
+      router.back();
+    }
   };
 
   const loadFrom = async (getPicked: () => Promise<{ uri: string; name: string }[]>) => {

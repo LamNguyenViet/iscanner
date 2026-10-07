@@ -7,6 +7,7 @@ import { createMemoryFs } from '../../src/library/memoryFs';
 import { deleteFiles } from '../../src/native/deleteFiles';
 import { clearPending, setPending } from '../../src/share/incomingStore';
 import { pickPdfs } from '../../src/native/pickPdfs';
+import { hasPendingImages } from '../../src/share/incomingStore';
 import { createMergedDocument, loadPickedPdfs } from '../../src/workflows/mergeWorkflow';
 
 const mockBack = jest.fn();
@@ -69,6 +70,7 @@ async function renderMerge() {
 let alertSpy: jest.SpyInstance;
 beforeEach(() => {
   jest.clearAllMocks();
+  clearPending();
   alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 });
 
@@ -207,5 +209,38 @@ describe('received files', () => {
     await fireEvent.press(screen.getByText('Gộp PDF'));
     expect(mockReplace).toHaveBeenCalledWith('/scan');
     expect(mockReplace).not.toHaveBeenCalledWith('/viewer/id1');
+  });
+
+  test('all pending pdfs failing with images pending continues to scan', async () => {
+    setPending({ pdfs: [inc('x.pdf', 'pdf')], images: [inc('i.jpg', 'image')] });
+    mockLoad.mockResolvedValueOnce({ loaded: [], failed: ['x.pdf'] });
+    await renderMerge();
+    expect(mockReplace).toHaveBeenCalledWith('/scan');
+    expect(mockBack).not.toHaveBeenCalled();
+    await screen.unmount();
+    expect(hasPendingImages()).toBe(true);
+  });
+
+  test('unmounting without merging deletes pending images', async () => {
+    setPending({ pdfs: [inc('a.pdf', 'pdf'), inc('b.pdf', 'pdf')], images: [inc('i.jpg', 'image')] });
+    mockLoad.mockResolvedValueOnce({ loaded: [a, b], failed: [] });
+    await renderMerge();
+    await screen.unmount();
+    expect(mockDeleteFiles).toHaveBeenCalledWith(['file:///i.jpg']);
+    expect(hasPendingImages()).toBe(false);
+  });
+
+  test('a later picker merge goes to the viewer, not scan', async () => {
+    setPending({ pdfs: [inc('a.pdf', 'pdf'), inc('b.pdf', 'pdf')], images: [inc('i.jpg', 'image')] });
+    mockLoad.mockResolvedValueOnce({ loaded: [a, b], failed: [] });
+    await renderMerge();
+    await screen.unmount();
+    mockPick.mockResolvedValueOnce([{ uri: a.uri, name: a.name }]);
+    mockLoad.mockResolvedValueOnce({ loaded: [a, b], failed: [] });
+    mockMerge.mockResolvedValueOnce({ id: 'id1' });
+    await renderMerge();
+    await fireEvent.press(screen.getByText('Gộp PDF'));
+    expect(mockReplace).toHaveBeenCalledWith('/viewer/id1');
+    expect(mockReplace).not.toHaveBeenCalledWith('/scan');
   });
 });
