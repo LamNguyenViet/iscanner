@@ -14,6 +14,7 @@ import { router } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NameInput } from '../src/components/NameInput';
+import { useLocale } from '../src/i18n/LocaleContext';
 import { useLibrary } from '../src/library/LibraryContext';
 import { pickPdfs } from '../src/native/pickPdfs';
 import { deleteFiles } from '../src/native/deleteFiles';
@@ -31,6 +32,7 @@ import { useBusy } from '../src/workflows/useBusy';
 import { useOrderedList, type Keyed } from '../src/workflows/useOrderedList';
 
 export default function Merge() {
+  const { t } = useLocale();
   const { store, refresh } = useLibrary();
   const { items, append, remove, setOrder } = useOrderedList<LoadedPdf>();
   const busy = useBusy();
@@ -38,7 +40,7 @@ export default function Merge() {
   const { colors } = useTheme();
   const themed = useMemo(() => makeStyles(colors), [colors]);
   const headerHeight = useHeaderHeight();
-  const [name, setName] = useState(() => defaultName('merge', new Date()));
+  const [name, setName] = useState(() => defaultName('merge', new Date(), t));
   const started = useRef(false);
   const count = useRef(0);
   count.current = items.length;
@@ -89,13 +91,13 @@ export default function Merge() {
       if (result.loaded.length > 0) append(result.loaded);
       if (result.failed.length > 0) {
         Alert.alert(
-          'Không đọc được file',
-          result.failed.join('\n') + '\nFile có thể bị hỏng hoặc có mật khẩu.',
+          t.merge.readFailedTitle,
+          result.failed.join('\n') + '\n' + t.merge.corruptSuffix,
         );
       }
       if (result.loaded.length === 0) backIfEmpty();
     } catch {
-      Alert.alert('Không đọc được file', 'Không thể đọc file PDF đã chọn.');
+      Alert.alert(t.merge.readFailedTitle, t.merge.pickFailed);
       backIfEmpty();
     }
   };
@@ -121,11 +123,11 @@ export default function Merge() {
         createMergedDocument(
           { readBytes, library: store },
           items.map((i) => i.value),
-          sanitizeName(name, defaultName('merge', new Date())),
+          sanitizeName(name, defaultName('merge', new Date(), t)),
         ),
       );
     } catch {
-      Alert.alert('Không thể tạo PDF');
+      Alert.alert(t.merge.createFailed);
       return;
     }
     if (!meta) return;
@@ -154,9 +156,9 @@ export default function Merge() {
       <Text style={[styles.fileName, themed.fileName]} numberOfLines={1}>
         {item.value.name}
       </Text>
-      <Text style={[styles.pages, themed.pages]}>{item.value.pageCount} trang</Text>
+      <Text style={[styles.pages, themed.pages]}>{t.format.pages(item.value.pageCount)}</Text>
       <Pressable onPress={() => removeFile(item)}>
-        <Text style={[styles.delete, themed.delete]}>Xoá</Text>
+        <Text style={[styles.delete, themed.delete]}>{t.merge.delete}</Text>
       </Pressable>
     </Pressable>
   );
@@ -171,7 +173,7 @@ export default function Merge() {
     >
       <View style={styles.header}>
         <NameInput value={name} onChangeText={setName} />
-        {items.length < 2 && <Text style={[styles.hint, themed.hint]}>Chọn ít nhất 2 file PDF</Text>}
+        {items.length < 2 && <Text style={[styles.hint, themed.hint]}>{t.merge.hint}</Text>}
       </View>
       <DraggableFlatList
         data={items}
@@ -188,7 +190,7 @@ export default function Merge() {
           disabled={busy.busy}
           onPress={pick}
         >
-          <Text style={[styles.buttonText, themed.buttonText]}>+ Thêm file</Text>
+          <Text style={[styles.buttonText, themed.buttonText]}>{t.merge.addFiles}</Text>
         </Pressable>
         <Pressable
           role="button"
@@ -196,7 +198,7 @@ export default function Merge() {
           disabled={mergeDisabled}
           onPress={merge}
         >
-          <Text style={[styles.buttonText, themed.buttonText]}>Gộp PDF</Text>
+          <Text style={[styles.buttonText, themed.buttonText]}>{t.merge.create}</Text>
         </Pressable>
       </View>
     </KeyboardAvoidingView>

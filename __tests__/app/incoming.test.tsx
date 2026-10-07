@@ -1,6 +1,7 @@
 import { Alert, AppState, type AppStateStatus } from 'react-native';
 import { act, render, screen, fireEvent } from '@testing-library/react-native';
 import Incoming from '../../app/incoming';
+import { LocaleProvider } from '../../src/i18n/LocaleContext';
 import { LibraryProvider } from '../../src/library/LibraryContext';
 import { createLibraryStore } from '../../src/library/libraryStore';
 import { createMemoryFs } from '../../src/library/memoryFs';
@@ -87,19 +88,23 @@ async function flush() {
 // Unmounts the incoming screen even after another tree (e.g. the header button) was rendered.
 let unmountIncoming: () => unknown = () => {};
 
+let mockLocales = [{ languageCode: 'en', languageTag: 'en-US' }];
+jest.mock('expo-localization', () => ({ useLocales: () => mockLocales }));
+
 let mockColorScheme = 'light';
 jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
   __esModule: true,
   default: () => mockColorScheme,
 }));
 
-async function renderIncoming(dark = false): Promise<LibraryStore> {
+async function renderIncoming(dark = false, english = false): Promise<LibraryStore> {
   const store = createLibraryStore({ fs: createMemoryFs(), newId: () => 'id1' });
-  const ui = (
+  let ui = (
     <LibraryProvider store={store}>
       <Incoming />
     </LibraryProvider>
   );
+  if (english) ui = <LocaleProvider fs={createMemoryFs()}>{ui}</LocaleProvider>;
   mockColorScheme = dark ? 'dark' : 'light';
   const view = await render(dark ? themed(ui) : ui);
   await settleTheme();
@@ -424,5 +429,41 @@ describe('dark theme', () => {
     await renderIncoming(true);
     expect(styleOf(screen.getByText('Đang nhận file…')).color).toBe('#a0a0a0');
     expect(styleOf(screen.root!).backgroundColor).toBe('#121212');
+  });
+});
+
+describe('English', () => {
+  test('loading text', async () => {
+    mockImport.mockReturnValueOnce(new Promise(() => {}));
+    await renderIncoming(false, true);
+    expect(screen.getByText('Receiving files…')).toBeTruthy();
+  });
+
+  test('nothing usable alert', async () => {
+    mockImport.mockResolvedValueOnce({ files: [], skipped: [] });
+    await renderIncoming(false, true);
+    expect(alertSpy).toHaveBeenCalledWith('No valid PDF or image files');
+  });
+
+  test('skipped alert', async () => {
+    mockImport.mockResolvedValueOnce({
+      files: [img],
+      skipped: [{ name: 'a.docx', reason: 'unsupported' }],
+    });
+    await renderIncoming(false, true);
+    expect(alertSpy).toHaveBeenCalledWith('Skipped 1 unsupported or oversized file');
+  });
+
+  test('a nameless single PDF is shown and saved as Document', async () => {
+    const unnamed = { ...pdf, name: '' };
+    mockImport.mockResolvedValueOnce({ files: [unnamed], skipped: [] });
+    const store = await renderIncoming(false, true);
+    expect(screen.getByText('Document')).toBeTruthy();
+    expect(screen.getByText('3 pages')).toBeTruthy();
+    expect(screen.getByText('Merge with other files')).toBeTruthy();
+    await fireEvent.press(screen.getByText('Save to library'));
+    await flush();
+    const docs = await store.list();
+    expect(docs[0].name).toBe('Document');
   });
 });

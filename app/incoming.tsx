@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { HeaderBackButton } from 'expo-router/react-navigation';
+import { useLocale } from '../src/i18n/LocaleContext';
 import { useLibrary } from '../src/library/LibraryContext';
 import { deleteFiles } from '../src/native/deleteFiles';
 import { readBytes } from '../src/native/readBytes';
@@ -17,8 +18,6 @@ import { useTheme } from '../src/theme/ThemeContext';
 import { useForegroundCheck } from '../src/workflows/useForegroundCheck';
 
 type Confirm = { pdf: IncomingFile; images: IncomingFile[]; bytes: Uint8Array; pageCount: number };
-
-const NO_FILES = 'Không có file PDF hoặc ảnh hợp lệ';
 
 /**
  * Back to the library. On a warm share the stack is [index, incoming]: pop to it instead of stacking a
@@ -40,6 +39,7 @@ function stripPdfExtension(name: string): string {
 
 export default function Incoming() {
   const params = useLocalSearchParams<{ uri?: string }>();
+  const { t } = useLocale();
   const { colors } = useTheme();
   const themed = useMemo(() => makeStyles(colors), [colors]);
   const { store, refresh } = useLibrary();
@@ -95,11 +95,11 @@ export default function Incoming() {
       const plan = planIncoming(files);
       // With nothing usable the no-files alert says it all.
       if (skipped.length > 0 && plan.kind !== 'none') {
-        Alert.alert(`Bỏ qua ${skipped.length} file không hỗ trợ hoặc quá lớn`);
+        Alert.alert(t.incoming.skipped(skipped.length));
       }
       switch (plan.kind) {
         case 'none':
-          Alert.alert(NO_FILES);
+          Alert.alert(t.incoming.noFiles);
           goHome();
           return;
         case 'merge':
@@ -116,7 +116,7 @@ export default function Incoming() {
       }
     } catch {
       if (!mounted.current) return;
-      Alert.alert(NO_FILES);
+      Alert.alert(t.incoming.noFiles);
       goHome();
     } finally {
       receiving.current = false;
@@ -147,7 +147,7 @@ export default function Incoming() {
       if (!mounted.current) return;
       undecided.current = null;
       deleteFiles([pdf.uri]);
-      Alert.alert('Không đọc được file');
+      Alert.alert(t.incoming.readFailed);
       continueAfterPdf();
     }
   };
@@ -158,14 +158,14 @@ export default function Incoming() {
     let id: string;
     try {
       const meta = await store.add(confirm.bytes, {
-        name: stripPdfExtension(confirm.pdf.name),
+        name: stripPdfExtension(confirm.pdf.name) || t.common.untitled,
         pageCount: confirm.pageCount,
         source: 'merge',
       });
       id = meta.id;
     } catch {
       setSaving(false);
-      Alert.alert('Có lỗi xảy ra');
+      Alert.alert(t.errors.generic);
       return;
     }
     undecided.current = null;
@@ -206,7 +206,7 @@ export default function Incoming() {
     return (
       <View style={[styles.center, themed.screen]}>
         <ActivityIndicator color={colors.primary} />
-        <Text style={[styles.status, themed.muted]}>Đang nhận file…</Text>
+        <Text style={[styles.status, themed.muted]}>{t.incoming.receiving}</Text>
       </View>
     );
   }
@@ -221,9 +221,9 @@ export default function Incoming() {
       />
       <View style={styles.file}>
         <Text style={[styles.fileName, themed.text]} numberOfLines={2}>
-          {confirm.pdf.name}
+          {confirm.pdf.name || t.common.untitled}
         </Text>
-        <Text style={[styles.pages, themed.muted]}>{confirm.pageCount} trang</Text>
+        <Text style={[styles.pages, themed.muted]}>{t.format.pages(confirm.pageCount)}</Text>
       </View>
       {saving && <ActivityIndicator style={styles.spinner} color={colors.primary} />}
       <View style={styles.actions}>
@@ -233,7 +233,7 @@ export default function Incoming() {
           disabled={saving}
           onPress={save}
         >
-          <Text style={[styles.buttonText, themed.buttonText]}>Lưu vào thư viện</Text>
+          <Text style={[styles.buttonText, themed.buttonText]}>{t.incoming.save}</Text>
         </Pressable>
         <Pressable
           role="button"
@@ -241,7 +241,7 @@ export default function Incoming() {
           disabled={saving}
           onPress={mergeWithOthers}
         >
-          <Text style={[styles.buttonText, themed.secondaryText]}>Gộp với file khác</Text>
+          <Text style={[styles.buttonText, themed.secondaryText]}>{t.incoming.mergeWithOthers}</Text>
         </Pressable>
       </View>
     </View>

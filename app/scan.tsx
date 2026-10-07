@@ -18,13 +18,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NameInput } from '../src/components/NameInput';
 import { PageEditor, type ScanPage } from '../src/components/PageEditor';
 import { SegmentedControl } from '../src/components/SegmentedControl';
+import { useLocale } from '../src/i18n/LocaleContext';
 import { normalizePage } from '../src/imaging/enhance';
 import { useLibrary } from '../src/library/LibraryContext';
 import { deleteFiles } from '../src/native/deleteFiles';
 import { readBytes } from '../src/native/readBytes';
 import {
   DEFAULT_LAYOUT,
-  type Align,
   type Margin,
   type PageLayout,
   type PageSize,
@@ -38,24 +38,8 @@ import { useBusy } from '../src/workflows/useBusy';
 import { createScanDocument } from '../src/workflows/scanWorkflow';
 import { useOrderedList, type Keyed } from '../src/workflows/useOrderedList';
 
-const PAGE_SIZES: { value: PageSize; label: string }[] = [
-  { value: 'a4', label: 'A4' },
-  { value: 'letter', label: 'Letter' },
-  { value: 'image', label: 'Theo ảnh' },
-];
-
-const MARGINS: { value: Margin; label: string }[] = [
-  { value: 'none', label: 'Không' },
-  { value: 'small', label: 'Nhỏ' },
-  { value: 'medium', label: 'Vừa' },
-];
-
-const ALIGN_LABELS: Record<Align, string> = {
-  top: 'Trên',
-  center: 'Giữa',
-  bottom: 'Dưới',
-  fill: 'Lấp đầy',
-};
+const PAGE_SIZE_VALUES: PageSize[] = ['a4', 'letter', 'image'];
+const MARGIN_VALUES: Margin[] = ['none', 'small', 'medium'];
 
 /**
  * Normalizes each image in turn. Raw files that were normalized are deleted; a page
@@ -78,6 +62,7 @@ async function normalizeAll(uris: string[]): Promise<string[]> {
 }
 
 export default function Scan() {
+  const { t } = useLocale();
   const { store, refresh } = useLibrary();
   const { items, append, remove, setOrder, update } = useOrderedList<ScanPage>();
   const busy = useBusy();
@@ -85,7 +70,7 @@ export default function Scan() {
   const { colors } = useTheme();
   const themed = useMemo(() => makeStyles(colors), [colors]);
   const headerHeight = useHeaderHeight();
-  const [name, setName] = useState(() => defaultName('scan', new Date()));
+  const [name, setName] = useState(() => defaultName('scan', new Date(), t));
   const [layout, setLayout] = useState<PageLayout>(DEFAULT_LAYOUT);
   const [processing, setProcessing] = useState(false);
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -116,20 +101,20 @@ export default function Scan() {
   };
 
   const showPermissionAlert = () =>
-    Alert.alert('Cần quyền camera', undefined, [
-      { text: 'Mở Cài đặt', onPress: openSettings },
-      { text: 'Huỷ', style: 'cancel', onPress: backIfEmpty },
+    Alert.alert(t.scan.permissionTitle, undefined, [
+      { text: t.scan.openSettings, onPress: openSettings },
+      { text: t.common.cancel, style: 'cancel', onPress: backIfEmpty },
     ]);
 
   // The scanner's permission error text may be localized, so the generic error
   // also points to Settings.
   const showScanErrorAlert = () =>
     Alert.alert(
-      'Không thể scan tài liệu',
-      'Nếu bạn đã từ chối quyền camera, hãy cấp quyền trong Cài đặt.',
+      t.scan.scanFailedTitle,
+      t.scan.scanFailedBody,
       [
-        { text: 'Mở Cài đặt', onPress: openSettings },
-        { text: 'Đóng', style: 'cancel', onPress: backIfEmpty },
+        { text: t.scan.openSettings, onPress: openSettings },
+        { text: t.scan.close, style: 'cancel', onPress: backIfEmpty },
       ],
     );
 
@@ -186,12 +171,12 @@ export default function Scan() {
         createScanDocument(
           { readBytes, library: store },
           items.map((i) => i.value),
-          sanitizeName(name, defaultName('scan', new Date())),
+          sanitizeName(name, defaultName('scan', new Date(), t)),
           layout,
         ),
       );
     } catch {
-      Alert.alert('Không thể tạo PDF');
+      Alert.alert(t.scan.createFailed);
       return;
     }
     if (!meta) return;
@@ -237,12 +222,12 @@ export default function Scan() {
       disabled={isActive}
     >
       <View style={styles.pageInfo}>
-        <Text style={[styles.pageLabel, themed.pageLabel]}>Trang {items.findIndex((i) => i.key === item.key) + 1}</Text>
-        <Text style={[styles.alignLabel, themed.alignLabel]}>{ALIGN_LABELS[item.value.align]}</Text>
+        <Text style={[styles.pageLabel, themed.pageLabel]}>{t.scan.pageNumber(items.findIndex((i) => i.key === item.key) + 1)}</Text>
+        <Text style={[styles.alignLabel, themed.alignLabel]}>{t.layoutOptions.align[item.value.align]}</Text>
       </View>
       {/* Inner Pressables become the touch responder, so each must start the drag itself. */}
       <Pressable
-        accessibilityLabel="Sửa trang"
+        accessibilityLabel={t.scan.editPage}
         onPress={() => setEditingKey(item.key)}
         onLongPress={drag}
       >
@@ -254,10 +239,10 @@ export default function Scan() {
         />
       </Pressable>
       <Pressable onPress={() => setEditingKey(item.key)} onLongPress={drag}>
-        <Text style={[styles.edit, themed.edit]}>Sửa</Text>
+        <Text style={[styles.edit, themed.edit]}>{t.scan.edit}</Text>
       </Pressable>
       <Pressable onPress={() => removePage(item)} onLongPress={drag}>
-        <Text style={[styles.delete, themed.delete]}>Xoá</Text>
+        <Text style={[styles.delete, themed.delete]}>{t.scan.delete}</Text>
       </Pressable>
     </Pressable>
   );
@@ -275,14 +260,14 @@ export default function Scan() {
       <View style={styles.header}>
         <NameInput value={name} onChangeText={setName} />
         <SegmentedControl
-          label="Khổ giấy"
-          options={PAGE_SIZES}
+          label={t.scan.pageSizeLabel}
+          options={PAGE_SIZE_VALUES.map((value) => ({ value, label: t.layoutOptions.pageSize[value] }))}
           value={layout.pageSize}
           onChange={(pageSize) => setLayout((l) => ({ ...l, pageSize }))}
         />
         <SegmentedControl
-          label="Lề"
-          options={MARGINS}
+          label={t.scan.marginLabel}
+          options={MARGIN_VALUES.map((value) => ({ value, label: t.layoutOptions.margin[value] }))}
           value={layout.margin}
           onChange={(margin) => setLayout((l) => ({ ...l, margin }))}
           disabled={layout.pageSize === 'image'}
@@ -303,7 +288,7 @@ export default function Scan() {
           disabled={busy.busy}
           onPress={scan}
         >
-          <Text style={[styles.buttonText, themed.buttonText]}>+ Chụp thêm</Text>
+          <Text style={[styles.buttonText, themed.buttonText]}>{t.scan.scanMore}</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
@@ -311,13 +296,13 @@ export default function Scan() {
           disabled={createDisabled}
           onPress={create}
         >
-          <Text style={[styles.buttonText, themed.buttonText]}>Tạo PDF</Text>
+          <Text style={[styles.buttonText, themed.buttonText]}>{t.scan.create}</Text>
         </Pressable>
       </View>
       {processing && (
         <View style={styles.overlay}>
           <ActivityIndicator size="large" color="#fff" />
-          <Text style={styles.overlayText}>Đang xử lý ảnh…</Text>
+          <Text style={styles.overlayText}>{t.scan.processing}</Text>
         </View>
       )}
       {editing && (

@@ -1,6 +1,7 @@
 import { Alert, Linking } from 'react-native';
 import { act, render, screen, fireEvent } from '@testing-library/react-native';
 import Scan from '../../app/scan';
+import { LocaleProvider } from '../../src/i18n/LocaleContext';
 import { LibraryProvider } from '../../src/library/LibraryContext';
 import { createLibraryStore } from '../../src/library/libraryStore';
 import { createMemoryFs } from '../../src/library/memoryFs';
@@ -69,19 +70,23 @@ async function flush() {
   });
 }
 
+let mockLocales = [{ languageCode: 'en', languageTag: 'en-US' }];
+jest.mock('expo-localization', () => ({ useLocales: () => mockLocales }));
+
 let mockColorScheme = 'light';
 jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
   __esModule: true,
   default: () => mockColorScheme,
 }));
 
-async function renderScan(dark = false) {
+async function renderScan(dark = false, english = false) {
   const store = createLibraryStore({ fs: createMemoryFs(), newId: () => 'id1' });
-  const ui = (
+  let ui = (
     <LibraryProvider store={store}>
       <Scan />
     </LibraryProvider>
   );
+  if (english) ui = <LocaleProvider fs={createMemoryFs()}>{ui}</LocaleProvider>;
   mockColorScheme = dark ? 'dark' : 'light';
   await render(dark ? themed(ui) : ui);
   await settleTheme();
@@ -544,5 +549,47 @@ describe('dark theme', () => {
     const label = screen.getByText('Đang xử lý ảnh…');
     expect(styleOf(label).color).toBe('#fff');
     expect(styleOf(label.parent!).backgroundColor).toBe('rgba(0,0,0,0.5)');
+  });
+});
+
+describe('English', () => {
+  test('buttons, rows, processing overlay and default name', async () => {
+    let resolveNormalize!: (v: string) => void;
+    mockNormalize.mockImplementationOnce(() => new Promise<string>((r) => (resolveNormalize = r)));
+    mockScan.mockResolvedValueOnce(['a']);
+    mockCreate.mockResolvedValueOnce({ id: 'id1' });
+    await renderScan(false, true);
+    await flush();
+    expect(screen.getByText('Processing images…')).toBeTruthy();
+    await act(async () => resolveNormalize('a-n'));
+    await flush();
+    expect(screen.getByText('Page 1')).toBeTruthy();
+    expect(screen.getByText('Center')).toBeTruthy();
+    expect(screen.getByText('Match image')).toBeTruthy();
+    expect(screen.getByText('+ Scan more')).toBeTruthy();
+    await fireEvent.press(screen.getByText('Create PDF'));
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.stringMatching(/^Scan /),
+      DEFAULT_LAYOUT,
+    );
+  });
+
+  test('create failure alert', async () => {
+    mockScan.mockResolvedValueOnce(['a']);
+    mockCreate.mockRejectedValueOnce(new Error('boom'));
+    await renderScan(false, true);
+    await fireEvent.press(screen.getByText('Create PDF'));
+    expect(alertSpy).toHaveBeenCalledWith('Could not create the PDF');
+  });
+
+  test('camera permission alert', async () => {
+    mockScan.mockRejectedValueOnce(new Error('CAMERA_PERMISSION'));
+    await renderScan(false, true);
+    expect(alertSpy).toHaveBeenCalledWith('Camera permission needed', undefined, [
+      { text: 'Open Settings', onPress: expect.any(Function) },
+      { text: 'Cancel', style: 'cancel', onPress: expect.any(Function) },
+    ]);
   });
 });

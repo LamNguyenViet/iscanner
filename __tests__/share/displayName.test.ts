@@ -15,8 +15,8 @@ describe('displayNameFromUri', () => {
     expect(displayNameFromUri('file:///data/x/Inbox/H%E1%BB%A3p%20%C4%91%E1%BB%93ng.pdf')).toBe('Hợp đồng.pdf');
   });
 
-  it('falls back when there is no usable segment', () => {
-    expect(displayNameFromUri('content://x/')).toBe('Tài liệu');
+  it('returns an empty string when there is no usable segment', () => {
+    expect(displayNameFromUri('content://x/')).toBe('');
   });
 
   it('does not throw on malformed percent sequences', () => {

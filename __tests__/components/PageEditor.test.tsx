@@ -1,11 +1,15 @@
 import { Alert, StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { LocaleProvider } from '../../src/i18n/LocaleContext';
+import { createMemoryFs } from '../../src/library/memoryFs';
 import { PageEditor, type ScanPage } from '../../src/components/PageEditor';
 import { applyEdit, detectPageQuad } from '../../src/imaging/enhance';
 import { fullQuad, orderQuad, type Quad } from '../../src/imaging/geometry';
 import { deleteFiles } from '../../src/native/deleteFiles';
 import type { PageLayout } from '../../src/pdf/layout';
 
+let mockLocales = [{ languageCode: 'en', languageTag: 'en-US' }];
+jest.mock('expo-localization', () => ({ useLocales: () => mockLocales }));
 jest.mock('react-native-safe-area-context', () => ({
   initialWindowMetrics: null,
   SafeAreaProvider: ({ children }: { children: unknown }) => children,
@@ -334,5 +338,28 @@ describe('mini PDF preview aspect', () => {
     mockDetect.mockResolvedValue(detectResult(sliver, true));
     await renderEditor();
     expect(previewRatio()).toBeCloseTo(1000 / 1500, 1);
+  });
+});
+
+describe('English', () => {
+  test('labels and corner accessibility label', async () => {
+    await render(
+      <LocaleProvider fs={createMemoryFs()}>
+        <PageEditor
+          visible
+          page={PAGE}
+          pageNumber={2}
+          layout={LAYOUT}
+          onCancel={onCancel}
+          onDone={onDone}
+          onRetake={onRetake}
+        />
+      </LocaleProvider>,
+    );
+    await flush();
+    for (const label of ['Page 2', 'Cancel', 'Done', 'Auto crop', 'Full image', 'Rotate ⟳', 'Retake', 'Top', 'Center', 'Bottom', 'Fill']) {
+      expect(screen.getByText(label)).toBeTruthy();
+    }
+    expect(screen.getByLabelText('Corner 1')).toBeTruthy();
   });
 });

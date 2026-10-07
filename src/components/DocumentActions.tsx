@@ -22,7 +22,7 @@ export function DocumentActions({ visible, title, onRename, onShare, onDelete, o
         { label: t.documentMenu.rename, onPress: onRename },
         { label: t.documentMenu.share, onPress: onShare },
         { label: t.documentMenu.delete, onPress: onDelete, destructive: true },
-        { label: t.documentMenu.cancel, onPress: onClose },
+        { label: t.common.cancel, onPress: onClose },
       ]}
     />
   );

@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { useLocale } from '../i18n/LocaleContext';
 import { clampQuad, type Point, type Quad } from '../imaging/geometry';
 import type { Rotation } from '../imaging/enhance';
 
@@ -190,6 +191,7 @@ function Handle({
   latest: Latest;
   onActive: (i: number | null) => void;
 }) {
+  const { t } = useLocale();
   const start = useRef<Point>({ x: 0, y: 0 });
   const gesture = useMemo(
     () =>
@@ -220,7 +222,7 @@ function Handle({
     <GestureDetector gesture={gesture}>
       <View
         testID={`corner-${index}`}
-        accessibilityLabel={`Góc ${index + 1}`}
+        accessibilityLabel={t.editor.corner(index + 1)}
         style={[styles.handle, { left: point.x - HANDLE / 2, top: point.y - HANDLE / 2 }]}
       >
         <View style={[styles.handleDot, active && styles.handleDotActive]} />

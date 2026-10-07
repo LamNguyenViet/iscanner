@@ -1,6 +1,7 @@
 import { Alert } from 'react-native';
 import { act, render, screen, fireEvent } from '@testing-library/react-native';
 import Merge from '../../app/merge';
+import { LocaleProvider } from '../../src/i18n/LocaleContext';
 import { LibraryProvider } from '../../src/library/LibraryContext';
 import { createLibraryStore } from '../../src/library/libraryStore';
 import { createMemoryFs } from '../../src/library/memoryFs';
@@ -56,19 +57,23 @@ const mockDeleteFiles = deleteFiles as jest.Mock;
 const a = { uri: 'file:///a.pdf', name: 'a.pdf', pageCount: 2 };
 const b = { uri: 'file:///b.pdf', name: 'b.pdf', pageCount: 3 };
 
+let mockLocales = [{ languageCode: 'en', languageTag: 'en-US' }];
+jest.mock('expo-localization', () => ({ useLocales: () => mockLocales }));
+
 let mockColorScheme = 'light';
 jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
   __esModule: true,
   default: () => mockColorScheme,
 }));
 
-async function renderMerge(dark = false) {
+async function renderMerge(dark = false, english = false) {
   const store = createLibraryStore({ fs: createMemoryFs(), newId: () => 'id1' });
-  const ui = (
+  let ui = (
     <LibraryProvider store={store}>
       <Merge />
     </LibraryProvider>
   );
+  if (english) ui = <LocaleProvider fs={createMemoryFs()}>{ui}</LocaleProvider>;
   mockColorScheme = dark ? 'dark' : 'light';
   await render(dark ? themed(ui) : ui);
   await settleTheme();
@@ -264,4 +269,40 @@ test('dark theme: screen, file row and buttons', async () => {
   expect(styleOf(screen.getByText('2 trang')).color).toBe('#a0a0a0');
   expect(styleOf(screen.getByRole('button', { name: 'Gộp PDF' })).backgroundColor).toBe('#4c8dff');
   jest.restoreAllMocks();
+});
+
+describe('English', () => {
+  test('hint, buttons, page count and default name', async () => {
+    mockPick.mockResolvedValueOnce([{ uri: a.uri, name: a.name }]);
+    mockLoad.mockResolvedValueOnce({ loaded: [a], failed: [] });
+    await renderMerge(false, true);
+    expect(screen.getByText('Select at least 2 PDF files')).toBeTruthy();
+    expect(screen.getByText('+ Add files')).toBeTruthy();
+    expect(screen.getByText('2 pages')).toBeTruthy();
+    expect(screen.getByText('Delete')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Merge PDF' })).toBeDisabled();
+  });
+
+  test('merge uses the English default name', async () => {
+    mockPick.mockResolvedValueOnce([{ uri: a.uri, name: a.name }]);
+    mockLoad.mockResolvedValueOnce({ loaded: [a, b], failed: [] });
+    mockMerge.mockResolvedValueOnce({ id: 'id1' });
+    await renderMerge(false, true);
+    await fireEvent.press(screen.getByRole('button', { name: 'Merge PDF' }));
+    expect(mockMerge).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.stringMatching(/^Merge /),
+    );
+  });
+
+  test('failed files alert', async () => {
+    mockPick.mockResolvedValueOnce([{ uri: a.uri, name: a.name }]);
+    mockLoad.mockResolvedValueOnce({ loaded: [a, b], failed: ['x.pdf'] });
+    await renderMerge(false, true);
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Could not read the file',
+      'x.pdf\nThe file may be corrupted or password-protected.',
+    );
+  });
 });

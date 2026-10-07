@@ -24,6 +24,7 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { useLocale } from '../i18n/LocaleContext';
 import { applyEdit, detectPageQuad, type Rotation } from '../imaging/enhance';
 import {
   fullQuad,
@@ -58,14 +59,7 @@ type PageEditorProps = {
   onRetake: () => Promise<string | null>;
 };
 
-const FAILED = 'Không xử lý được ảnh';
-
-const ALIGNS: { value: Align; label: string }[] = [
-  { value: 'top', label: 'Trên' },
-  { value: 'center', label: 'Giữa' },
-  { value: 'bottom', label: 'Dưới' },
-  { value: 'fill', label: 'Lấp đầy' },
-];
+const ALIGNS: Align[] = ['top', 'center', 'bottom', 'fill'];
 
 /** Full-screen editor for one scanned page: crop corners, rotate, retake and alignment. */
 export function PageEditor({
@@ -77,6 +71,8 @@ export function PageEditor({
   onDone,
   onRetake,
 }: PageEditorProps) {
+  const { t } = useLocale();
+  const failed = t.editor.failed;
   const [currentUri, setCurrentUri] = useState(page.uri);
   const [retakenUri, setRetakenUri] = useState<string | null>(null);
   const [align, setAlign] = useState<Align>(page.align);
@@ -108,9 +104,9 @@ export function PageEditor({
       setSize(result.size);
       setQuad(result.quad);
     } catch {
-      if (id === loadId.current) Alert.alert(FAILED);
+      if (id === loadId.current) Alert.alert(failed);
     }
-  }, []);
+  }, [failed]);
 
   useEffect(() => {
     if (visible) void detect(currentUri, true);
@@ -132,7 +128,7 @@ export function PageEditor({
     } catch (e) {
       // A cancelled scan resolves null; a throw is a real failure the user should hear about.
       if (__DEV__) console.warn('retake failed', e);
-      Alert.alert(FAILED);
+      Alert.alert(failed);
       uri = null;
     } finally {
       setBusy(false);
@@ -151,7 +147,7 @@ export function PageEditor({
       return;
     }
     if (!isQuadUsable(quad, size.width, size.height)) {
-      Alert.alert(FAILED);
+      Alert.alert(failed);
       return;
     }
     if (rotation === 0 && isFullQuad(quad, size.width, size.height)) {
@@ -170,7 +166,7 @@ export function PageEditor({
       onDone({ uri, align });
     } catch {
       setBusy(false);
-      Alert.alert(FAILED);
+      Alert.alert(failed);
     }
   };
 
@@ -200,10 +196,10 @@ export function PageEditor({
         <GestureHandlerRootView style={styles.root}>
           <StatusBar style="light" />
           <InsetView edge="top" testID="editor-header" style={styles.topBar}>
-            <Button label="Huỷ" onPress={cancel} disabled={busy} />
-            <Text style={styles.title}>{`Trang ${pageNumber}`}</Text>
+            <Button label={t.common.cancel} onPress={cancel} disabled={busy} />
+            <Text style={styles.title}>{t.editor.title(pageNumber)}</Text>
             <Button
-              label="Xong"
+              label={t.editor.done}
               onPress={() => void done()}
               disabled={busy}
               testID="editor-done"
@@ -240,25 +236,25 @@ export function PageEditor({
 
           <View style={styles.toolbar}>
             <Button
-              label="Tự cắt sát"
+              label={t.editor.autoCrop}
               onPress={() => void detect(currentUri, false)}
               disabled={busy || !loaded}
               dark
             />
             <Button
-              label="Toàn ảnh"
+              label={t.editor.fullImage}
               onPress={() => size && setQuad(fullQuad(size.width, size.height))}
               disabled={busy || !loaded}
               dark
             />
             <Button
-              label="Xoay ⟳"
+              label={t.editor.rotate}
               onPress={() => setRotation((r) => ((r + 90) % 360) as Rotation)}
               disabled={busy || !loaded}
               dark
             />
             <Button
-              label="Chụp lại"
+              label={t.editor.retake}
               onPress={() => void retake()}
               disabled={busy}
               dark
@@ -273,11 +269,11 @@ export function PageEditor({
             <View style={styles.alignButtons}>
               {ALIGNS.map((a) => (
                 <Button
-                  key={a.value}
-                  label={a.label}
-                  onPress={() => setAlign(a.value)}
+                  key={a}
+                  label={t.layoutOptions.align[a]}
+                  onPress={() => setAlign(a)}
                   disabled={busy}
-                  selected={align === a.value}
+                  selected={align === a}
                   dark
                 />
               ))}

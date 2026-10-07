@@ -47,7 +47,7 @@ export default function Home() {
         style: 'destructive',
         onPress: () => remove(doc.id).catch(showError),
       },
-      { text: t.documentMenu.cancel, style: 'cancel' },
+      { text: t.common.cancel, style: 'cancel' },
     ]);
 
   const startRename = (doc: DocumentMeta) => {
@@ -66,7 +66,7 @@ export default function Home() {
     ActionSheetIOS.showActionSheetWithOptions(
       {
         title: doc.name,
-        options: [t.documentMenu.rename, t.documentMenu.share, t.documentMenu.delete, t.documentMenu.cancel],
+        options: [t.documentMenu.rename, t.documentMenu.share, t.documentMenu.delete, t.common.cancel],
         destructiveButtonIndex: 2,
         cancelButtonIndex: 3,
       },
@@ -135,7 +135,7 @@ export default function Home() {
             <NameInput value={draft} onChangeText={setDraft} autoFocus />
             <View style={styles.dialogActions}>
               <Pressable onPress={() => setRenaming(null)}>
-                <Text style={[styles.dialogButton, themed.dialogButton]}>{t.documentMenu.cancel}</Text>
+                <Text style={[styles.dialogButton, themed.dialogButton]}>{t.common.cancel}</Text>
               </Pressable>
               <Pressable onPress={saveRename}>
                 <Text style={[styles.dialogButton, themed.dialogButton]}>{t.library.save}</Text>
