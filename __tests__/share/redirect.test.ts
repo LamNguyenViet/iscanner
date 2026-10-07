@@ -73,3 +73,14 @@ describe('incomingUriParam', () => {
     expect(incomingUriParam('%E0%A4%A')).toBeUndefined();
   });
 });
+
+describe('incomingUriParam schemes', () => {
+  test('only file and content URIs are accepted', () => {
+    expect(incomingUriParam('file:///a/b.pdf')).toBe('file:///a/b.pdf');
+    expect(incomingUriParam('CONTENT://p/1')).toBe('CONTENT://p/1');
+    for (const uri of ['https://evil.example/x.pdf', 'javascript:alert(1)', 'iscanner://viewer/x', 'data:application/pdf;base64,JVBE']) {
+      expect(incomingUriParam(uri)).toBeUndefined();
+      expect(incomingUriParam(encodeURIComponent(uri))).toBeUndefined();
+    }
+  });
+});

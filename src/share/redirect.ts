@@ -33,7 +33,10 @@ export function redirectIncomingPath(path: string, initial = true): string {
   }
 }
 
-/** The file URI from the `/incoming` route's `uri` param, decoding any encoding layer still left. */
+/**
+ * The file URI from the `/incoming` route's `uri` param, decoding any encoding layer still left.
+ * Only `file://` and `content://` URIs are returned; anything else gives undefined.
+ */
 export function incomingUriParam(param: string | string[] | undefined): string | undefined {
   if (typeof param !== 'string' || param === '') return undefined;
   let value = param;
@@ -44,5 +47,5 @@ export function incomingUriParam(param: string | string[] | undefined): string |
       return undefined;
     }
   }
-  return HAS_SCHEME.test(value) ? value : undefined;
+  return FILE_URL.test(value) ? value : undefined;
 }
