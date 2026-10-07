@@ -10,6 +10,7 @@
 - (1.1.0) **Chỉnh trang** sau khi scan: kéo 4 góc để cắt sát (làm phẳng phối cảnh), `Tự cắt sát` (OpenCV dò mép), `Toàn ảnh`, `Xoay ⟳`, `Chụp lại` một trang.
 - (1.1.0) **Bố cục PDF**: khổ giấy `A4` / `Letter` / `Theo ảnh`, lề `Không` / `Nhỏ` / `Vừa`, căn từng trang `Trên` / `Giữa` / `Dưới` / `Lấp đầy` (có xem trước).
 - (1.1.0) **Ảnh Full HD**: mỗi trang được thu nhỏ về cạnh dài tối đa 1920 px (không phóng to ảnh nhỏ), làm nét và lưu JPEG chất lượng 95.
+- (1.2.0) **Nhận file chia sẻ** từ Zalo và app khác: Android — iScanner có trong menu Chia sẻ (PDF, ảnh, một hoặc nhiều file) và "Mở bằng" cho PDF/ảnh; iOS — "Mở bằng / Sao chép vào iScanner". 1 PDF → `Lưu vào thư viện` hoặc `Gộp với file khác`; nhiều PDF → màn Gộp PDF; ảnh → màn review scan; vừa PDF vừa ảnh → gộp PDF trước rồi tới scan ảnh. File không hỗ trợ hoặc > 100 MB bị bỏ qua (có thông báo).
 
 ## Lưu ý quan trọng
 
@@ -90,3 +91,8 @@ Giới hạn của Apple ID miễn phí: app hết hạn sau **7 ngày** (cài l
 - [ ] (1.1.0) `Huỷ`/`Xong` của màn Chỉnh trang không bị thanh trạng thái che, bấm được.
 
 > Ghi chú phát triển: khi đang ở màn review scan, lưu file mã nguồn (Fast Refresh) sẽ unmount màn hình và xoá ảnh trang tạm — hãy scan lại sau mỗi lần hot reload.
+- [ ] (1.2.0) Android: trong Zalo chọn một file PDF → `Chia sẻ` → `App khác` → `iScanner` → màn `Nhận file` hiện đúng tên + số trang → `Lưu vào thư viện` tạo tài liệu đúng tên.
+- [ ] (1.2.0) Android: chia sẻ 2+ PDF → màn Gộp PDF điền sẵn; chia sẻ ảnh → màn review scan; vừa PDF vừa ảnh → gộp PDF xong tự chuyển sang scan ảnh.
+- [ ] (1.2.0) Android: chia sẻ khi iScanner đang tắt hẳn và khi đang mở; chia sẻ file thứ hai khi màn `Nhận file` đang mở → chuyển sang file mới.
+- [ ] (1.2.0) Android: mở một PDF trong app Files → `Mở bằng` → `iScanner`.
+- [ ] (1.2.0) iPhone: mở PDF/ảnh trong Zalo/Files/Mail → nút chia sẻ → `iScanner` (hoặc `Sao chép vào iScanner`) → app mở màn `Nhận file`.
