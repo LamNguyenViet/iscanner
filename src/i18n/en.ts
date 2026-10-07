@@ -15,6 +15,13 @@ export const en: Strings = {
     vietnamese: 'Tiếng Việt',
     english: 'English',
   },
+  titles: {
+    library: 'iScanner',
+    scan: 'Scan document',
+    merge: 'Merge PDF',
+    viewer: 'Document',
+    incoming: 'Receive files',
+  },
   format: {
     scanPrefix: 'Scan',
     mergePrefix: 'Merge',

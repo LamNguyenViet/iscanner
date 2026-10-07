@@ -13,6 +13,13 @@ export const vi = {
     vietnamese: 'Tiếng Việt',
     english: 'English',
   },
+  titles: {
+    library: 'iScanner',
+    scan: 'Scan tài liệu',
+    merge: 'Gộp PDF',
+    viewer: 'Tài liệu',
+    incoming: 'Nhận file',
+  },
   format: {
     scanPrefix: 'Scan',
     mergePrefix: 'Gộp',

@@ -1,10 +1,10 @@
 import { AppState, type AppStateStatus } from 'react-native';
-import { act, render } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import RootLayout from '../../app/_layout';
-import { ThemeMenuButton } from '../../src/components/ThemeMenuButton';
 import { hasSharedFiles } from '../../src/native/sharedPayloads';
 
 const mockNavigate = jest.fn();
+const mockPush = jest.fn();
 const mockScreens: Record<string, any> = {};
 let mockPathname = '/';
 jest.mock('expo-router', () => {
@@ -15,7 +15,10 @@ jest.mock('expo-router', () => {
   };
   return {
     Stack,
-    router: { navigate: (...args: unknown[]) => mockNavigate(...args) },
+    router: {
+      navigate: (...args: unknown[]) => mockNavigate(...args),
+      push: (...args: unknown[]) => mockPush(...args),
+    },
     usePathname: () => mockPathname,
     ThemeProvider: ({ value, children }: { value: unknown; children: React.ReactNode }) => {
       mockNavTheme = value;
@@ -38,9 +41,8 @@ jest.mock('../../src/settings/settings', () => ({
   loadSettings: () => Promise.resolve({ theme: 'system', language: 'system' }),
   saveSettings: () => Promise.resolve(),
 }));
-jest.mock('expo-localization', () => ({
-  useLocales: () => [{ languageCode: 'vi', languageTag: 'vi-VN' }],
-}));
+let mockLocales = [{ languageCode: 'vi', languageTag: 'vi-VN' }];
+jest.mock('expo-localization', () => ({ useLocales: () => mockLocales }));
 let mockColorScheme = 'light';
 jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
   __esModule: true,
@@ -57,6 +59,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockPathname = '/';
   mockColorScheme = 'light';
+  mockLocales = [{ languageCode: 'vi', languageTag: 'vi-VN' }];
   mockHasShared.mockReturnValue(false);
   appStateHandler = undefined;
   jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, h) => {
@@ -107,8 +110,22 @@ test('navigation headers use the dark palette in dark mode', async () => {
   });
 });
 
-test('the library header has the theme menu button', async () => {
+test('the library header has a settings button that opens the settings screen', async () => {
   await render(<RootLayout />);
   const headerRight = mockScreens.index.options.headerRight;
-  expect(headerRight().type).toBe(ThemeMenuButton);
+  await render(headerRight());
+  await fireEvent.press(screen.getByLabelText('Cài đặt'));
+  expect(mockPush).toHaveBeenCalledWith('/settings');
+});
+
+test('screen titles follow the language', async () => {
+  mockLocales = [{ languageCode: 'en', languageTag: 'en-US' }];
+  await render(<RootLayout />);
+  expect(mockScreens.merge.options.title).toBe('Merge PDF');
+});
+
+test('screen titles are Vietnamese on a Vietnamese device', async () => {
+  await render(<RootLayout />);
+  expect(mockScreens.merge.options.title).toBe('Gộp PDF');
+  expect(mockScreens.settings.options.title).toBe('Cài đặt');
 });

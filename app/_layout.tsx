@@ -8,9 +8,9 @@ import {
 } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useMemo } from 'react';
+import { Pressable, StyleSheet, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { ThemeMenuButton } from '../src/components/ThemeMenuButton';
-import { LocaleProvider } from '../src/i18n/LocaleContext';
+import { LocaleProvider, useLocale } from '../src/i18n/LocaleContext';
 import { LibraryProvider } from '../src/library/LibraryContext';
 import { hasSharedFiles } from '../src/native/sharedPayloads';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeContext';
@@ -32,9 +32,30 @@ function useOpenWaitingShare() {
   );
 }
 
+/** Header button that opens the settings screen. */
+function SettingsButton() {
+  const { colors } = useTheme();
+  const { t } = useLocale();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={t.settings.title}
+      hitSlop={8}
+      onPress={() => router.push('/settings')}
+    >
+      <Text style={[styles.icon, { color: colors.primary }]}>⚙︎</Text>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  icon: { fontSize: 22, paddingHorizontal: 4 },
+});
+
 /** Navigation headers and the status bar follow the app theme. */
 function ThemedStack() {
   const { colors, scheme } = useTheme();
+  const { t } = useLocale();
   const navTheme = useMemo(() => {
     const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
     return {
@@ -55,12 +76,13 @@ function ThemedStack() {
       <Stack>
         <Stack.Screen
           name="index"
-          options={{ title: 'iScanner', headerRight: () => <ThemeMenuButton /> }}
+          options={{ title: t.titles.library, headerRight: () => <SettingsButton /> }}
         />
-        <Stack.Screen name="scan" options={{ title: 'Scan tài liệu' }} />
-        <Stack.Screen name="merge" options={{ title: 'Gộp PDF' }} />
-        <Stack.Screen name="viewer/[id]" options={{ title: 'Tài liệu' }} />
-        <Stack.Screen name="incoming" options={{ title: 'Nhận file' }} />
+        <Stack.Screen name="scan" options={{ title: t.titles.scan }} />
+        <Stack.Screen name="merge" options={{ title: t.titles.merge }} />
+        <Stack.Screen name="viewer/[id]" options={{ title: t.titles.viewer }} />
+        <Stack.Screen name="incoming" options={{ title: t.titles.incoming }} />
+        <Stack.Screen name="settings" options={{ title: t.settings.title }} />
       </Stack>
     </NavigationThemeProvider>
   );
