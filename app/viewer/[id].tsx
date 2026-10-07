@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import Pdf from 'react-native-pdf';
@@ -6,6 +6,10 @@ import { useLibrary } from '../../src/library/LibraryContext';
 import { shareDocument } from '../../src/native/share';
 import type { Palette } from '../../src/theme/palette';
 import { useTheme } from '../../src/theme/ThemeContext';
+
+// react-native-pdf 7.0.5 reloads the document on every render and leaks the cancelled
+// native load (~3 MB each, upstream issue #1046): render it only when its props change.
+const PdfView = memo(Pdf);
 
 export default function Viewer() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -16,6 +20,10 @@ export default function Viewer() {
   const doc = documents.find((d) => d.id === id);
   const { colors } = useTheme();
   const themed = useMemo(() => makeStyles(colors), [colors]);
+  const uri = doc ? store.fileUri(doc) : undefined;
+  const pdfSource = useMemo(() => ({ uri }), [uri]);
+  const pdfStyle = useMemo(() => [styles.pdf, themed.screen], [themed]);
+  const onPdfError = useCallback(() => setPdfError(true), []);
 
   // The document may have been added after the library loaded: refresh once before giving up.
   useEffect(() => {
@@ -46,14 +54,13 @@ export default function Viewer() {
     );
   }
 
-  const uri = store.fileUri(doc);
   return (
     <View style={[styles.container, themed.screen]}>
       <Stack.Screen
         options={{
           title: doc.name,
           headerRight: () => (
-            <Pressable onPress={() => shareDocument(uri, doc.name).catch(() => Alert.alert('Có lỗi xảy ra'))}>
+            <Pressable onPress={() => shareDocument(store.fileUri(doc), doc.name).catch(() => Alert.alert('Có lỗi xảy ra'))}>
               <Text style={[styles.share, themed.share]}>Chia sẻ</Text>
             </Pressable>
           ),
@@ -64,7 +71,7 @@ export default function Viewer() {
           <Text style={[styles.text, themed.text]}>Không mở được tài liệu</Text>
         </View>
       ) : (
-        <Pdf source={{ uri }} style={[styles.pdf, themed.screen]} onError={() => setPdfError(true)} />
+        <PdfView source={pdfSource} style={pdfStyle} onError={onPdfError} />
       )}
     </View>
   );

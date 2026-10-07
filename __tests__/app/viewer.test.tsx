@@ -120,3 +120,17 @@ test('dark theme: the PDF view background around the pages is dark', async () =>
   const props = mockPdfProps.mock.calls.at(-1)![0] as { style: unknown };
   expect(styleOf({ props }).backgroundColor).toBe('#121212');
 });
+
+test('re-rendering the screen does not reload the PDF view (react-native-pdf leak #1046)', async () => {
+  const { store } = await renderViewer();
+  const calls = mockPdfProps.mock.calls.length;
+  await screen.rerender(
+    <LibraryProvider store={store}>
+      <Viewer />
+    </LibraryProvider>,
+  );
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  expect(mockPdfProps.mock.calls.length).toBe(calls);
+});
