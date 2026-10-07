@@ -1,3 +1,4 @@
+import { StorageError } from '../../src/errors/AppError';
 import { createLibraryStore } from '../../src/library/libraryStore';
 import { createMemoryFs } from '../../src/library/memoryFs';
 import { defaultName } from '../../src/utils/format';
@@ -82,9 +83,16 @@ describe('libraryStore', () => {
   it('rolls back pdf when index write fails', async () => {
     const { store, fs } = setup();
     fs.failNextWrite('library.json');
-    await expect(store.add(bytes, { name: 'A', pageCount: 1, source: 'scan' })).rejects.toThrow();
+    await expect(store.add(bytes, { name: 'A', pageCount: 1, source: 'scan' })).rejects.toBeInstanceOf(StorageError);
     expect(fs.files.has('pdfs/id1.pdf')).toBe(false);
     expect(await store.list()).toEqual([]);
+  });
+
+  it('rename rejects with StorageError when the write fails', async () => {
+    const { store, fs } = setup();
+    await store.add(bytes, { name: 'A', pageCount: 1, source: 'scan' });
+    fs.failNextWrite('library.json');
+    await expect(store.rename('id1', 'B')).rejects.toBeInstanceOf(StorageError);
   });
 
   it('persists across store instances', async () => {

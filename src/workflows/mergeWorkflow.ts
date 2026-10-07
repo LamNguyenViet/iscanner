@@ -1,3 +1,4 @@
+import { FileReadError, toAppError, type AppError } from '../errors/AppError';
 import { getPdfPageCount, mergePdfs } from '../pdf/mergePdfs';
 import type { DocumentMeta, LibraryStore } from '../library/types';
 import type { ReadBytes } from './scanWorkflow';
@@ -8,16 +9,22 @@ export type LoadedPdf = { uri: string; name: string; pageCount: number };
 export async function loadPickedPdfs(
   deps: { readBytes: ReadBytes },
   files: PickedPdf[],
-): Promise<{ loaded: LoadedPdf[]; failed: string[] }> {
+): Promise<{ loaded: LoadedPdf[]; failed: AppError[] }> {
   const loaded: LoadedPdf[] = [];
-  const failed: string[] = [];
+  const failed: AppError[] = [];
   for (const file of files) {
+    let bytes: Uint8Array;
     try {
-      const bytes = await deps.readBytes(file.uri);
-      const pageCount = await getPdfPageCount(bytes);
+      bytes = await deps.readBytes(file.uri);
+    } catch (cause) {
+      failed.push(new FileReadError({ fileName: file.name, cause }));
+      continue;
+    }
+    try {
+      const pageCount = await getPdfPageCount(bytes, file.name);
       loaded.push({ uri: file.uri, name: file.name, pageCount });
-    } catch {
-      failed.push(file.name);
+    } catch (e) {
+      failed.push(toAppError(e));
     }
   }
   return { loaded, failed };

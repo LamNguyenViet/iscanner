@@ -1,4 +1,5 @@
 import DocumentScanner from 'react-native-document-scanner-plugin';
+import { CameraPermissionError, ScannerUnavailableError, UnknownError } from '../../src/errors/AppError';
 import { scanDocuments } from '../../src/scanner/scanner';
 
 jest.mock('react-native-document-scanner-plugin', () => ({
@@ -26,13 +27,12 @@ describe('scanDocuments', () => {
     await expect(scanDocuments()).resolves.toEqual([]);
   });
 
-  it('maps permission errors to CAMERA_PERMISSION', async () => {
-    scan.mockRejectedValue(new Error('Camera permission denied'));
-    await expect(scanDocuments()).rejects.toThrow('CAMERA_PERMISSION');
-  });
-
-  it('rethrows other errors', async () => {
-    scan.mockRejectedValue(new Error('boom'));
-    await expect(scanDocuments()).rejects.toThrow('boom');
+  it.each([
+    ['User denied camera permission', CameraPermissionError],
+    ['Google Play services not available', ScannerUnavailableError],
+    ['weird', UnknownError],
+  ])('maps "%s" to its typed error', async (message, Klass) => {
+    scan.mockRejectedValue(new Error(message));
+    await expect(scanDocuments()).rejects.toBeInstanceOf(Klass);
   });
 });

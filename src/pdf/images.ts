@@ -1,3 +1,5 @@
+import { ImageProcessError } from '../errors/AppError';
+
 export type ImageMime = 'image/jpeg' | 'image/png';
 export type ImageInput = { bytes: Uint8Array; mimeType: ImageMime };
 
@@ -9,5 +11,5 @@ export function detectImageType(bytes: Uint8Array): ImageMime {
   if (bytes.length >= 8 && png.every((b, i) => bytes[i] === b)) {
     return 'image/png';
   }
-  throw new Error('UNSUPPORTED_IMAGE');
+  throw new ImageProcessError();
 }

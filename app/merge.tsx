@@ -92,7 +92,7 @@ export default function Merge() {
       if (result.failed.length > 0) {
         Alert.alert(
           t.merge.readFailedTitle,
-          result.failed.map((n) => n || t.common.untitled).join('\n') + '\n' + t.merge.corruptSuffix,
+          result.failed.map((e) => e.fileName || t.common.untitled).join('\n') + '\n' + t.merge.corruptSuffix,
         );
       }
       if (result.loaded.length === 0) backIfEmpty();

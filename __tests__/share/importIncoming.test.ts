@@ -1,3 +1,4 @@
+import { FileReadError, FileTooLargeError, UnsupportedFileError } from '../../src/errors/AppError';
 import { importIncoming, MAX_INCOMING_BYTES } from '../../src/share/importIncoming';
 
 const mockStore = new Map<string, Uint8Array>();
@@ -85,10 +86,11 @@ test('skips unreadable and too large', async () => {
     { uri: 'content://x/ok', name: 'ok.pdf' },
   ]);
   expect(files).toHaveLength(1);
-  expect(skipped).toEqual([
-    { name: 'bad.pdf', reason: 'unreadable' },
-    { name: 'big.pdf', reason: 'too-large' },
-  ]);
+  expect(skipped).toHaveLength(2);
+  expect(skipped[0]).toBeInstanceOf(FileReadError);
+  expect(skipped[0].fileName).toBe('bad.pdf');
+  expect(skipped[1]).toBeInstanceOf(FileTooLargeError);
+  expect(skipped[1].fileName).toBe('big.pdf');
   expect(incomingKeys()).toEqual([files[0].uri]);
 });
 
@@ -96,7 +98,9 @@ test('skips unsupported', async () => {
   mockStore.set('content://x/junk', new Uint8Array([1, 2, 3, 4, 5, 6]));
   const { files, skipped } = await importIncoming([{ uri: 'content://x/junk', name: 'junk' }]);
   expect(files).toEqual([]);
-  expect(skipped).toEqual([{ name: 'junk', reason: 'unsupported' }]);
+  expect(skipped).toHaveLength(1);
+  expect(skipped[0]).toBeInstanceOf(UnsupportedFileError);
+  expect(skipped[0].fileName).toBe('junk');
   expect(incomingKeys()).toEqual([]);
 });
 

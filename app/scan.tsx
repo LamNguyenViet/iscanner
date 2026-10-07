@@ -32,6 +32,7 @@ import {
 import { scanDocuments } from '../src/scanner/scanner';
 import { takeImages } from '../src/share/incomingStore';
 import type { Palette } from '../src/theme/palette';
+import { CameraPermissionError } from '../src/errors/AppError';
 import { useTheme } from '../src/theme/ThemeContext';
 import { defaultName, sanitizeName } from '../src/utils/format';
 import { useBusy } from '../src/workflows/useBusy';
@@ -142,7 +143,7 @@ export default function Scan() {
       }
       append(uris.map((uri) => ({ uri, align: 'center' as const })));
     } catch (e) {
-      if (e instanceof Error && e.message === 'CAMERA_PERMISSION') {
+      if (e instanceof CameraPermissionError) {
         showPermissionAlert();
       } else {
         showScanErrorAlert();

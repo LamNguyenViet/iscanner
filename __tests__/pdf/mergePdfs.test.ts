@@ -6,9 +6,11 @@ import {
   PDFRawStream,
 } from '../../src/pdf/pdfLib';
 import { createPdfFromImages } from '../../src/pdf/createPdfFromImages';
-import { getPdfPageCount, mergePdfs, PdfLoadError } from '../../src/pdf/mergePdfs';
+import { getPdfPageCount, mergePdfs } from '../../src/pdf/mergePdfs';
+import { PdfEncryptedError, PdfLoadError } from '../../src/errors/AppError';
 import { makePng } from '../fixtures/images';
 import { makePdfBomb } from '../fixtures/pdfBomb';
+import { makePdfEncrypted } from '../fixtures/pdfEncrypted';
 
 const img = (n: number) => ({ bytes: makePng(n, n), mimeType: 'image/png' as const, align: 'center' as const });
 
@@ -49,11 +51,22 @@ describe('mergePdfs', () => {
     expect(err.index).toBe(1);
   });
 
-  it('rejects encrypted pdf', async () => {
-    jest.spyOn(PDFDocument, 'load').mockRejectedValueOnce(new EncryptedPDFError());
-    const err = await getPdfPageCount(A).catch((e) => e);
-    expect(err).toBeInstanceOf(PdfLoadError);
+  it('rejects an encrypted pdf with PdfEncryptedError', async () => {
+    const err = await getPdfPageCount(makePdfEncrypted(), 'e.pdf').catch((e) => e);
+    expect(err).toBeInstanceOf(PdfEncryptedError);
+    expect(err.fileName).toBe('e.pdf');
     expect(err.index).toBe(0);
+  });
+
+  it('maps the library EncryptedPDFError via instanceof', async () => {
+    jest.spyOn(PDFDocument, 'load').mockRejectedValueOnce(new EncryptedPDFError());
+    expect(await getPdfPageCount(A).catch((e) => e)).toBeInstanceOf(PdfEncryptedError);
+  });
+
+  it('garbage gives PdfLoadError with fileName', async () => {
+    const err = await getPdfPageCount(new TextEncoder().encode('garbage'), 'g.pdf').catch((e) => e);
+    expect(err).toBeInstanceOf(PdfLoadError);
+    expect(err.fileName).toBe('g.pdf');
   });
 });
 

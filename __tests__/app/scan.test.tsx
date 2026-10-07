@@ -1,4 +1,5 @@
 import { Alert, Linking } from 'react-native';
+import { CameraPermissionError } from '../../src/errors/AppError';
 import { act, render, screen, fireEvent } from '@testing-library/react-native';
 import Scan from '../../app/scan';
 import { LocaleProvider } from '../../src/i18n/LocaleContext';
@@ -147,7 +148,7 @@ test('alerts on failure', async () => {
 });
 
 test('camera permission alert on first scan goes back on cancel', async () => {
-  mockScan.mockRejectedValueOnce(new Error('CAMERA_PERMISSION'));
+  mockScan.mockRejectedValueOnce(new CameraPermissionError());
   await renderScan();
   expect(alertSpy).toHaveBeenCalledWith('Cần quyền camera', undefined, expect.any(Array));
   const buttons = alertSpy.mock.calls[0][2];
@@ -585,7 +586,7 @@ describe('English', () => {
   });
 
   test('camera permission alert', async () => {
-    mockScan.mockRejectedValueOnce(new Error('CAMERA_PERMISSION'));
+    mockScan.mockRejectedValueOnce(new CameraPermissionError());
     await renderScan(false, true);
     expect(alertSpy).toHaveBeenCalledWith('Camera permission needed', undefined, [
       { text: 'Open Settings', onPress: expect.any(Function) },

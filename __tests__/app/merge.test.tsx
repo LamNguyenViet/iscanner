@@ -1,4 +1,5 @@
 import { Alert } from 'react-native';
+import { PdfLoadError } from '../../src/errors/AppError';
 import { act, render, screen, fireEvent } from '@testing-library/react-native';
 import Merge from '../../app/merge';
 import { LocaleProvider } from '../../src/i18n/LocaleContext';
@@ -102,7 +103,7 @@ test('disables merge with one file', async () => {
 
 test('reports failed files', async () => {
   mockPick.mockResolvedValueOnce([{ uri: a.uri, name: a.name }]);
-  mockLoad.mockResolvedValueOnce({ loaded: [a, b], failed: ['x.pdf'] });
+  mockLoad.mockResolvedValueOnce({ loaded: [a, b], failed: [new PdfLoadError({ fileName: 'x.pdf' })] });
   await renderMerge();
   expect(alertSpy).toHaveBeenCalledWith('Không đọc được file', expect.stringContaining('x.pdf'));
   expect(screen.getByText('a.pdf')).toBeTruthy();
@@ -142,7 +143,7 @@ describe('picked file cleanup', () => {
       { uri: a.uri, name: a.name },
       { uri: 'file:///x.pdf', name: 'x.pdf' },
     ]);
-    mockLoad.mockResolvedValueOnce({ loaded: [a], failed: ['x.pdf'] });
+    mockLoad.mockResolvedValueOnce({ loaded: [a], failed: [new PdfLoadError({ fileName: 'x.pdf' })] });
     await renderMerge();
     expect(mockDeleteFiles).toHaveBeenCalledWith(['file:///x.pdf']);
   });
@@ -207,7 +208,7 @@ describe('received files', () => {
 
   test('goes back when all pending pdfs fail to load', async () => {
     setPending({ pdfs: [inc('x.pdf', 'pdf')], images: [] });
-    mockLoad.mockResolvedValueOnce({ loaded: [], failed: ['x.pdf'] });
+    mockLoad.mockResolvedValueOnce({ loaded: [], failed: [new PdfLoadError({ fileName: 'x.pdf' })] });
     await renderMerge();
     expect(mockPick).not.toHaveBeenCalled();
     expect(mockBack).toHaveBeenCalled();
@@ -225,7 +226,7 @@ describe('received files', () => {
 
   test('all pending pdfs failing with images pending continues to scan', async () => {
     setPending({ pdfs: [inc('x.pdf', 'pdf')], images: [inc('i.jpg', 'image')] });
-    mockLoad.mockResolvedValueOnce({ loaded: [], failed: ['x.pdf'] });
+    mockLoad.mockResolvedValueOnce({ loaded: [], failed: [new PdfLoadError({ fileName: 'x.pdf' })] });
     await renderMerge();
     expect(mockReplace).toHaveBeenCalledWith('/scan');
     expect(mockBack).not.toHaveBeenCalled();
@@ -298,7 +299,7 @@ describe('English', () => {
 
   test('failed files alert', async () => {
     mockPick.mockResolvedValueOnce([{ uri: a.uri, name: a.name }]);
-    mockLoad.mockResolvedValueOnce({ loaded: [a, b], failed: ['x.pdf'] });
+    mockLoad.mockResolvedValueOnce({ loaded: [a, b], failed: [new PdfLoadError({ fileName: 'x.pdf' })] });
     await renderMerge(false, true);
     expect(alertSpy).toHaveBeenCalledWith(
       'Could not read the file',
@@ -314,7 +315,7 @@ describe('nameless shared PDFs', () => {
     setPending({ pdfs: [nameless, nameless], images: [] });
     mockLoad.mockResolvedValueOnce({
       loaded: [{ uri: 'file:///n.pdf', name: '', pageCount: 2 }],
-      failed: ['', 'x.pdf'],
+      failed: [new PdfLoadError(), new PdfLoadError({ fileName: 'x.pdf' })],
     });
     await renderMerge(false, true);
     expect(screen.getByText('Document')).toBeTruthy();

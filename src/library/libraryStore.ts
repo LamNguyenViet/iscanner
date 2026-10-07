@@ -1,3 +1,4 @@
+import { StorageError } from '../errors/AppError';
 import { defaultName, sanitizeName } from '../utils/format';
 import { vi } from '../i18n/vi';
 import type { DocumentMeta, FsAdapter, LibraryStore } from './types';
@@ -36,6 +37,14 @@ export function createLibraryStore(deps: {
     await fs.writeText(INDEX_PATH, JSON.stringify({ version: 1, documents }));
   }
 
+  async function guard<T>(op: () => Promise<T>): Promise<T> {
+    try {
+      return await op();
+    } catch (cause) {
+      throw new StorageError({ cause });
+    }
+  }
+
   return {
     list: readIndex,
 
@@ -59,14 +68,16 @@ export function createLibraryStore(deps: {
         source: input.source,
       };
 
-      await fs.ensureDir(PDF_DIR);
-      await fs.writeBytes(path, bytes);
-      try {
-        await writeIndex([meta, ...documents]);
-      } catch (error) {
-        await fs.delete(path).catch(() => {});
-        throw error;
-      }
+      await guard(async () => {
+        await fs.ensureDir(PDF_DIR);
+        await fs.writeBytes(path, bytes);
+        try {
+          await writeIndex([meta, ...documents]);
+        } catch (error) {
+          await fs.delete(path).catch(() => {});
+          throw error;
+        }
+      });
       return meta;
     },
 
@@ -75,7 +86,7 @@ export function createLibraryStore(deps: {
       const current = documents.find((d) => d.id === id);
       if (!current) throw new Error('NOT_FOUND');
       const updated = { ...current, name: sanitizeName(name, current.name) };
-      await writeIndex(documents.map((d) => (d.id === id ? updated : d)));
+      await guard(() => writeIndex(documents.map((d) => (d.id === id ? updated : d))));
       return updated;
     },
 
@@ -83,8 +94,10 @@ export function createLibraryStore(deps: {
       const documents = await readIndex();
       const target = documents.find((d) => d.id === id);
       if (!target) return;
-      await writeIndex(documents.filter((d) => d.id !== id));
-      await fs.delete(`${PDF_DIR}/${target.fileName}`);
+      await guard(async () => {
+        await writeIndex(documents.filter((d) => d.id !== id));
+        await fs.delete(`${PDF_DIR}/${target.fileName}`);
+      });
     },
 
     fileUri(meta) {

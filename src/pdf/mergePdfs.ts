@@ -1,25 +1,17 @@
-import { PDFDocument } from './pdfLib';
+import { PdfEncryptedError, PdfLoadError } from '../errors/AppError';
+import { EncryptedPDFError, PDFDocument } from './pdfLib';
 
-export class PdfLoadError extends Error {
-  index: number;
-  constructor(index: number) {
-    super('PDF_LOAD_FAILED');
-    this.name = 'PdfLoadError';
-    this.index = index;
-    Object.setPrototypeOf(this, PdfLoadError.prototype);
-  }
-}
-
-async function loadPdf(bytes: Uint8Array, index: number): Promise<PDFDocument> {
+async function loadPdf(bytes: Uint8Array, index: number, fileName?: string): Promise<PDFDocument> {
   try {
     return await PDFDocument.load(bytes);
-  } catch {
-    throw new PdfLoadError(index);
+  } catch (cause) {
+    if (cause instanceof EncryptedPDFError) throw new PdfEncryptedError({ index, fileName, cause });
+    throw new PdfLoadError({ index, fileName, cause });
   }
 }
 
-export async function getPdfPageCount(pdf: Uint8Array): Promise<number> {
-  return (await loadPdf(pdf, 0)).getPageCount();
+export async function getPdfPageCount(pdf: Uint8Array, fileName?: string): Promise<number> {
+  return (await loadPdf(pdf, 0, fileName)).getPageCount();
 }
 
 export async function mergePdfs(pdfs: Uint8Array[]): Promise<Uint8Array> {

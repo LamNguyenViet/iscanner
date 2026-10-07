@@ -1,5 +1,6 @@
 import { PDFDocument } from '../../src/pdf/pdfLib';
 import { createMergedDocument, loadPickedPdfs } from '../../src/workflows/mergeWorkflow';
+import { FileReadError, PdfLoadError } from '../../src/errors/AppError';
 import type { DocumentMeta } from '../../src/library/types';
 
 const meta = { id: '1' } as DocumentMeta;
@@ -32,7 +33,11 @@ describe('merge workflows', () => {
       { uri: 'nope', name: 'unreadable.pdf' },
     ]);
     expect(res.loaded).toEqual([{ uri: 'a', name: 'good.pdf', pageCount: 1 }]);
-    expect(res.failed).toEqual(['bad.pdf', 'unreadable.pdf']);
+    expect(res.failed).toHaveLength(2);
+    expect(res.failed[0]).toBeInstanceOf(PdfLoadError);
+    expect(res.failed[0].fileName).toBe('bad.pdf');
+    expect(res.failed[1]).toBeInstanceOf(FileReadError);
+    expect(res.failed[1].fileName).toBe('unreadable.pdf');
   });
 
   it('merge sums pages and orders', async () => {

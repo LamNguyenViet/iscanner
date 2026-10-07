@@ -1,5 +1,6 @@
 import { Directory, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import { ShareError } from '../errors/AppError';
 import { shareFileName } from '../utils/format';
 
 /**
@@ -7,6 +8,14 @@ import { shareFileName } from '../utils/format';
  * cache/share/<name>.pdf first. The share folder is cleared each time so copies don't pile up.
  */
 export async function shareDocument(uri: string, name: string): Promise<void> {
+  try {
+    await copyAndShare(uri, name);
+  } catch (cause) {
+    throw new ShareError({ cause });
+  }
+}
+
+async function copyAndShare(uri: string, name: string): Promise<void> {
   const dir = new Directory(Paths.cache, 'share');
   if (dir.exists) dir.delete();
   dir.create({ intermediates: true, idempotent: true });

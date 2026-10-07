@@ -1,4 +1,5 @@
 import { Alert, AppState, type AppStateStatus } from 'react-native';
+import { FileTooLargeError, UnsupportedFileError } from '../../src/errors/AppError';
 import { act, render, screen, fireEvent } from '@testing-library/react-native';
 import Incoming from '../../app/incoming';
 import { LocaleProvider } from '../../src/i18n/LocaleContext';
@@ -145,7 +146,7 @@ test('none goes home with alert', async () => {
 test('when every file was skipped only the no-files alert is shown', async () => {
   mockImport.mockResolvedValueOnce({
     files: [],
-    skipped: [{ name: 'a.docx', reason: 'unsupported' }],
+    skipped: [new UnsupportedFileError({ fileName: 'a.docx' })],
   });
   await renderIncoming();
   expect(alertSpy).toHaveBeenCalledTimes(1);
@@ -198,8 +199,8 @@ test('shows skipped count', async () => {
   mockImport.mockResolvedValueOnce({
     files: [img],
     skipped: [
-      { name: 'a.docx', reason: 'unsupported' },
-      { name: 'b.mp4', reason: 'too-large' },
+      new UnsupportedFileError({ fileName: 'a.docx' }),
+      new FileTooLargeError({ fileName: 'b.mp4' }),
     ],
   });
   await renderIncoming();

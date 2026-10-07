@@ -1,4 +1,5 @@
 import { PDFDocument } from '../../src/pdf/pdfLib';
+import { ImageProcessError } from '../../src/errors/AppError';
 import { detectImageType } from '../../src/pdf/images';
 import { createPdfFromImages } from '../../src/pdf/createPdfFromImages';
 import { makeJpeg, makePng } from '../fixtures/images';
@@ -7,7 +8,7 @@ describe('createPdfFromImages', () => {
   it('detects jpeg and png', () => {
     expect(detectImageType(makeJpeg(4, 4))).toBe('image/jpeg');
     expect(detectImageType(makePng(4, 4))).toBe('image/png');
-    expect(() => detectImageType(new Uint8Array([1, 2, 3, 4]))).toThrow('UNSUPPORTED_IMAGE');
+    expect(() => detectImageType(new Uint8Array([1, 2, 3, 4]))).toThrow(ImageProcessError);
   });
 
   it('one page per image sized to pixels', async () => {

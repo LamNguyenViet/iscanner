@@ -2,9 +2,9 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { classifyIncoming } from './classify';
 import { displayNameFromUri } from './displayName';
 import { isIosInboxFile } from './inbox';
+import { FileReadError, FileTooLargeError, UnsupportedFileError, type AppError } from '../errors/AppError';
 import type { IncomingFile } from './types';
 
-export type SkippedFile = { name: string; reason: 'unsupported' | 'too-large' | 'unreadable' };
 export const MAX_INCOMING_BYTES = 100 * 1024 * 1024;
 
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -33,9 +33,9 @@ function discard(file: File | undefined): void {
  */
 export async function importIncoming(
   sources: { uri: string; name?: string }[],
-): Promise<{ files: IncomingFile[]; skipped: SkippedFile[] }> {
+): Promise<{ files: IncomingFile[]; skipped: AppError[] }> {
   const files: IncomingFile[] = [];
-  const skipped: SkippedFile[] = [];
+  const skipped: AppError[] = [];
   for (const source of sources) {
     const name = displayName(source);
     let copy: File | undefined;
@@ -48,17 +48,17 @@ export async function importIncoming(
         // size unavailable for some providers — fall back to the byte length
       }
       if (typeof declared === 'number' && declared > MAX_INCOMING_BYTES) {
-        skipped.push({ name, reason: 'too-large' });
+        skipped.push(new FileTooLargeError({ fileName: name }));
         continue;
       }
       const bytes = await src.bytes();
       if (bytes.length > MAX_INCOMING_BYTES) {
-        skipped.push({ name, reason: 'too-large' });
+        skipped.push(new FileTooLargeError({ fileName: name }));
         continue;
       }
       const kind = classifyIncoming(bytes);
       if (kind === 'unsupported') {
-        skipped.push({ name, reason: 'unsupported' });
+        skipped.push(new UnsupportedFileError({ fileName: name }));
         continue;
       }
       const dir = new Directory(Paths.cache, 'incoming');
@@ -68,9 +68,9 @@ export async function importIncoming(
       copy.write(bytes);
       files.push({ uri: copy.uri, name, kind, size: bytes.length });
       if (isIosInboxFile(source.uri)) discard(src);
-    } catch {
+    } catch (cause) {
       discard(copy);
-      skipped.push({ name, reason: 'unreadable' });
+      skipped.push(new FileReadError({ fileName: name, cause }));
     }
   }
   return { files, skipped };

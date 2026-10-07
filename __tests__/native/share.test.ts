@@ -1,3 +1,4 @@
+import { ShareError } from '../../src/errors/AppError';
 import { shareDocument } from '../../src/native/share';
 
 const mockShareAsync = jest.fn();
@@ -54,4 +55,12 @@ test('shares a copy named after the document', async () => {
     mimeType: 'application/pdf',
     UTI: 'com.adobe.pdf',
   });
+});
+
+test('a failing share rejects with ShareError keeping the cause', async () => {
+  const cause = new Error('nope');
+  mockShareAsync.mockRejectedValueOnce(cause);
+  const err = await shareDocument('file:///docs/a.pdf', 'A').catch((e) => e);
+  expect(err).toBeInstanceOf(ShareError);
+  expect(err.cause).toBe(cause);
 });
