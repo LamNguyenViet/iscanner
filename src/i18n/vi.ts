@@ -1,3 +1,5 @@
+import type { ErrorCode } from '../errors/AppError';
+
 export const vi = {
   common: {
     cancel: 'Huỷ',
@@ -87,6 +89,25 @@ export const vi = {
   },
   errors: {
     generic: 'Có lỗi xảy ra',
+    PDF_LOAD: { title: 'Không load được file', message: 'Không load được file, vui lòng kiểm tra lại định dạng file PDF.' },
+    PDF_ENCRYPTED: { title: 'File PDF có mật khẩu', message: 'Không mở được file PDF được bảo vệ bằng mật khẩu. Hãy gỡ mật khẩu rồi thử lại.' },
+    FILE_TOO_LARGE: { title: 'File quá lớn', message: 'File vượt quá 100 MB, iScanner không xử lý được.' },
+    FILE_UNSUPPORTED: { title: 'File không được hỗ trợ', message: 'iScanner chỉ nhận file PDF và ảnh JPEG/PNG.' },
+    FILE_READ: { title: 'Không đọc được file', message: 'Không đọc được file. Hãy mở lại file từ ứng dụng gốc rồi chia sẻ lại.' },
+    CAMERA_PERMISSION: { title: 'Cần quyền camera', message: 'Hãy cấp quyền camera cho iScanner trong Cài đặt.' },
+    SCANNER_UNAVAILABLE: { title: 'Không thể scan tài liệu', message: 'Máy chưa hỗ trợ trình quét tài liệu (cần Google Play services). Bạn vẫn có thể gộp PDF và nhận file chia sẻ.' },
+    IMAGE_PROCESS: { title: 'Không xử lý được ảnh', message: 'Không xử lý được ảnh này, vui lòng chụp lại.' },
+    STORAGE: { title: 'Không lưu được tài liệu', message: 'Không lưu được tài liệu. Hãy kiểm tra dung lượng trống của máy.' },
+    SHARE: { title: 'Không chia sẻ được', message: 'Không mở được bảng chia sẻ, vui lòng thử lại.' },
+    UNKNOWN: { title: 'Có lỗi xảy ra', message: 'Đã có lỗi không mong muốn, vui lòng thử lại.' },
+    reason: {
+      PDF_LOAD: 'sai định dạng',
+      PDF_ENCRYPTED: 'có mật khẩu',
+      FILE_TOO_LARGE: 'quá lớn (> 100 MB)',
+      FILE_UNSUPPORTED: 'không hỗ trợ',
+      FILE_READ: 'không đọc được',
+    } as Partial<Record<ErrorCode, string>>,
+    codeLine: (code: string) => `Mã lỗi: ${code}`,
   },
   titles: {
     library: 'iScanner',
