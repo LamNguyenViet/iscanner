@@ -4,8 +4,14 @@ const MAX_STRING = 2000;
 const MAX_STACK_LINES = 20;
 const MAX_CAUSE_LEVELS = 3;
 
-const DATA_URI = /^data:([^;,]*)[^,]*;base64,/;
-const BASE64 = /^[A-Za-z0-9+/=\r\n]{200,}$/;
+const MAX_KEYS = 50;
+const MAX_KEY = 200;
+const MAX_DATA_URI_HEADER = 200;
+const NO_COMMA = -1;
+
+const PURE_BASE64 = /^[A-Za-z0-9+/=_\-\s]+$/;
+const BASE64_RUN = /[A-Za-z0-9+/_-]{200,}={0,2}/g;
+const PAYLOAD_CHAR = /[A-Za-z0-9+/=_%\-]/;
 
 /** Error as a plain object: name, message, code?, fileName?, stack (<= 20 lines), cause (<= 3 levels). */
 export function serializeError(e: unknown, depth = 0): unknown {
@@ -19,12 +25,51 @@ export function serializeError(e: unknown, depth = 0): unknown {
   return out;
 }
 
-function redactString(s: string): string {
-  const uri = DATA_URI.exec(s);
-  if (uri) return `[data-uri ${uri[1] || 'unknown'}, ${s.length} chars]`;
-  if (BASE64.test(s)) return `[base64 ${s.length} chars]`;
-  if (s.length > MAX_STRING) return s.slice(0, MAX_STRING) + `…[+${s.length - MAX_STRING} chars]`;
-  return s;
+// Replaces every `data:<mime>;base64,<payload>` (any case, anywhere). Linear: header scan is bounded.
+function replaceDataUris(s: string): string {
+  const lower = s.toLowerCase();
+  let out = '';
+  let pos = 0;
+  let nextComma = s.indexOf(',');
+  let from = lower.indexOf('data:');
+  while (from !== -1) {
+    const headerStart = from + 5;
+    if (nextComma !== NO_COMMA && nextComma < headerStart) nextComma = s.indexOf(',', headerStart);
+    const comma = nextComma !== NO_COMMA && nextComma - headerStart <= MAX_DATA_URI_HEADER ? nextComma : -1;
+    const header = comma === -1 ? '' : lower.slice(headerStart, comma);
+    if (comma !== -1 && header.endsWith(';base64')) {
+      let end = comma + 1;
+      while (end < s.length && PAYLOAD_CHAR.test(s[end])) end++;
+      const mime = header.split(';')[0].trim();
+      out += s.slice(pos, from) + `[data-uri ${mime || 'unknown'}, ${end - from} chars]`;
+      pos = end;
+      from = lower.indexOf('data:', end);
+    } else {
+      from = lower.indexOf('data:', headerStart);
+    }
+  }
+  return pos === 0 ? s : out + s.slice(pos);
+}
+
+function isPureBase64(s: string): boolean {
+  if (!PURE_BASE64.test(s)) return false;
+  if (!/\s/.test(s)) return s.length >= 200;
+  const tokens = s.split(/\s+/).filter(Boolean);
+  const chars = tokens.reduce((n, t) => n + t.length, 0);
+  return chars >= 200 && chars / tokens.length >= 16;
+}
+
+function redactString(input: string): string {
+  const s = replaceDataUris(input);
+  if (isPureBase64(s)) return `[base64 ${s.length} chars]`;
+  let out = s.replace(BASE64_RUN, (run) => `[base64 ${run.length} chars]`);
+  if (out.length > MAX_STRING) out = out.slice(0, MAX_STRING) + `…[+${out.length - MAX_STRING} chars]`;
+  return out;
+}
+
+function redactKey(key: string): string {
+  const k = redactString(key);
+  return k.length > MAX_KEY ? k.slice(0, MAX_KEY) + `…[+${k.length - MAX_KEY} chars]` : k;
 }
 
 const DROP = Symbol('drop');
@@ -63,10 +108,12 @@ function walk(value: unknown, depth: number, ancestors: object[]): unknown {
     return out;
   }
   const out: Record<string, unknown> = {};
-  for (const key of Object.keys(obj)) {
+  const keys = Object.keys(obj);
+  for (const key of keys.slice(0, MAX_KEYS)) {
     const r = walk((obj as Record<string, unknown>)[key], depth + 1, next);
-    if (r !== DROP) out[key] = r;
+    if (r !== DROP) out[redactKey(key)] = r;
   }
+  if (keys.length > MAX_KEYS) out[`[+${keys.length - MAX_KEYS} keys]`] = true;
   return out;
 }
 

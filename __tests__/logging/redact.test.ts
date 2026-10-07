@@ -60,4 +60,68 @@ describe('redact', () => {
     expect(line).not.toMatch(/[A-Za-z0-9+/=]{200,}/);
     expect(line).not.toContain('data:image');
   });
+
+  describe('bypass hardening', () => {
+    const b64 = 'QUJD'.repeat(750);
+    const urlSafe = 'ab-_'.repeat(100);
+    const leaks = (v: unknown) => /[A-Za-z0-9+/_-]{200,}/.test(JSON.stringify(redact(v)));
+
+    it('redacts base64 embedded in longer strings', () => {
+      expect(redact('x: ' + b64)).toBe('x: [base64 3000 chars]');
+      expect(redact('a, ' + b64 + ', b')).toBe('a, [base64 3000 chars], b');
+    });
+    it('redacts URL-safe base64', () => {
+      expect(redact(urlSafe)).toBe('[base64 400 chars]');
+      expect(leaks('k=' + urlSafe)).toBe(false);
+    });
+    it('redacts whitespace-wrapped base64', () => {
+      const wrapped = (b64.match(/.{1,76}/g) as string[]).join('\r\n');
+      expect(redact(wrapped)).toBe(`[base64 ${wrapped.length} chars]`);
+      const spaced = (b64.match(/.{1,64}/g) as string[]).join(' ');
+      expect(redact(spaced)).toBe(`[base64 ${spaced.length} chars]`);
+    });
+    it('redacts data URIs regardless of case, position and wrapping', () => {
+      expect(redact('DATA:image/png;base64,' + b64)).toBe('[data-uri image/png, 3022 chars]');
+      expect(redact('  data:image/png;base64,AAAA')).toBe('  [data-uri image/png, 26 chars]');
+      expect(redact('url(data:image/png;base64,' + b64 + ')')).toBe('url([data-uri image/png, 3022 chars])');
+      expect(redact('a data:text/plain;base64,QQ== and data:image/gif;base64,R0lG b'))
+        .toBe('a [data-uri text/plain, 27 chars] and [data-uri image/gif, 26 chars] b');
+    });
+    it('redacts and caps object keys', () => {
+      expect(redact({ [b64]: true })).toEqual({ '[base64 3000 chars]': true });
+      const key = redact({ ['k '.repeat(300)]: 1 }) as Record<string, number>;
+      expect(Object.keys(key)[0].length).toBeLessThan(260);
+      const big: Record<string, number> = {};
+      for (let i = 0; i < 1000; i++) big['k' + i] = i;
+      const out = redact(big) as Record<string, unknown>;
+      expect(Object.keys(out)).toHaveLength(51);
+      expect(out['[+950 keys]']).toBe(true);
+    });
+    it('redacts DataView and Buffer', () => {
+      expect(redact(new DataView(new ArrayBuffer(16)))).toBe('[binary 16 bytes]');
+      expect(redact(Buffer.from('hello'))).toBe('[binary 5 bytes]');
+    });
+    it('redacts base64 inside error message and stack', () => {
+      const e = new Error('bad ' + b64);
+      e.stack = 'Error: bad\n    at ' + b64;
+      expect(JSON.stringify(redact(e))).not.toMatch(/[A-Za-z0-9+/=]{200,}/);
+    });
+    it('has no quadratic data-uri scanning', () => {
+      const t0 = Date.now();
+      redact('data:' + 'a'.repeat(200000));
+      redact('data:;'.repeat(30000));
+      expect(Date.now() - t0).toBeLessThan(100);
+    });
+    it('does not mangle normal content', () => {
+      const normal = {
+        uri: 'file:///data/user/0/com.iscanner/files/logs/2026-10-07.log',
+        stack: 'Error: boom\n    at foo (src/a.ts:10:5)\n    at bar (node_modules/x/index.js:2:1)',
+        vi: 'Không thể tải tệp PDF này. Vui lòng thử lại sau.',
+        en: 'metadata: this is a normal english sentence with several words in it',
+      };
+      expect(redact(normal)).toEqual(normal);
+      const longText = 'the quick brown fox jumps over the lazy dog '.repeat(10);
+      expect(redact(longText)).toBe(longText);
+    });
+  });
 });
