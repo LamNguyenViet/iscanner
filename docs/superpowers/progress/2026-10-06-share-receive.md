@@ -22,8 +22,8 @@
 | 1 | Classify / plan / pending store | ✅ | `b586789` | review clean |
 | 2 | Import to cache + payload wrapper | ✅ | `26cf873` | review clean |
 | 3 | app.json + native-intent + incoming screen | ✅ | `2e13bed` | review clean |
-| 4 | Merge/scan consume pending files | ⏳ | | |
-| 5 | Device verification + docs | ⬜ | | |
+| 4 | Merge/scan consume pending files | ✅ | `57e284f`, `15e6ce2` | 1 fix round (R4) |
+| 5 | Device verification + docs | ⏳ | | |
 
 ## Task details
 
@@ -57,3 +57,13 @@
   - **Pending images are orphaned on an unexpected unmount.**
   - Two alerts appear back to back.
 - Tests: 280/280.
+
+### Task 4 (✅ `57e284f`, fix `15e6ce2`)
+- `app/merge.tsx`:
+  - On mount it runs `takePdfs()`. Files go through the same load/append pipeline as the picker; with no files it opens the picker as before.
+  - A successful merge with images still pending goes to `/scan`.
+  - **Ruling R4**:
+    - If every PDF fails and images are pending, the app goes to `/scan` instead of back.
+    - If the user leaves the merge screen without merging, the pending images are deleted. This prevents leaks and a wrong redirect later.
+- `app/scan.tsx`: on mount it runs `takeImages()`, then the same normalize pipeline as the scanner, deleting the incoming copies after normalization.
+- Tests: 288/288.
