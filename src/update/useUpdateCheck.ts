@@ -56,6 +56,7 @@ export function useUpdateCheck(deps: UpdateDeps = {}): UpdateCheck {
   depsRef.current = deps;
   const decisionRef = useRef<UpdateDecision>(NONE);
   const busyRef = useRef(false);
+  const lastRun = useRef<Promise<void> | null>(null);
   const token = useRef<{ cancelled: boolean } | null>(null);
   const inFlight = useRef<Promise<CheckResult> | null>(null);
   const mounted = useRef(true);
@@ -179,31 +180,40 @@ export function useUpdateCheck(deps: UpdateDeps = {}): UpdateCheck {
     const mine = { cancelled: false };
     token.current = mine;
     setBusy(true);
-    try {
-      if (decisionRef.current.fromMemory || !decisionRef.current.target) {
-        await runCheck(true);
-        const d = decisionRef.current;
-        if (d.fromMemory) {
-          Alert.alert(tRef.current.update.checkFailed);
-          return;
+    // A cancelled run may still be downloading into the same file; let it finish first.
+    const previous = lastRun.current;
+    const run = (async () => {
+      try {
+        await previous?.catch(() => {});
+        if (mine.cancelled) return;
+        if (decisionRef.current.fromMemory || !decisionRef.current.target) {
+          await runCheck(true);
+          if (mine.cancelled) return;
+          const d = decisionRef.current;
+          if (d.fromMemory) {
+            Alert.alert(tRef.current.update.checkFailed);
+            return;
+          }
+          if (d.kind === 'none' || !d.target) return;
         }
-        if (d.kind === 'none' || !d.target) return;
+        const target = decisionRef.current.target as PlatformUpdate;
+        log.info('update.started');
+        const d = depsRef.current;
+        if (env().platform === 'ios') await (d.openUrl ?? openUpdatePage)(target.url);
+        else await (d.installApk ?? downloadAndInstallApk)(target, { isCancelled: () => mine.cancelled });
+      } catch (err) {
+        if (mine.cancelled) return;
+        log.warn('update.failed', { code: toAppError(err).code });
+        showError(err);
+      } finally {
+        if (!mine.cancelled) {
+          busyRef.current = false;
+          if (mounted.current) setBusy(false);
+        }
       }
-      const target = decisionRef.current.target as PlatformUpdate;
-      log.info('update.started');
-      const d = depsRef.current;
-      if (env().platform === 'ios') await (d.openUrl ?? openUpdatePage)(target.url);
-      else await (d.installApk ?? downloadAndInstallApk)(target, { isCancelled: () => mine.cancelled });
-    } catch (err) {
-      if (mine.cancelled) return;
-      log.warn('update.failed', { code: toAppError(err).code });
-      showError(err);
-    } finally {
-      if (!mine.cancelled) {
-        busyRef.current = false;
-        if (mounted.current) setBusy(false);
-      }
-    }
+    })();
+    lastRun.current = run;
+    await run;
   }, [runCheck, showError]);
 
   const cancel = useCallback(() => {

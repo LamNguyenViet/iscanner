@@ -202,6 +202,7 @@ test('an optional download shows a banner that does not block the app', async ()
   await settle();
   expect(screen.getByText('Đang tải bản cập nhật… (≈ 12 MB)')).toBeTruthy();
   expect(screen.queryByText('Cần cập nhật iScanner')).toBeNull();
+  expect(screen.getByTestId('update-banner-host').props.pointerEvents).toBe('box-none');
   await fireEvent.press(screen.getByText('app button'));
   expect(onPress).toHaveBeenCalledTimes(1);
   await fireEvent.press(screen.getByText('Huỷ'));

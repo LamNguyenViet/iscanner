@@ -257,3 +257,48 @@ test('the install flow sees the cancellation through isCancelled', async () => {
   await act(async () => result.current.cancel());
   expect(seen!()).toBe(true);
 });
+
+test('a retry after cancel waits for the cancelled download before installing', async () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  const releases: (() => void)[] = [];
+  const installApk = jest.fn().mockImplementation(
+    () =>
+      new Promise<void>((resolve) => {
+        releases.push(resolve);
+      }),
+  );
+  const { result } = await mount({ installApk });
+  await act(async () => { void result.current.startUpdate(); });
+  expect(installApk).toHaveBeenCalledTimes(1);
+  await act(async () => result.current.cancel());
+  await act(async () => { void result.current.startUpdate(); });
+  // The retry must not start a second download while the first is still running.
+  expect(installApk).toHaveBeenCalledTimes(1);
+  expect(result.current.busy).toBe(true);
+  await act(async () => releases[0]());
+  await settle();
+  expect(installApk).toHaveBeenCalledTimes(2);
+  await act(async () => releases[1]());
+  await settle();
+  expect(installApk).toHaveBeenCalledTimes(2);
+  expect(alert).not.toHaveBeenCalled();
+  expect(result.current.busy).toBe(false);
+});
+
+test('cancel during the from-memory re-check shows no alert and starts no download', async () => {
+  await mount();
+  clock += 60 * 60_000;
+  fetchConfig.mockRejectedValue(new Error('offline'));
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  const installApk = jest.fn();
+  const { result } = await mount({ installApk });
+  let release!: () => void;
+  fetchConfig.mockReturnValue(new Promise((_r, rej) => (release = () => rej(new Error('offline')))));
+  await act(async () => { void result.current.startUpdate(); });
+  await act(async () => result.current.cancel());
+  await act(async () => { release(); });
+  await settle();
+  expect(alert).not.toHaveBeenCalled();
+  expect(installApk).not.toHaveBeenCalled();
+  expect(result.current.busy).toBe(false);
+});
