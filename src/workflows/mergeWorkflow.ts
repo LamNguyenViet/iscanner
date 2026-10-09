@@ -6,14 +6,14 @@ import {
   PdfPasswordError,
   withFileName,
 } from '../errors/AppError';
-import { log } from '../logging/logger';
 import { getPdfPageCount, mergePdfs } from '../pdf/mergePdfs';
 import type { DocumentMeta, LibraryStore } from '../library/types';
 import type { ReadBytes } from './scanWorkflow';
+import { withPasswordLoop, type AskPassword } from './passwordLoop';
 
 export type PickedPdf = { uri: string; name: string; password?: string };
 export type LoadedPdf = { uri: string; name: string; pageCount: number; password?: string };
-export type AskPassword = (fileName: string, wrongBefore: boolean) => Promise<string | null>;
+export type { AskPassword };
 
 /**
  * Page count of a PDF, asking for the password when it is encrypted. A password passed in is tried first
@@ -25,37 +25,16 @@ export async function openPdfWithPassword(
   askPassword?: AskPassword,
   knownPassword?: string,
 ): Promise<{ pageCount: number; password?: string } | null> {
-  let password = knownPassword;
-  let firstError: unknown;
-  let triedEmpty = knownPassword === '';
-  // True once a real (non-silent) password has failed: only then is the prompt a retry.
-  let userTried = knownPassword !== undefined && knownPassword !== '';
-  for (;;) {
-    try {
-      const pageCount = await getPdfPageCount(bytes, fileName, password);
-      if (password !== undefined) log.info('pdf.unlocked', { file: fileName });
-      return password === undefined ? { pageCount } : { pageCount, password };
-    } catch (e) {
-      const wrong = e instanceof PdfPasswordError;
-      if (!wrong && !(e instanceof PdfEncryptedError)) throw e;
-      firstError ??= e;
-      // Owner-restricted PDFs open with an empty user password: try it silently before asking.
-      if (!triedEmpty) {
-        triedEmpty = true;
-        password = '';
-        continue;
-      }
-      if (!askPassword) throw firstError;
-      // A failed silent attempt is not a wrong answer from the user.
-      const answer = await askPassword(fileName, userTried);
-      if (typeof answer !== 'string') {
-        log.info('pdf.unlockSkipped', { file: fileName });
-        return null;
-      }
-      password = answer;
-      userTried = true;
-    }
-  }
+  const res = await withPasswordLoop((password) => getPdfPageCount(bytes, fileName, password), {
+    fileName,
+    ask: askPassword,
+    known: knownPassword,
+    needsPassword: (e) => e instanceof PdfEncryptedError,
+    wrongPassword: (e) => e instanceof PdfPasswordError,
+    event: 'pdf',
+  });
+  if (res === null) return null;
+  return res.password === undefined ? { pageCount: res.value } : { pageCount: res.value, password: res.password };
 }
 
 export async function loadPickedPdfs(
