@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActionSheetIOS,
   Alert,
+  BackHandler,
   FlatList,
   Modal,
   Platform,
@@ -10,12 +11,13 @@ import {
   Text,
   View,
 } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
+import { router, Stack, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useErrorAlert } from '../src/errors/useErrorAlert';
 import { DocumentActions } from '../src/components/DocumentActions';
 import { DocumentRow } from '../src/components/DocumentRow';
 import { NameInput } from '../src/components/NameInput';
+import { SettingsButton } from '../src/components/SettingsButton';
 import { useLocale } from '../src/i18n/LocaleContext';
 import { useLibrary } from '../src/library/LibraryContext';
 import type { DocumentMeta } from '../src/library/types';
@@ -26,7 +28,9 @@ import { useTheme } from '../src/theme/ThemeContext';
 import { sanitizeName } from '../src/utils/format';
 
 export default function Home() {
-  const { documents, store, refresh, rename, remove } = useLibrary();
+  const { documents, store, refresh, rename, remove, removeMany } = useLibrary();
+  // null = normal mode; a Set = selection mode (possibly empty).
+  const [selected, setSelected] = useState<Set<string> | null>(null);
   const [renaming, setRenaming] = useState<DocumentMeta | null>(null);
   const [draft, setDraft] = useState('');
   const [menuDoc, setMenuDoc] = useState<DocumentMeta | null>(null);
@@ -49,7 +53,7 @@ export default function Home() {
         style: 'destructive',
         onPress: () =>
           remove(doc.id)
-            .then(() => log.info('document.deleted'))
+            .then(() => log.info('document.deleted', { count: 1 }))
             .catch(showError),
       },
       { text: t.common.cancel, style: 'cancel' },
@@ -92,6 +96,50 @@ export default function Home() {
     if (doc) action(doc);
   };
 
+  const selecting = selected !== null;
+  const selectedCount = selected?.size ?? 0;
+  const allSelected = selecting && documents.length > 0 && selectedCount === documents.length;
+
+  const exitSelection = useCallback(() => setSelected(null), []);
+
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev ?? []);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  // Android back leaves selection mode instead of the screen.
+  useEffect(() => {
+    if (!selecting) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      exitSelection();
+      return true;
+    });
+    return () => sub.remove();
+  }, [selecting, exitSelection]);
+
+  const confirmRemoveSelected = () => {
+    const ids = [...(selected ?? [])];
+    if (ids.length === 0) return;
+    const title = ids.length === 1 ? t.library.deleteConfirm : t.library.deleteManyConfirm(ids.length);
+    Alert.alert(title, undefined, [
+      {
+        text: t.documentMenu.delete,
+        style: 'destructive',
+        onPress: () =>
+          removeMany(ids)
+            .then(() => {
+              log.info('document.deleted', { count: ids.length });
+              exitSelection();
+            })
+            .catch(showError),
+      },
+      { text: t.common.cancel, style: 'cancel' },
+    ]);
+  };
+
   const saveRename = () => {
     const doc = renaming;
     if (!doc) return;
@@ -103,14 +151,56 @@ export default function Home() {
 
   return (
     <View style={[styles.container, themed.container]}>
+      {/* Always rendered: options a screen sets persist after it unmounts, so leaving selection
+          mode must put the normal header back. */}
+      <Stack.Screen
+        options={
+          !selecting
+            ? {
+                title: t.titles.library,
+                headerLeft: undefined,
+                headerRight: () => <SettingsButton />,
+              }
+            : {
+            title: t.library.selectedCount(selectedCount),
+            headerLeft: () => (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t.library.exitSelection}
+                hitSlop={8}
+                onPress={exitSelection}
+              >
+                <Text style={[styles.headerButton, themed.headerButton]}>✕</Text>
+              </Pressable>
+            ),
+            headerRight: () => (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={allSelected ? t.library.deselectAll : t.library.selectAll}
+                hitSlop={8}
+                onPress={() =>
+                  setSelected(allSelected ? new Set() : new Set(documents.map((d) => d.id)))
+                }
+              >
+                <Text style={[styles.headerText, themed.headerButton]}>
+                  {allSelected ? t.library.deselectAll : t.library.selectAll}
+                </Text>
+              </Pressable>
+            ),
+          }
+        }
+      />
       <FlatList
         data={documents}
         keyExtractor={(d) => d.id}
         renderItem={({ item }) => (
           <DocumentRow
             doc={item}
-            onPress={() => router.push(`/viewer/${item.id}`)}
-            onLongPress={() => openMenu(item)}
+            selecting={selecting}
+            selected={selected?.has(item.id) ?? false}
+            onPress={() => (selecting ? toggle(item.id) : router.push(`/viewer/${item.id}`))}
+            onLongPress={() => (selecting ? toggle(item.id) : setSelected(new Set([item.id])))}
+            onMore={() => openMenu(item)}
           />
         )}
         contentContainerStyle={documents.length === 0 ? styles.emptyContainer : undefined}
@@ -119,12 +209,28 @@ export default function Home() {
         }
       />
       <View testID="actions" style={[styles.actions, { paddingBottom: 16 + insets.bottom }]}>
-        <Pressable style={[styles.button, themed.button]} onPress={() => router.push('/scan')}>
-          <Text style={[styles.buttonText, themed.buttonText]}>{t.library.scan}</Text>
-        </Pressable>
-        <Pressable style={[styles.button, themed.button]} onPress={() => router.push('/merge')}>
-          <Text style={[styles.buttonText, themed.buttonText]}>{t.library.merge}</Text>
-        </Pressable>
+        {selecting ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t.library.deleteCount(selectedCount)}
+            disabled={selectedCount === 0}
+            style={[styles.button, themed.danger, selectedCount === 0 && styles.disabled]}
+            onPress={confirmRemoveSelected}
+          >
+            <Text style={[styles.buttonText, themed.buttonText]}>
+              {t.library.deleteCount(selectedCount)}
+            </Text>
+          </Pressable>
+        ) : (
+          <>
+            <Pressable style={[styles.button, themed.button]} onPress={() => router.push('/scan')}>
+              <Text style={[styles.buttonText, themed.buttonText]}>{t.library.scan}</Text>
+            </Pressable>
+            <Pressable style={[styles.button, themed.button]} onPress={() => router.push('/merge')}>
+              <Text style={[styles.buttonText, themed.buttonText]}>{t.library.merge}</Text>
+            </Pressable>
+          </>
+        )}
       </View>
       <DocumentActions
         visible={menuDoc !== null}
@@ -178,6 +284,9 @@ const styles = StyleSheet.create({
   dialog: { borderRadius: 12, padding: 16 },
   dialogActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 24, marginTop: 16 },
   dialogButton: { fontSize: 16, fontWeight: '600' },
+  disabled: { opacity: 0.5 },
+  headerButton: { fontSize: 20, paddingHorizontal: 4 },
+  headerText: { fontSize: 16, fontWeight: '600' },
 });
 
 const makeStyles = (c: Palette) =>
@@ -189,4 +298,6 @@ const makeStyles = (c: Palette) =>
     backdrop: { backgroundColor: c.backdrop },
     dialog: { backgroundColor: c.surface },
     dialogButton: { color: c.primary },
+    danger: { backgroundColor: c.danger },
+    headerButton: { color: c.primary },
   });

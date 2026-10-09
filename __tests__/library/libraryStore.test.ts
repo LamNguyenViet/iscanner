@@ -81,6 +81,57 @@ describe('libraryStore', () => {
     expect(await store.list()).toEqual([]);
   });
 
+  describe('removeMany', () => {
+    async function threeDocs() {
+      const s = setup();
+      for (const name of ['A', 'B', 'C']) {
+        await s.store.add(bytes, { name, pageCount: 1, source: 'scan' });
+      }
+      return s;
+    }
+
+    it('removes the chosen documents and their files with a single index write', async () => {
+      const { store, fs } = await threeDocs();
+      const writes = jest.spyOn(fs, 'writeText');
+      await store.removeMany(['id1', 'id3']);
+      expect((await store.list()).map((d) => d.id)).toEqual(['id2']);
+      expect(fs.files.has('pdfs/id1.pdf')).toBe(false);
+      expect(fs.files.has('pdfs/id3.pdf')).toBe(false);
+      expect(fs.files.has('pdfs/id2.pdf')).toBe(true);
+      expect(writes.mock.calls.filter(([p]) => p === 'library.json')).toHaveLength(1);
+    });
+
+    it('removes nothing and rejects with StorageError when the index write fails', async () => {
+      const { store, fs } = await threeDocs();
+      fs.failNextWrite('library.json');
+      await expect(store.removeMany(['id1', 'id2'])).rejects.toBeInstanceOf(StorageError);
+      expect((await store.list()).map((d) => d.id).sort()).toEqual(['id1', 'id2', 'id3']);
+      expect(fs.files.has('pdfs/id1.pdf')).toBe(true);
+      expect(fs.files.has('pdfs/id2.pdf')).toBe(true);
+    });
+
+    it('one file that cannot be deleted does not stop the others', async () => {
+      const { store, fs } = await threeDocs();
+      const realDelete = fs.delete.bind(fs);
+      jest
+        .spyOn(fs, 'delete')
+        .mockImplementation((path) =>
+          path === 'pdfs/id1.pdf' ? Promise.reject(new Error('io')) : realDelete(path),
+        );
+      await expect(store.removeMany(['id1', 'id2'])).resolves.toBeUndefined();
+      expect((await store.list()).map((d) => d.id)).toEqual(['id3']);
+      expect(fs.files.has('pdfs/id2.pdf')).toBe(false);
+    });
+
+    it('ignores unknown ids and does not write when nothing matches', async () => {
+      const { store, fs } = await threeDocs();
+      const writes = jest.spyOn(fs, 'writeText');
+      await store.removeMany(['nope']);
+      expect(writes).not.toHaveBeenCalled();
+      expect(await store.list()).toHaveLength(3);
+    });
+  });
+
   it('remove of unknown id is a no-op', async () => {
     const { store, fs } = setup();
     await store.add(bytes, { name: 'A', pageCount: 1, source: 'scan' });

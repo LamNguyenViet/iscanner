@@ -26,6 +26,13 @@ export const en: Strings = {
     merge: 'Merge PDF',
     deleteConfirm: 'Delete this document?',
     save: 'Save',
+    selectedCount: (n) => `${n} selected`,
+    selectAll: 'Select all',
+    deselectAll: 'Deselect all',
+    deleteCount: (n) => `Delete (${n})`,
+    deleteManyConfirm: (n) => `Delete ${n} documents?`,
+    exitSelection: 'Exit selection',
+    moreActions: 'More actions',
   },
   viewer: {
     notFound: 'Document not found',

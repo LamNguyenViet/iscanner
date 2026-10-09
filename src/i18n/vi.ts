@@ -26,6 +26,13 @@ export const vi = {
     merge: 'Gộp PDF',
     deleteConfirm: 'Xoá tài liệu này?',
     save: 'Lưu',
+    selectedCount: (n: number) => `Đã chọn ${n}`,
+    selectAll: 'Chọn tất cả',
+    deselectAll: 'Bỏ chọn tất cả',
+    deleteCount: (n: number) => `Xoá (${n})`,
+    deleteManyConfirm: (n: number) => `Xoá ${n} tài liệu?`,
+    exitSelection: 'Thoát chế độ chọn',
+    moreActions: 'Thêm thao tác',
   },
   viewer: {
     notFound: 'Không tìm thấy tài liệu',

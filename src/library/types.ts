@@ -40,5 +40,6 @@ export type LibraryStore = {
   rename(id: string, name: string): Promise<DocumentMeta>;
   /** Unknown id is a no-op. */
   remove(id: string): Promise<void>;
+  removeMany(ids: string[]): Promise<void>;
   fileUri(meta: DocumentMeta): string;
 };

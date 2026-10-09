@@ -9,8 +9,9 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import Constants from 'expo-constants';
 import { useEffect, useMemo, useRef } from 'react';
-import { AppState, Platform, Pressable, StyleSheet, Text } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SettingsButton } from '../src/components/SettingsButton';
 import { UpdateGate } from '../src/components/UpdateGate';
 import { LocaleProvider, useLocale } from '../src/i18n/LocaleContext';
 import { LibraryProvider } from '../src/library/LibraryContext';
@@ -69,25 +70,6 @@ function useAppLogging() {
 }
 
 /** Header button that opens the settings screen. */
-function SettingsButton() {
-  const { colors } = useTheme();
-  const { t } = useLocale();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={t.settings.title}
-      hitSlop={8}
-      onPress={() => router.push('/settings')}
-    >
-      <Text style={[styles.icon, { color: colors.primary }]}>⚙︎</Text>
-    </Pressable>
-  );
-}
-
-const styles = StyleSheet.create({
-  icon: { fontSize: 22, paddingHorizontal: 4 },
-});
-
 /** Navigation headers and the status bar follow the app theme. */
 function ThemedStack() {
   // Only here: the navigator is mounted in this commit, so router.navigate is safe.

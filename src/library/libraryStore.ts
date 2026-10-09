@@ -45,6 +45,23 @@ export function createLibraryStore(deps: {
     }
   }
 
+  /** One index write removes them all; files are deleted afterwards, best-effort. */
+  async function removeMany(ids: string[]): Promise<void> {
+    const wanted = new Set(ids);
+    const documents = await readIndex();
+    const targets = documents.filter((d) => wanted.has(d.id));
+    if (targets.length === 0) return;
+    await guard(() => writeIndex(documents.filter((d) => !wanted.has(d.id))));
+    // The documents are already gone from the index; a file that cannot be deleted is just an orphan.
+    for (const target of targets) {
+      try {
+        await fs.delete(`${PDF_DIR}/${target.fileName}`);
+      } catch {
+        // best-effort
+      }
+    }
+  }
+
   return {
     list: readIndex,
 
@@ -91,17 +108,10 @@ export function createLibraryStore(deps: {
     },
 
     async remove(id) {
-      const documents = await readIndex();
-      const target = documents.find((d) => d.id === id);
-      if (!target) return;
-      await guard(() => writeIndex(documents.filter((d) => d.id !== id)));
-      // The document is already gone from the index; a file that cannot be deleted is just an orphan.
-      try {
-        await fs.delete(`${PDF_DIR}/${target.fileName}`);
-      } catch {
-        // best-effort
-      }
+      await removeMany([id]);
     },
+
+    removeMany,
 
     fileUri(meta) {
       return fs.uri(`${PDF_DIR}/${meta.fileName}`);

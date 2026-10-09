@@ -41,7 +41,8 @@ test('DocumentRow uses the dark palette', async () => {
   await show(<DocumentRow doc={doc as never} onPress={() => {}} onLongPress={() => {}} />);
   expect(styleOf(screen.getByText('Hoa don')).color).toBe('#e8e8e8');
   expect(styleOf(screen.getByText(/2 trang/)).color).toBe('#a0a0a0');
-  expect(styleOf(screen.getByRole('button')).borderBottomColor).toBe('#333');
+  // The border sits on the row container that wraps the pressable.
+  expect(styleOf(screen.getByRole('button').parent!).borderBottomColor).toBe('#333');
 });
 
 test('NameInput uses the dark palette', async () => {

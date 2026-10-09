@@ -19,6 +19,7 @@ type LibraryValue = {
   refresh(): Promise<void>;
   rename(id: string, name: string): Promise<void>;
   remove(id: string): Promise<void>;
+  removeMany(ids: string[]): Promise<void>;
 };
 
 const LibraryContext = createContext<LibraryValue | null>(null);
@@ -78,9 +79,17 @@ export function LibraryProvider({
     [store, refresh],
   );
 
+  const removeMany = useCallback(
+    async (ids: string[]) => {
+      await store.removeMany(ids);
+      await refresh();
+    },
+    [store, refresh],
+  );
+
   const value = useMemo(
-    () => ({ documents, loading, store, refresh, rename, remove }),
-    [documents, loading, store, refresh, rename, remove],
+    () => ({ documents, loading, store, refresh, rename, remove, removeMany }),
+    [documents, loading, store, refresh, rename, remove, removeMany],
   );
 
   return <LibraryContext.Provider value={value}>{children}</LibraryContext.Provider>;
