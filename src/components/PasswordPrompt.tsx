@@ -26,7 +26,12 @@ export function PasswordPrompt({ visible, fileName, wrongBefore, onSubmit, onSki
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onSkip}>
       <View style={[styles.container, themed.container]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onSkip} accessibilityLabel={t.pdfPassword.skip} />
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onSkip}
+          accessible={false}
+          importantForAccessibility="no"
+        />
         <View style={[styles.card, themed.card]}>
           <Text style={[styles.title, themed.title]}>{t.pdfPassword.title}</Text>
           <Text style={[styles.body, themed.body]}>{t.pdfPassword.body(fileName)}</Text>
@@ -35,7 +40,7 @@ export function PasswordPrompt({ visible, fileName, wrongBefore, onSubmit, onSki
             value={value}
             onChangeText={setValue}
             placeholder={t.pdfPassword.placeholder}
-            placeholderTextColor={colors.placeholder}
+            placeholderTextColor={colors.textMuted}
             accessibilityLabel={t.pdfPassword.placeholder}
             secureTextEntry
             autoFocus
