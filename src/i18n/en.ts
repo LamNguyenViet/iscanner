@@ -2,6 +2,7 @@ import type { Strings } from './vi';
 
 export const en: Strings = {
   common: {
+    convertingWord: 'Converting Word file…',
     cancel: 'Cancel',
     untitled: 'Document',
   },
@@ -26,6 +27,8 @@ export const en: Strings = {
     closeSheet: 'Close',
   },
   library: {
+    wordToPdf: 'Word → PDF',
+    scanShort: 'Scan',
     empty: 'No documents yet. Scan or merge PDFs to get started.',
     scan: 'Scan document',
     merge: 'Merge PDF',
@@ -97,6 +100,8 @@ export const en: Strings = {
     PDF_LOAD: { title: 'Cannot load file', message: "Cannot load file, check your document's format file PDF." },
     PDF_ENCRYPTED: { title: 'Password-protected PDF', message: 'This PDF is protected by a password. Remove the password and try again.' },
     PDF_PASSWORD: { title: 'Wrong password', message: 'The PDF password is incorrect.' },
+    WORD_CONVERT: { title: "Couldn't convert the Word file", message: "The Word file is damaged or its format isn't supported." },
+    WORD_PASSWORD: { title: 'Wrong password', message: 'The Word file password is incorrect.' },
     FILE_TOO_LARGE: { title: 'File too large', message: "The file is larger than 100 MB and can't be processed." },
     FILE_UNSUPPORTED: { title: 'Unsupported file', message: 'iScanner only accepts PDF files and JPEG/PNG images.' },
     FILE_READ: { title: 'Cannot read file', message: "The file couldn't be read. Open it again in the original app and share it again." },
@@ -113,6 +118,8 @@ export const en: Strings = {
       PDF_LOAD: 'invalid format',
       PDF_ENCRYPTED: 'password-protected',
       PDF_PASSWORD: 'wrong password',
+      WORD_CONVERT: 'conversion failed',
+      WORD_PASSWORD: 'wrong password',
       FILE_TOO_LARGE: 'too large (> 100 MB)',
       FILE_UNSUPPORTED: 'unsupported',
       FILE_READ: 'unreadable',

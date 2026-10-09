@@ -1,5 +1,5 @@
 export type ErrorCode =
-  | 'PDF_LOAD' | 'PDF_ENCRYPTED' | 'PDF_PASSWORD' | 'FILE_TOO_LARGE' | 'FILE_UNSUPPORTED' | 'FILE_READ'
+  | 'PDF_LOAD' | 'PDF_ENCRYPTED' | 'PDF_PASSWORD' | 'WORD_CONVERT' | 'WORD_PASSWORD' | 'FILE_TOO_LARGE' | 'FILE_UNSUPPORTED' | 'FILE_READ'
   | 'CAMERA_PERMISSION' | 'SCANNER_UNAVAILABLE' | 'IMAGE_PROCESS' | 'STORAGE' | 'SHARE' | 'UNKNOWN'
   | 'UPDATE_DOWNLOAD' | 'UPDATE_CORRUPT' | 'UPDATE_INSTALL';
 
@@ -56,6 +56,29 @@ export class PdfPasswordError extends AppError {
     super('PDF_PASSWORD', opts);
     Object.setPrototypeOf(this, new.target.prototype);
     this.name = 'PdfPasswordError';
+    this.index = opts?.index;
+  }
+}
+
+export class WordConvertError extends AppError {
+  readonly index?: number;
+
+  constructor(opts?: { index?: number; fileName?: string; cause?: unknown }) {
+    super('WORD_CONVERT', opts);
+    Object.setPrototypeOf(this, new.target.prototype);
+    this.name = 'WordConvertError';
+    this.index = opts?.index;
+  }
+}
+
+/** A wrong password for a protected Word file. Never carries the password itself. */
+export class WordPasswordError extends AppError {
+  readonly index?: number;
+
+  constructor(opts?: { index?: number; fileName?: string; cause?: unknown }) {
+    super('WORD_PASSWORD', opts);
+    Object.setPrototypeOf(this, new.target.prototype);
+    this.name = 'WordPasswordError';
     this.index = opts?.index;
   }
 }

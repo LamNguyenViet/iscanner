@@ -1,6 +1,6 @@
 import {
   AppError, CameraPermissionError, FileReadError, FileTooLargeError, ImageProcessError, PdfEncryptedError,
-  PdfLoadError, PdfPasswordError, ScannerUnavailableError, ShareError, StorageError, UpdateCorruptError, UpdateDownloadError, UpdateInstallError, UnknownError, UnsupportedFileError, toAppError,
+  PdfLoadError, PdfPasswordError, WordConvertError, WordPasswordError, ScannerUnavailableError, ShareError, StorageError, UpdateCorruptError, UpdateDownloadError, UpdateInstallError, UnknownError, UnsupportedFileError, toAppError,
 } from '../../src/errors/AppError';
 import { EncryptedPDFError } from '../../src/pdf/pdfLib';
 
@@ -32,7 +32,7 @@ test.each(simple)('%s', (name, Cls, code) => {
   expect(new Cls().fileName).toBeUndefined();
 });
 
-test.each([['PdfLoadError', PdfLoadError, 'PDF_LOAD'], ['PdfEncryptedError', PdfEncryptedError, 'PDF_ENCRYPTED'], ['PdfPasswordError', PdfPasswordError, 'PDF_PASSWORD']] as const)(
+test.each([['PdfLoadError', PdfLoadError, 'PDF_LOAD'], ['PdfEncryptedError', PdfEncryptedError, 'PDF_ENCRYPTED'], ['PdfPasswordError', PdfPasswordError, 'PDF_PASSWORD'], ['WordConvertError', WordConvertError, 'WORD_CONVERT'], ['WordPasswordError', WordPasswordError, 'WORD_PASSWORD']] as const)(
   '%s', (name, Cls, code) => {
     const e = new Cls({ index: 2, fileName: 'a.pdf', cause });
     expect(e.code).toBe(code);

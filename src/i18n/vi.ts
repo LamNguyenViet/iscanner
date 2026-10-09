@@ -2,6 +2,7 @@ import type { ErrorCode } from '../errors/AppError';
 
 export const vi = {
   common: {
+    convertingWord: 'Đang chuyển file Word…',
     cancel: 'Huỷ',
     untitled: 'Tài liệu',
   },
@@ -26,6 +27,8 @@ export const vi = {
     closeSheet: 'Đóng',
   },
   library: {
+    wordToPdf: 'Word → PDF',
+    scanShort: 'Scan',
     empty: 'Chưa có tài liệu nào. Hãy scan hoặc gộp PDF để bắt đầu.',
     scan: 'Scan tài liệu',
     merge: 'Gộp PDF',
@@ -97,6 +100,8 @@ export const vi = {
     PDF_LOAD: { title: 'Không load được file', message: 'Không load được file, vui lòng kiểm tra lại định dạng file PDF.' },
     PDF_ENCRYPTED: { title: 'File PDF có mật khẩu', message: 'Không mở được file PDF được bảo vệ bằng mật khẩu. Hãy gỡ mật khẩu rồi thử lại.' },
     PDF_PASSWORD: { title: 'Mật khẩu không đúng', message: 'Mật khẩu của file PDF không đúng.' },
+    WORD_CONVERT: { title: 'Không chuyển được file Word', message: 'File Word bị hỏng hoặc định dạng không được hỗ trợ.' },
+    WORD_PASSWORD: { title: 'Mật khẩu không đúng', message: 'Mật khẩu của file Word không đúng.' },
     FILE_TOO_LARGE: { title: 'File quá lớn', message: 'File vượt quá 100 MB, iScanner không xử lý được.' },
     FILE_UNSUPPORTED: { title: 'File không được hỗ trợ', message: 'iScanner chỉ nhận file PDF và ảnh JPEG/PNG.' },
     FILE_READ: { title: 'Không đọc được file', message: 'Không đọc được file. Hãy mở lại file từ ứng dụng gốc rồi chia sẻ lại.' },
@@ -113,6 +118,8 @@ export const vi = {
       PDF_LOAD: 'sai định dạng',
       PDF_ENCRYPTED: 'có mật khẩu',
       PDF_PASSWORD: 'sai mật khẩu',
+      WORD_CONVERT: 'không chuyển được',
+      WORD_PASSWORD: 'sai mật khẩu',
       FILE_TOO_LARGE: 'quá lớn (> 100 MB)',
       FILE_UNSUPPORTED: 'không hỗ trợ',
       FILE_READ: 'không đọc được',

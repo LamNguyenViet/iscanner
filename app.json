@@ -119,7 +119,8 @@
             ]
           }
         }
-      ]
+      ],
+      "react-native-quick-crypto"
     ],
     "scheme": "iscanner",
     "extra": {
