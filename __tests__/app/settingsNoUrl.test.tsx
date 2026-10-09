@@ -9,6 +9,9 @@ import { UpdateProvider } from '../../src/update/UpdateContext';
 jest.mock('../../src/native/appBuild', () => ({
   currentAppBuild: () => ({ version: '1.7.0', build: 7 }),
 }));
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 34, left: 0 }),
+}));
 jest.mock('expo-localization', () => ({
   useLocales: () => [{ languageCode: 'vi', languageTag: 'vi-VN' }],
 }));
@@ -29,6 +32,8 @@ test('checking with no update config url reports a failed check, not up to date'
       </LocaleProvider>
     </ThemeProvider>,
   );
+  await settle();
+  await fireEvent.press(screen.getByRole('button', { name: /^Cập nhật/ }));
   await settle();
   await fireEvent.press(screen.getByText('Kiểm tra cập nhật'));
   await settle();

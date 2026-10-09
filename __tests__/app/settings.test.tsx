@@ -25,6 +25,9 @@ jest.mock('../../src/update/UpdateContext', () => ({
 const mockExport = exportLogs as jest.Mock;
 const mockShare = shareLogFile as jest.Mock;
 
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 34, left: 0 }),
+}));
 jest.mock('expo-localization', () => ({
   useLocales: () => [{ languageCode: 'vi', languageTag: 'vi-VN' }],
 }));
@@ -51,126 +54,175 @@ beforeEach(async () => {
 });
 afterEach(() => jest.restoreAllMocks());
 
-test('shows both groups with the system choice marked', () => {
-  expect(screen.getByText('Giao diện')).toBeTruthy();
-  expect(screen.getByText('Ngôn ngữ')).toBeTruthy();
-  expect(screen.getAllByText('✓ Theo hệ thống')).toHaveLength(2);
-  expect(screen.getByText('Sáng')).toBeTruthy();
-  expect(screen.getByText('Tối')).toBeTruthy();
-  expect(screen.getByText('Tiếng Việt')).toBeTruthy();
-  expect(screen.getByText('English')).toBeTruthy();
+const row = (title: RegExp) => screen.getByRole('button', { name: title });
+const openSheet = async (title: RegExp) => {
+  await fireEvent.press(row(title));
+  await settle();
+};
+
+test('shows the general and support rows with their current values', () => {
+  expect(screen.getByText('Chung')).toBeTruthy();
+  expect(screen.getByText('Hỗ trợ')).toBeTruthy();
+  expect(row(/^Giao diện/)).toHaveTextContent(/Giao diện\s*Theo hệ thống/);
+  expect(row(/^Ngôn ngữ/)).toHaveTextContent(/Ngôn ngữ\s*Theo hệ thống/);
+  expect(row(/^Cập nhật/)).toHaveTextContent(/Cập nhật\s*1\.7\.0 \(7\)/);
+  expect(row(/^Log lỗi/)).toBeTruthy();
+  // Choices live in the sheets, which start closed.
+  expect(screen.queryByText('✓ Theo hệ thống')).toBeNull();
+  expect(screen.queryByText('Tối')).toBeNull();
 });
 
-test('choosing a theme applies it and moves the mark', async () => {
+test('the appearance sheet marks the current choice; picking one applies it and closes', async () => {
+  await openSheet(/^Giao diện/);
+  expect(screen.getByText('✓ Theo hệ thống')).toBeTruthy();
+  expect(screen.getByText('Sáng')).toBeTruthy();
   await fireEvent.press(screen.getByText('Tối'));
   await settle();
   expect(setScheme).toHaveBeenLastCalledWith('dark');
-  expect(screen.getByText('✓ Tối')).toBeTruthy();
-  expect(screen.getAllByText('✓ Theo hệ thống')).toHaveLength(1);
+  expect(screen.queryByText('Sáng')).toBeNull();
+  expect(row(/^Giao diện/)).toHaveTextContent(/Tối/);
 });
 
-test('choosing English switches the screen and keeps both settings', async () => {
-  await fireEvent.press(screen.getByText('Tối'));
-  await settle();
-  await fireEvent.press(screen.getByText('English'));
-  await settle();
-  expect(screen.getByText('Appearance')).toBeTruthy();
-  expect(screen.getByText('Language')).toBeTruthy();
-  expect(screen.getByText('✓ English')).toBeTruthy();
-  expect(JSON.parse(fs.files.get(SETTINGS_PATH) as string)).toEqual({ theme: 'dark', language: 'en' });
-});
-
-test('the chosen row is selected for accessibility', async () => {
-  await fireEvent.press(screen.getByText('Sáng'));
-  await settle();
-  expect(screen.getByRole('button', { name: '✓ Sáng' })).toBeSelected();
+test('the chosen option is selected for accessibility', async () => {
+  await openSheet(/^Giao diện/);
+  expect(screen.getByRole('button', { name: '✓ Theo hệ thống' })).toBeSelected();
   expect(screen.getByRole('button', { name: 'Tối' })).not.toBeSelected();
 });
 
-test('shows the support group with the send logs row', () => {
-  expect(screen.getByText('Hỗ trợ')).toBeTruthy();
-  expect(screen.getByRole('button', { name: 'Gửi log lỗi' })).toBeTruthy();
-});
-
-test('shows the support group in English', async () => {
+test('choosing English switches the screen and keeps both settings', async () => {
+  await openSheet(/^Giao diện/);
+  await fireEvent.press(screen.getByText('Tối'));
+  await settle();
+  await openSheet(/^Ngôn ngữ/);
+  expect(screen.getByText('✓ Theo hệ thống')).toBeTruthy();
   await fireEvent.press(screen.getByText('English'));
   await settle();
+  expect(screen.getByText('General')).toBeTruthy();
   expect(screen.getByText('Support')).toBeTruthy();
-  expect(screen.getByRole('button', { name: 'Send error logs' })).toBeTruthy();
+  expect(row(/^Appearance/)).toHaveTextContent(/Dark/);
+  expect(row(/^Language/)).toHaveTextContent(/English/);
+  expect(row(/^Updates/)).toBeTruthy();
+  expect(row(/^Error logs/)).toBeTruthy();
+  expect(JSON.parse(fs.files.get(SETTINGS_PATH) as string)).toEqual({ theme: 'dark', language: 'en' });
 });
 
-test('sending logs shares the export and logs it', async () => {
-  mockExport.mockResolvedValue({ uri: 'file:///cache/l.txt', files: 2, bytes: 99 });
-  await fireEvent.press(screen.getByText('Gửi log lỗi'));
+test('the backdrop and the Android back button close a sheet without changing anything', async () => {
+  await openSheet(/^Giao diện/);
+  await fireEvent.press(screen.getByLabelText('Đóng'));
   await settle();
-  expect(mockShare).toHaveBeenCalledWith('file:///cache/l.txt');
-  expect(log.info).toHaveBeenCalledWith('logs.exported', { files: 2, bytes: 99 });
-});
-
-test('with no logs an alert says so and nothing is shared', async () => {
-  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  mockExport.mockResolvedValue(null);
-  await fireEvent.press(screen.getByText('Gửi log lỗi'));
+  expect(screen.queryByText('Sáng')).toBeNull();
+  await openSheet(/^Giao diện/);
+  // Hardware back: the host Modal's onRequestClose.
+  let modal = screen.getByText('Sáng').parent;
+  while (modal && !modal.props.onRequestClose) modal = modal.parent;
+  await fireEvent(modal!, 'requestClose');
   await settle();
-  expect(alert).toHaveBeenCalledWith('Chưa có log nào.');
-  expect(mockShare).not.toHaveBeenCalled();
+  expect(screen.queryByText('Sáng')).toBeNull();
+  expect(setScheme).not.toHaveBeenCalledWith('light');
 });
 
-test('a share failure shows the SHARE error popup', async () => {
-  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  mockExport.mockResolvedValue({ uri: 'file:///cache/l.txt', files: 1, bytes: 5 });
-  mockShare.mockRejectedValue(new ShareError());
-  await fireEvent.press(screen.getByText('Gửi log lỗi'));
-  await settle();
-  expect(alert).toHaveBeenCalledTimes(1);
-  expect(String(alert.mock.calls[0][1])).toContain('SHARE');
-  expect(log.info).not.toHaveBeenCalledWith('logs.exported', expect.anything());
+describe('error logs sheet', () => {
+  test('explains and offers the send button', async () => {
+    await openSheet(/^Log lỗi/);
+    expect(screen.getByText('Gửi file log để giúp khắc phục lỗi.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Gửi log lỗi' })).toBeTruthy();
+  });
+
+  test('English copy', async () => {
+    await openSheet(/^Ngôn ngữ/);
+    await fireEvent.press(screen.getByText('English'));
+    await settle();
+    await openSheet(/^Error logs/);
+    expect(screen.getByText('Send the log files to help fix problems.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Send error logs' })).toBeTruthy();
+  });
+
+  test('sending logs shares the export and logs it', async () => {
+    mockExport.mockResolvedValue({ uri: 'file:///cache/l.txt', files: 2, bytes: 99 });
+    await openSheet(/^Log lỗi/);
+    await fireEvent.press(screen.getByText('Gửi log lỗi'));
+    await settle();
+    expect(mockShare).toHaveBeenCalledWith('file:///cache/l.txt');
+    expect(log.info).toHaveBeenCalledWith('logs.exported', { files: 2, bytes: 99 });
+  });
+
+  test('with no logs an alert says so and nothing is shared', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockExport.mockResolvedValue(null);
+    await openSheet(/^Log lỗi/);
+    await fireEvent.press(screen.getByText('Gửi log lỗi'));
+    await settle();
+    expect(alert).toHaveBeenCalledWith('Chưa có log nào.');
+    expect(mockShare).not.toHaveBeenCalled();
+  });
+
+  test('a share failure shows the SHARE error popup', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockExport.mockResolvedValue({ uri: 'file:///cache/l.txt', files: 1, bytes: 5 });
+    mockShare.mockRejectedValue(new ShareError());
+    await openSheet(/^Log lỗi/);
+    await fireEvent.press(screen.getByText('Gửi log lỗi'));
+    await settle();
+    expect(alert).toHaveBeenCalledTimes(1);
+    expect(String(alert.mock.calls[0][1])).toContain('SHARE');
+    expect(log.info).not.toHaveBeenCalledWith('logs.exported', expect.anything());
+  });
+
+  test('the send button is disabled while working', async () => {
+    let release: (v: null) => void = () => {};
+    mockExport.mockReturnValue(new Promise((r) => { release = r; }));
+    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    await openSheet(/^Log lỗi/);
+    let pressed: Promise<unknown> = Promise.resolve();
+    await act(async () => { pressed = fireEvent.press(screen.getByText('Gửi log lỗi')); });
+    expect(screen.getByRole('button', { name: 'Gửi log lỗi' })).toBeDisabled();
+    await act(async () => { release(null); await pressed; });
+    await settle();
+    expect(screen.getByRole('button', { name: 'Gửi log lỗi' })).toBeEnabled();
+  });
 });
 
-test('the row is disabled while working', async () => {
-  let release: (v: null) => void = () => {};
-  mockExport.mockReturnValue(new Promise((r) => { release = r; }));
-  jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  let pressed: Promise<unknown> = Promise.resolve();
-  await act(async () => { pressed = fireEvent.press(screen.getByText('Gửi log lỗi')); });
-  expect(screen.getByRole('button', { name: 'Gửi log lỗi' })).toBeDisabled();
-  await act(async () => { release(null); await pressed; });
-  await settle();
-  expect(screen.getByRole('button', { name: 'Gửi log lỗi' })).toBeEnabled();
-});
+describe('updates sheet', () => {
+  test('shows the version and the check button', async () => {
+    await openSheet(/^Cập nhật/);
+    expect(screen.getByText('Phiên bản 1.7.0 (7)')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Kiểm tra cập nhật' })).toBeTruthy();
+  });
 
-test('shows the version line and the check for updates row', () => {
-  expect(screen.getByText('Phiên bản 1.7.0 (7)')).toBeTruthy();
-  expect(screen.getByRole('button', { name: 'Kiểm tra cập nhật' })).toBeTruthy();
-});
+  test('English copy', async () => {
+    await openSheet(/^Ngôn ngữ/);
+    await fireEvent.press(screen.getByText('English'));
+    await settle();
+    await openSheet(/^Updates/);
+    expect(screen.getByText('Version 1.7.0 (7)')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Check for updates' })).toBeTruthy();
+  });
 
-test('the version line and row are English under English', async () => {
-  await fireEvent.press(screen.getByText('English'));
-  await settle();
-  expect(screen.getByText('Version 1.7.0 (7)')).toBeTruthy();
-  expect(screen.getByRole('button', { name: 'Check for updates' })).toBeTruthy();
-});
+  test('checking with nothing newer says up to date and closes the sheet', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    await openSheet(/^Cập nhật/);
+    await fireEvent.press(screen.getByText('Kiểm tra cập nhật'));
+    await settle();
+    expect(mockCheckNow).toHaveBeenCalledTimes(1);
+    expect(alert).toHaveBeenCalledWith('Bạn đang dùng phiên bản mới nhất.');
+    expect(screen.queryByText('Phiên bản 1.7.0 (7)')).toBeNull();
+  });
 
-test('checking with nothing newer says up to date', async () => {
-  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  await fireEvent.press(screen.getByText('Kiểm tra cập nhật'));
-  await settle();
-  expect(mockCheckNow).toHaveBeenCalledTimes(1);
-  expect(alert).toHaveBeenCalledWith('Bạn đang dùng phiên bản mới nhất.');
-});
+  test('a failed check says so', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockCheckNow.mockResolvedValue('failed');
+    await openSheet(/^Cập nhật/);
+    await fireEvent.press(screen.getByText('Kiểm tra cập nhật'));
+    await settle();
+    expect(alert).toHaveBeenCalledWith('Không kiểm tra được cập nhật. Vui lòng thử lại khi có mạng.');
+  });
 
-test('a failed check says so', async () => {
-  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  mockCheckNow.mockResolvedValue('failed');
-  await fireEvent.press(screen.getByText('Kiểm tra cập nhật'));
-  await settle();
-  expect(alert).toHaveBeenCalledWith('Không kiểm tra được cập nhật. Vui lòng thử lại khi có mạng.');
-});
-
-test.each(['optional', 'force'])('a %s update is left to the gate', async (kind) => {
-  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  mockCheckNow.mockResolvedValue(kind);
-  await fireEvent.press(screen.getByText('Kiểm tra cập nhật'));
-  await settle();
-  expect(alert).not.toHaveBeenCalled();
+  test.each(['optional', 'force'])('a %s update is left to the gate', async (kind) => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockCheckNow.mockResolvedValue(kind);
+    await openSheet(/^Cập nhật/);
+    await fireEvent.press(screen.getByText('Kiểm tra cập nhật'));
+    await settle();
+    expect(alert).not.toHaveBeenCalled();
+  });
 });

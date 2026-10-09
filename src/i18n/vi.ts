@@ -19,6 +19,11 @@ export const vi = {
     noLogs: 'Chưa có log nào.',
     version: (v: string, b: number) => `Phiên bản ${v} (${b})`,
     checkUpdate: 'Kiểm tra cập nhật',
+    general: 'Chung',
+    updates: 'Cập nhật',
+    logs: 'Log lỗi',
+    logsHint: 'Gửi file log để giúp khắc phục lỗi.',
+    closeSheet: 'Đóng',
   },
   library: {
     empty: 'Chưa có tài liệu nào. Hãy scan hoặc gộp PDF để bắt đầu.',

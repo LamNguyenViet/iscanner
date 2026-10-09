@@ -19,6 +19,11 @@ export const en: Strings = {
     noLogs: 'No logs yet.',
     version: (v, b) => `Version ${v} (${b})`,
     checkUpdate: 'Check for updates',
+    general: 'General',
+    updates: 'Updates',
+    logs: 'Error logs',
+    logsHint: 'Send the log files to help fix problems.',
+    closeSheet: 'Close',
   },
   library: {
     empty: 'No documents yet. Scan or merge PDFs to get started.',
