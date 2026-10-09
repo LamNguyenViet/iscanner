@@ -15,6 +15,7 @@
 - (1.4.0) **Đa ngôn ngữ Tiếng Việt / English**: mặc định theo ngôn ngữ máy (máy tiếng Việt → Tiếng Việt, còn lại → English); đổi trong ⚙︎ **Cài đặt** (cùng chỗ chọn giao diện) hoặc trong cài đặt ngôn ngữ riêng cho từng app của Android 13+ / iOS. Lựa chọn được lưu lại.
 - (1.5.0) **Thông báo lỗi rõ ràng**: mỗi loại lỗi có lớp riêng (`PdfLoadError`, `PdfEncryptedError`, `FileTooLargeError`…) và popup theo ngôn ngữ đang dùng, nói rõ chuyện gì xảy ra và nên làm gì, kèm `Mã lỗi: …` ở cuối. Nhiều file lỗi cùng lúc → một popup liệt kê từng file và lý do.
 - (1.6.0) **Log hệ thống**: lỗi, cảnh báo và các sự kiện chính được ghi vào file riêng theo ngày (`logs/YYYY-MM-DD.log`, JSON Lines, trong thư mục riêng của app), tự xoá sau 7 ngày, không bao giờ ghi dữ liệu file/ảnh (byte, base64, data URI). ⚙︎ Cài đặt → `Hỗ trợ` → `Gửi log lỗi` để gửi log khi báo lỗi.
+- (1.7.0) **Bắt buộc cập nhật (force update)**: app đọc cấu hình phiên bản từ một GitHub Gist công khai (`extra.updateConfigUrl` trong `app.json`). Dưới `minBuild` → màn chặn toàn app (Android: tự tải APK, kiểm MD5, mở trình cài đặt; iOS: mở trang hướng dẫn); dưới `latestBuild` → nhắc cập nhật, có `Để sau` (24 giờ). Mất mạng không bao giờ chặn người chưa bị yêu cầu cập nhật. ⚙︎ Cài đặt → `Hỗ trợ` hiện phiên bản và `Kiểm tra cập nhật`.
 
 ## Lưu ý quan trọng
 
@@ -72,6 +73,55 @@ GitHub Actions (`.github/workflows/ios-unsigned-ipa.yml`) build bản **Release 
 
 Giới hạn của Apple ID miễn phí: app hết hạn sau **7 ngày** (cài lại bằng Sideloadly để gia hạn), tối đa 3 app sideload cùng lúc.
 
+## Phát hành bản mới / Force update
+
+### 1. Tạo khoá ký release (làm một lần)
+
+Khoá debug của template Expo là công khai — ai cũng ký được APK giả bằng nó. Trước khi phát hành, tạo khoá riêng **ngoài repo**:
+
+```bash
+keytool -genkeypair -v -storetype PKCS12 -keystore D:/keys/iscanner-release.jks -alias iscanner -keyalg RSA -keysize 2048 -validity 10000
+```
+
+Thêm vào `~/.gradle/gradle.properties` (Windows: `C:\Users\<bạn>\.gradle\gradle.properties`) — **đường dẫn keystore phải là đường dẫn tuyệt đối**:
+
+```properties
+ISCANNER_UPLOAD_STORE_FILE=D:/keys/iscanner-release.jks
+ISCANNER_UPLOAD_STORE_PASSWORD=<mật khẩu keystore>
+ISCANNER_UPLOAD_KEY_ALIAS=iscanner
+ISCANNER_UPLOAD_KEY_PASSWORD=<mật khẩu khoá>
+```
+
+- **Sao lưu** file `.jks` và mật khẩu ở nơi an toàn (ổ khác / trình quản lý mật khẩu). Mất khoá = không bao giờ cập nhật được các máy đã cài nữa.
+- Không có các biến trên, build release vẫn chạy nhưng ký bằng khoá debug và Gradle in cảnh báo `iScanner: release build is signed with the DEBUG key` — **đừng phát hành bản đó**.
+- Máy đang cài bản ký bằng khoá debug (≤ 1.6.0) phải **gỡ app một lần** rồi cài bản ký khoá release đầu tiên; từ đó về sau cập nhật đè được.
+- Plugin `plugins/withReleaseSigning.js` tự cấu hình `signingConfigs.release` khi chạy `npx expo prebuild`.
+
+### 2. Cấu hình phiên bản (Gist)
+
+Tạo một Gist **công khai** chứa `iscanner-version.json`, rồi đặt link *raw* (bỏ phần mã commit để luôn trỏ bản mới nhất) vào `app.json` → `expo.extra.updateConfigUrl`. Để trống = app không kiểm tra cập nhật.
+
+```json
+{
+  "android": { "minBuild": 7, "latestBuild": 8, "url": "https://…/iScanner-1.7.1-arm64.apk", "md5": "<32 ký tự hex>", "size": 88000000 },
+  "ios":     { "minBuild": 7, "latestBuild": 8, "url": "https://…/huong-dan-cap-nhat-ios" },
+  "message": { "vi": "…", "en": "…" }
+}
+```
+
+- So sánh theo **số build**: Android `versionCode`, iOS `buildNumber`.
+- `url` bắt buộc `https`; Android bắt buộc `md5`. Cấu hình sai → app coi như không có cập nhật (không chặn).
+
+### 3. Quy trình mỗi lần phát hành
+
+1. Tăng `version`, `android.versionCode`, `ios.buildNumber` trong `app.json`.
+2. `npx expo prebuild --clean --platform android` (khi có thay đổi native).
+3. Build APK đã ký, chỉ arm64 cho nhẹ: `cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a` (bỏ `-P…` nếu cần cả bản cho máy ảo x86_64).
+4. Lấy MD5: `certutil -hashfile android/app/build/outputs/apk/release/app-release.apk MD5` (Windows) hoặc `md5sum …`.
+5. Đưa APK lên một địa chỉ `https` công khai.
+6. Sửa Gist: `latestBuild`, `url`, `md5`, `size`; tăng `minBuild` nếu muốn **bắt buộc** cập nhật.
+7. iOS: build IPA như mục *Cài lên iPhone thật* ở trên, rồi cập nhật `ios.latestBuild` / `ios.minBuild` và trang hướng dẫn.
+
 ## Danh sách kiểm thử thủ công (trên thiết bị, dev build)
 
 - [ ] Quét 3 trang -> sắp xếp lại -> PDF có 3 trang theo thứ tự mới.
@@ -118,3 +168,8 @@ Giới hạn của Apple ID miễn phí: app hết hạn sau **7 ngày** (cài l
 - [ ] (1.6.0) Gây một lỗi (ví dụ gộp PDF hỏng) → ⚙︎ Cài đặt → `Gửi log lỗi` → bảng chia sẻ mở với `iScanner-logs-<ngày>.txt`; mở file: có dòng `app.start` và dòng `error` mã `PDF_LOAD` kèm tên file, không có chuỗi base64 dài hay `data:image`.
 - [ ] (1.6.0) Chưa có log (cài mới, chưa mở app lần nào trước đó) → `Gửi log lỗi` báo `Chưa có log nào.`
 - [ ] (1.6.0) Sau 7 ngày, file log cũ tự bị xoá khi mở app (kiểm bằng bản debug: `adb shell run-as com.dlbk.iscanner ls files/logs`).
+- [ ] (1.7.0) ⚙︎ Cài đặt → `Hỗ trợ` hiện `Phiên bản 1.7.0 (7)`; `Kiểm tra cập nhật` khi chưa cấu hình Gist → báo không kiểm tra được.
+- [ ] (1.7.0) Gist `minBuild` > build hiện tại → màn `Cần cập nhật iScanner` chặn toàn app (nút Back không thoát, TalkBack không chạm được nội dung bên dưới); Android: `Cập nhật` → tải, kiểm MD5, mở trình cài đặt → sau khi cài app mở lên đúng build mới.
+- [ ] (1.7.0) Gist `latestBuild` > build hiện tại (nhưng ≥ `minBuild`) → popup `Đã có phiên bản mới`; `Để sau` không nhắc lại trong 24 giờ; đang tải bản không bắt buộc vẫn dùng app được, có nút `Huỷ`.
+- [ ] (1.7.0) Đã bị chặn rồi tắt mạng, mở lại app → vẫn bị chặn; mất mạng khi chưa từng bị chặn → app chạy bình thường.
+- [ ] (1.7.0) iPhone: bị chặn → `Cập nhật` mở trang hướng dẫn cài lại bằng Sideloadly.
