@@ -145,4 +145,12 @@ export const en: Strings = {
     pages: (n: number) => (n === 1 ? '1 page' : `${n} pages`),
     dateOrder: 'mdy',
   },
+  pdfPassword: {
+    title: 'Enter password',
+    body: (f: string) => `"${f}" is password-protected.`,
+    wrong: 'Wrong password, please try again.',
+    skip: 'Skip this file',
+    open: 'Open',
+    placeholder: 'Password',
+  },
 };

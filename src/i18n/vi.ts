@@ -145,6 +145,14 @@ export const vi = {
     pages: (n: number) => `${n} trang`,
     dateOrder: 'dmy' as 'dmy' | 'mdy',
   },
+  pdfPassword: {
+    title: 'Nhập mật khẩu',
+    body: (f: string) => `"${f}" được bảo vệ bằng mật khẩu.`,
+    wrong: 'Mật khẩu không đúng, vui lòng thử lại.',
+    skip: 'Bỏ qua file này',
+    open: 'Mở',
+    placeholder: 'Mật khẩu',
+  },
 };
 
 export type Strings = typeof vi;
