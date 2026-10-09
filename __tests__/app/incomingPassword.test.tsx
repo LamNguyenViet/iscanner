@@ -6,6 +6,7 @@ import { createLibraryStore } from '../../src/library/libraryStore';
 import { createMemoryFs } from '../../src/library/memoryFs';
 import { readBytes } from '../../src/native/readBytes';
 import { hasSharedFiles, readSharedFiles } from '../../src/native/sharedPayloads';
+import { UnsupportedFileError } from '../../src/errors/AppError';
 import { getPdfPageCount } from '../../src/pdf/mergePdfs';
 import { importIncoming } from '../../src/share/importIncoming';
 import { clearPending, takePdfs } from '../../src/share/incomingStore';
@@ -116,4 +117,18 @@ test('Merge with other files hands the file and its password to the pending stor
   await fireEvent.press(screen.getByRole('button', { name: 'Gộp với file khác' }));
   expect(mockReplace).toHaveBeenCalledWith('/merge');
   expect(takePdfs()).toEqual([{ ...pdf, password: 'secret' }]);
+});
+
+test('Skip with rejected files shows only the rejection popup, not the nothing-usable notice', async () => {
+  (importIncoming as jest.Mock).mockResolvedValue({
+    files: [pdf],
+    skipped: [new UnsupportedFileError({ fileName: 'a.docx' })],
+  });
+  await renderIncoming();
+  await fireEvent.press(screen.getByText('Bỏ qua file này'));
+  await settle();
+  await settle();
+  expect(alertSpy).toHaveBeenCalledTimes(1);
+  expect(alertSpy).not.toHaveBeenCalledWith('Không có file PDF hoặc ảnh hợp lệ');
+  expect(mockDismissTo).toHaveBeenCalledWith('/');
 });

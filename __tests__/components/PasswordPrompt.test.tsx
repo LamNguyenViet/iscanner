@@ -157,6 +157,12 @@ test('unmounting while pending resolves null', async () => {
   expect(r).toEqual({ done: true, value: null });
 });
 
+test('ask after unmount resolves null at once', async () => {
+  await mount();
+  await screen.unmount();
+  await expect(ask('late.pdf', false)).resolves.toBeNull();
+});
+
 test('shows the en copy under an en LocaleProvider', async () => {
   mockLocales = [{ languageCode: 'en', languageTag: 'en-US' }];
   await mount();

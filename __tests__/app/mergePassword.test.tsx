@@ -4,6 +4,7 @@ import Merge from '../../app/merge';
 import { LibraryProvider } from '../../src/library/LibraryContext';
 import { createLibraryStore } from '../../src/library/libraryStore';
 import { createMemoryFs } from '../../src/library/memoryFs';
+import { deleteFiles } from '../../src/native/deleteFiles';
 import { readBytes } from '../../src/native/readBytes';
 import { pickPdfs } from '../../src/native/pickPdfs';
 import { PDFDocument } from '../../src/pdf/pdfLib';
@@ -142,6 +143,26 @@ test('unmounting with the prompt open throws nothing and does not navigate back'
   await view.unmount();
   await settle();
   await settle();
+  expect(alertSpy).not.toHaveBeenCalled();
+  expect(mockBack).not.toHaveBeenCalled();
+  expect(deleteFiles).toHaveBeenCalledWith(expect.arrayContaining(['file:///p.pdf']));
+});
+
+test('unmounting during the first prompt does not hang on a second encrypted file and deletes every copy', async () => {
+  files['file:///p2.pdf'] = makePasswordPdf();
+  mockPick.mockResolvedValueOnce([
+    { uri: 'file:///p.pdf', name: 'p.pdf' },
+    { uri: 'file:///p2.pdf', name: 'p2.pdf' },
+    { uri: 'file:///plain.pdf', name: 'plain.pdf' },
+  ]);
+  const { view } = await renderMerge();
+  await view.unmount();
+  await settle();
+  await settle();
+  const deleted = (deleteFiles as jest.Mock).mock.calls.flatMap((c) => c[0] as string[]);
+  expect(deleted).toEqual(
+    expect.arrayContaining(['file:///p.pdf', 'file:///p2.pdf', 'file:///plain.pdf']),
+  );
   expect(alertSpy).not.toHaveBeenCalled();
   expect(mockBack).not.toHaveBeenCalled();
 });

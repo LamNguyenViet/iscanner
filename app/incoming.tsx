@@ -159,6 +159,7 @@ export default function Incoming() {
       } catch (e) {
         throw new FileReadError({ fileName: pdf.name, cause: e });
       }
+      // A share arriving while the prompt is open waits for the next foreground check (receiving is true).
       const opened = await openPdfWithPassword(bytes, pdf.name, ask, pdf.password);
       if (!mounted.current) return;
       if (opened === null) {
@@ -166,7 +167,7 @@ export default function Incoming() {
         undecided.current = null;
         deleteFiles([pdf.uri]);
         if (skipped.length > 0) showError(skipped);
-        if (!hasPendingImages()) Alert.alert(t.incoming.noFiles);
+        if (skipped.length === 0 && !hasPendingImages()) Alert.alert(t.incoming.noFiles);
         continueAfterPdf();
         return;
       }

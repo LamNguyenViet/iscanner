@@ -77,6 +77,7 @@ export function usePasswordPrompt(): {
   element: ReactElement | null;
 } {
   const [pending, setPending] = useState<{ id: number; fileName: string; wrongBefore: boolean } | null>(null);
+  const mounted = useRef(true);
   const resolver = useRef<((v: string | null) => void) | null>(null);
   const counter = useRef(0);
 
@@ -88,6 +89,8 @@ export function usePasswordPrompt(): {
   }, []);
 
   const ask = useCallback((fileName: string, wrongBefore: boolean) => {
+    // After unmount nobody can answer: skip without touching state.
+    if (!mounted.current) return Promise.resolve(null);
     // A new ask supersedes a pending one.
     resolver.current?.(null);
     return new Promise<string | null>((resolve) => {
@@ -97,14 +100,15 @@ export function usePasswordPrompt(): {
     });
   }, []);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
       const r = resolver.current;
       resolver.current = null;
       r?.(null);
-    },
-    [],
-  );
+    };
+  }, []);
 
   const element = pending ? (
     <PasswordPrompt
