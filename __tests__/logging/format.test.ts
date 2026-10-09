@@ -8,7 +8,8 @@ describe('format', () => {
     expect(s).toMatch(/^2026-10-07T19:35:12\.481[+-]\d{2}:\d{2}$/);
     const m = /([+-])(\d{2}):(\d{2})$/.exec(s)!;
     const mins = (m[1] === '+' ? 1 : -1) * (Number(m[2]) * 60 + Number(m[3]));
-    expect(mins).toBe(-d.getTimezoneOffset());
+    // `|| 0` turns UTC's -0 into 0 (toBe uses Object.is, and CI runs in UTC).
+    expect(mins).toBe(-d.getTimezoneOffset() || 0);
   });
   it('logFileName uses the local date', () => {
     expect(logFileName(new Date(2026, 9, 7, 23, 59))).toBe('2026-10-07.log');
