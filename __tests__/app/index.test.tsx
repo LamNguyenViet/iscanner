@@ -20,9 +20,16 @@ let mockScreenOptions: any = {};
 jest.mock('expo-router', () => ({
   router: { push: (...args: unknown[]) => mockPush(...args) },
   Stack: {
-    Screen: ({ options }: { options?: unknown }) => {
+    // Renders the header buttons inline, so tests press the real elements in the screen tree.
+    Screen: ({ options }: { options?: any }) => {
       mockScreenOptions = options ?? {};
-      return null;
+      const { createElement, Fragment } = require('react');
+      return createElement(
+        Fragment,
+        null,
+        mockScreenOptions.headerLeft?.({}),
+        mockScreenOptions.headerRight?.({}),
+      );
     },
   },
   useFocusEffect: (cb: () => void) => {
@@ -314,16 +321,9 @@ async function renderHomeMany(names: string[], english = false) {
   return store;
 }
 
-/**
- * Presses a header button from the captured Stack.Screen options. The element is not rendered
- * (a second render would replace the screen under test); its label and onPress are used directly.
- */
-async function pressHeader(key: 'headerLeft' | 'headerRight', label: RegExp) {
-  const element = mockScreenOptions[key]!({});
-  expect(element.props.accessibilityLabel).toMatch(label);
-  await act(async () => {
-    element.props.onPress();
-  });
+/** Presses a header button; the Stack.Screen mock renders them inside the screen tree. */
+async function pressHeader(_key: 'headerLeft' | 'headerRight', label: RegExp) {
+  await fireEvent.press(screen.getByLabelText(label));
 }
 
 const checkbox = (name: string) => screen.getByLabelText(name).props.accessibilityState;
@@ -379,8 +379,8 @@ describe('multi-select delete', () => {
     // Options set by a screen persist after it unmounts, so the screen must restore the normal header.
     expect(mockScreenOptions.title).toBe('iScanner');
     expect(mockScreenOptions.headerLeft).toBeUndefined();
-    await render(<>{mockScreenOptions.headerRight!({})}</>);
     expect(screen.getByLabelText('Cài đặt')).toBeTruthy();
+    expect(screen.queryByLabelText('Thoát chế độ chọn')).toBeNull();
   });
 
   test('Android back leaves selection mode instead of the app', async () => {
@@ -461,4 +461,41 @@ describe('multi-select delete', () => {
     await fireEvent.press(screen.getByText('Delete (2)'));
     expect(alertSpy).toHaveBeenCalledWith('Delete 2 documents?', undefined, expect.any(Array));
   });
+});
+
+test('a selected document removed elsewhere is no longer counted after a refresh', async () => {
+  let n = 0;
+  const store = createLibraryStore({ fs: createMemoryFs(), newId: () => `id${++n}` });
+  for (const name of ['A', 'B', 'C']) {
+    await store.add(new Uint8Array(10), { name, pageCount: 1, source: 'scan' });
+  }
+  let refresh: () => Promise<void> = async () => {};
+  const Probe = () => {
+    refresh = require('../../src/library/LibraryContext').useLibrary().refresh;
+    return null;
+  };
+  await render(
+    <LibraryProvider store={store}>
+      <Home />
+      <Probe />
+    </LibraryProvider>,
+  );
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  await fireEvent(screen.getByText('A'), 'longPress');
+  await fireEvent.press(screen.getByText('B'));
+  expect(mockScreenOptions.title).toBe('Đã chọn 2');
+  await store.remove('id2'); // B removed by another path
+  await act(async () => {
+    await refresh();
+  });
+  expect(mockScreenOptions.title).toBe('Đã chọn 1');
+  expect(screen.getByText('Xoá (1)')).toBeTruthy();
+  // A and C remain; only A is selected, so the header still offers Select all.
+  expect(screen.getByLabelText('Chọn tất cả')).toBeTruthy();
+  await fireEvent.press(screen.getByText('C'));
+  expect(screen.getByLabelText('Bỏ chọn tất cả')).toBeTruthy();
+  await fireEvent.press(screen.getByText('Xoá (2)'));
+  expect(alertSpy).toHaveBeenCalledWith('Xoá 2 tài liệu?', undefined, expect.any(Array));
 });

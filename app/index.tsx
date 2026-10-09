@@ -97,7 +97,9 @@ export default function Home() {
   };
 
   const selecting = selected !== null;
-  const selectedCount = selected?.size ?? 0;
+  // Only ids still in the list count: a refresh can drop a selected document.
+  const selectedIds = selected ? documents.filter((d) => selected.has(d.id)).map((d) => d.id) : [];
+  const selectedCount = selectedIds.length;
   const allSelected = selecting && documents.length > 0 && selectedCount === documents.length;
 
   const exitSelection = useCallback(() => setSelected(null), []);
@@ -121,7 +123,7 @@ export default function Home() {
   }, [selecting, exitSelection]);
 
   const confirmRemoveSelected = () => {
-    const ids = [...(selected ?? [])];
+    const ids = selectedIds;
     if (ids.length === 0) return;
     const title = ids.length === 1 ? t.library.deleteConfirm : t.library.deleteManyConfirm(ids.length);
     Alert.alert(title, undefined, [
@@ -140,6 +142,34 @@ export default function Home() {
     ]);
   };
 
+  const headerOptions = !selecting
+    ? { title: t.titles.library, headerLeft: undefined, headerRight: () => <SettingsButton /> }
+    : {
+        title: t.library.selectedCount(selectedCount),
+        headerLeft: () => (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t.library.exitSelection}
+            hitSlop={8}
+            onPress={exitSelection}
+          >
+            <Text style={[styles.headerButton, themed.headerButton]}>✕</Text>
+          </Pressable>
+        ),
+        headerRight: () => (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={allSelected ? t.library.deselectAll : t.library.selectAll}
+            hitSlop={8}
+            onPress={() => setSelected(allSelected ? new Set() : new Set(documents.map((d) => d.id)))}
+          >
+            <Text style={[styles.headerText, themed.headerButton]}>
+              {allSelected ? t.library.deselectAll : t.library.selectAll}
+            </Text>
+          </Pressable>
+        ),
+      };
+
   const saveRename = () => {
     const doc = renaming;
     if (!doc) return;
@@ -153,43 +183,7 @@ export default function Home() {
     <View style={[styles.container, themed.container]}>
       {/* Always rendered: options a screen sets persist after it unmounts, so leaving selection
           mode must put the normal header back. */}
-      <Stack.Screen
-        options={
-          !selecting
-            ? {
-                title: t.titles.library,
-                headerLeft: undefined,
-                headerRight: () => <SettingsButton />,
-              }
-            : {
-            title: t.library.selectedCount(selectedCount),
-            headerLeft: () => (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t.library.exitSelection}
-                hitSlop={8}
-                onPress={exitSelection}
-              >
-                <Text style={[styles.headerButton, themed.headerButton]}>✕</Text>
-              </Pressable>
-            ),
-            headerRight: () => (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={allSelected ? t.library.deselectAll : t.library.selectAll}
-                hitSlop={8}
-                onPress={() =>
-                  setSelected(allSelected ? new Set() : new Set(documents.map((d) => d.id)))
-                }
-              >
-                <Text style={[styles.headerText, themed.headerButton]}>
-                  {allSelected ? t.library.deselectAll : t.library.selectAll}
-                </Text>
-              </Pressable>
-            ),
-          }
-        }
-      />
+      <Stack.Screen options={headerOptions} />
       <FlatList
         data={documents}
         keyExtractor={(d) => d.id}
