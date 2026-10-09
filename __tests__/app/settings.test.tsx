@@ -1,4 +1,4 @@
-import { Alert, Appearance } from 'react-native';
+import { Alert, Appearance, Platform } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import Settings from '../../app/settings';
 import { LocaleProvider } from '../../src/i18n/LocaleContext';
@@ -37,6 +37,7 @@ const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 0)
 let fs: ReturnType<typeof createMemoryFs>;
 let setScheme: jest.SpyInstance;
 beforeEach(async () => {
+  jest.replaceProperty(Platform, 'OS', 'android');
   mockExport.mockReset();
   mockShare.mockReset().mockResolvedValue(undefined);
   mockCheckNow = jest.fn().mockResolvedValue('none');
@@ -85,7 +86,8 @@ test('the appearance sheet marks the current choice; picking one applies it and 
 
 test('the chosen option is selected for accessibility', async () => {
   await openSheet(/^Giao diện/);
-  expect(screen.getByRole('button', { name: '✓ Theo hệ thống' })).toBeSelected();
+  expect(screen.getByRole('button', { name: 'Theo hệ thống' })).toBeSelected();
+  expect(screen.getByText('✓ Theo hệ thống')).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Tối' })).not.toBeSelected();
 });
 
@@ -108,7 +110,7 @@ test('choosing English switches the screen and keeps both settings', async () =>
 
 test('the backdrop and the Android back button close a sheet without changing anything', async () => {
   await openSheet(/^Giao diện/);
-  await fireEvent.press(screen.getByLabelText('Đóng'));
+  await fireEvent.press(screen.getByLabelText('Đóng', { includeHiddenElements: true }));
   await settle();
   expect(screen.queryByText('Sáng')).toBeNull();
   await openSheet(/^Giao diện/);
@@ -173,11 +175,16 @@ describe('error logs sheet', () => {
     mockExport.mockReturnValue(new Promise((r) => { release = r; }));
     jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     await openSheet(/^Log lỗi/);
-    let pressed: Promise<unknown> = Promise.resolve();
-    await act(async () => { pressed = fireEvent.press(screen.getByText('Gửi log lỗi')); });
-    expect(screen.getByRole('button', { name: 'Gửi log lỗi' })).toBeDisabled();
-    await act(async () => { release(null); await pressed; });
+    await fireEvent.press(screen.getByText('Gửi log lỗi'));
     await settle();
+    // The sheet closed before the export started; reopening shows the button disabled.
+    expect(screen.queryByText('Gửi log lỗi')).toBeNull();
+    await openSheet(/^Log lỗi/);
+    expect(screen.getByRole('button', { name: 'Gửi log lỗi' })).toBeDisabled();
+    await fireEvent.press(screen.getByText('Gửi log lỗi'));
+    await act(async () => { release(null); });
+    await settle();
+    expect(mockExport).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('button', { name: 'Gửi log lỗi' })).toBeEnabled();
   });
 });
@@ -225,4 +232,27 @@ describe('updates sheet', () => {
     await settle();
     expect(alert).not.toHaveBeenCalled();
   });
+});
+
+test('the sheet closes before the update check or log sharing starts', async () => {
+  jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  let sheetOpenWhenChecking: boolean | undefined;
+  mockCheckNow.mockImplementation(async () => {
+    sheetOpenWhenChecking = screen.queryByText('Phiên bản 1.7.0 (7)') !== null;
+    return 'none';
+  });
+  await openSheet(/^Cập nhật/);
+  await fireEvent.press(screen.getByText('Kiểm tra cập nhật'));
+  await settle();
+  expect(sheetOpenWhenChecking).toBe(false);
+
+  let sheetOpenWhenSharing: boolean | undefined;
+  mockExport.mockResolvedValue({ uri: 'file:///cache/l.txt', files: 1, bytes: 5 });
+  mockShare.mockImplementation(async () => {
+    sheetOpenWhenSharing = screen.queryByText('Gửi file log để giúp khắc phục lỗi.') !== null;
+  });
+  await openSheet(/^Log lỗi/);
+  await fireEvent.press(screen.getByText('Gửi log lỗi'));
+  await settle();
+  expect(sheetOpenWhenSharing).toBe(false);
 });

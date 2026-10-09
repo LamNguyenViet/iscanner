@@ -1,5 +1,5 @@
 import Constants from 'expo-constants';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BottomSheet } from '../src/components/BottomSheet';
 import { OptionList, type Option } from '../src/components/OptionList';
@@ -28,6 +28,18 @@ export default function SettingsScreen() {
   const { version, build } = currentAppBuild();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const close = () => setSheet(null);
+  // Work that opens other UI (Alert, share sheet, update gate) runs once the sheet has closed:
+  // iOS cannot present it while the sheet Modal is still on screen or dismissing.
+  const afterClose = useRef<(() => void) | null>(null);
+  const closeThen = (action: () => void) => {
+    afterClose.current = action;
+    close();
+  };
+  const runAfterClose = () => {
+    const action = afterClose.current;
+    afterClose.current = null;
+    action?.();
+  };
 
   const themeOptions: Option<ThemePreference>[] = [
     { value: 'system', label: t.settings.system },
@@ -74,7 +86,6 @@ export default function SettingsScreen() {
     setChecking(true);
     try {
       const result = await checkNow();
-      close();
       if (result === 'none') Alert.alert(t.update.upToDate);
       else if (result === 'failed') Alert.alert(t.update.checkFailed);
     } finally {
@@ -93,7 +104,9 @@ export default function SettingsScreen() {
       <Text style={styles.rowValue} numberOfLines={1}>
         {value}
       </Text>
-      <Text style={styles.chevron}>›</Text>
+      <Text style={styles.chevron} accessibilityElementsHidden importantForAccessibility="no">
+        ›
+      </Text>
     </Pressable>
   );
 
@@ -132,6 +145,7 @@ export default function SettingsScreen() {
         title={t.settings.appearance}
         closeLabel={t.settings.closeSheet}
         onClose={close}
+        onClosed={runAfterClose}
       >
         <OptionList
           options={themeOptions}
@@ -147,6 +161,7 @@ export default function SettingsScreen() {
         title={t.settings.language}
         closeLabel={t.settings.closeSheet}
         onClose={close}
+        onClosed={runAfterClose}
       >
         <OptionList
           options={languageOptions}
@@ -162,18 +177,20 @@ export default function SettingsScreen() {
         title={t.settings.updates}
         closeLabel={t.settings.closeSheet}
         onClose={close}
+        onClosed={runAfterClose}
       >
         <Text style={styles.sheetText}>{t.settings.version(version, build)}</Text>
-        {actionButton(t.settings.checkUpdate, checking, checkForUpdate)}
+        {actionButton(t.settings.checkUpdate, checking, () => closeThen(() => void checkForUpdate()))}
       </BottomSheet>
       <BottomSheet
         visible={sheet === 'logs'}
         title={t.settings.logs}
         closeLabel={t.settings.closeSheet}
         onClose={close}
+        onClosed={runAfterClose}
       >
         <Text style={styles.sheetText}>{t.settings.logsHint}</Text>
-        {actionButton(t.settings.sendLogs, working, sendLogs)}
+        {actionButton(t.settings.sendLogs, working, () => closeThen(() => void sendLogs()))}
       </BottomSheet>
     </ScrollView>
   );

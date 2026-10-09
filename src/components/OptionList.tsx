@@ -23,6 +23,7 @@ export function OptionList<T extends string>({ options, value, onSelect }: Props
           <Pressable
             key={o.value}
             accessibilityRole="button"
+            accessibilityLabel={o.label}
             accessibilityState={{ selected }}
             style={styles.row}
             onPress={() => onSelect(o.value)}

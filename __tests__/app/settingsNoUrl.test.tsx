@@ -1,4 +1,4 @@
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import Settings from '../../app/settings';
 import { LocaleProvider } from '../../src/i18n/LocaleContext';
@@ -21,6 +21,8 @@ const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 0)
 afterEach(() => jest.restoreAllMocks());
 
 test('checking with no update config url reports a failed check, not up to date', async () => {
+  // Android path: the sheet runs its follow-up right after closing (iOS waits for onDismiss).
+  jest.replaceProperty(Platform, 'OS', 'android');
   const fs = createMemoryFs();
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   await render(
