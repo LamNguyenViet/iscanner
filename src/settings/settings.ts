@@ -76,16 +76,30 @@ export async function loadSettings(fs: FsAdapter = expoFs): Promise<Settings> {
 
 let queue: Promise<unknown> = Promise.resolve();
 
+function enqueue(run: () => Promise<void>): Promise<void> {
+  const result = queue.then(run, run);
+  queue = result.catch(() => {});
+  return result;
+}
+
 /**
  * Read-merge-write, serialized so concurrent saves never overwrite each other.
  * Rejects on a write failure; later saves still run.
  */
 export function saveSettings(patch: Partial<Settings>, fs: FsAdapter = expoFs): Promise<void> {
-  const run = async () => {
+  return enqueue(async () => {
     const current = await loadSettings(fs);
     await fs.writeText(SETTINGS_PATH, JSON.stringify({ ...current, ...patch }));
-  };
-  const result = queue.then(run, run);
-  queue = result.catch(() => {});
-  return result;
+  });
+}
+
+/**
+ * Merges `patch` into the stored update state on the same queue as saveSettings. A key set to
+ * `undefined` is cleared. Use this (never saveSettings) for update state.
+ */
+export function saveUpdateState(patch: Partial<UpdateState>, fs: FsAdapter = expoFs): Promise<void> {
+  return enqueue(async () => {
+    const current = await loadSettings(fs);
+    await fs.writeText(SETTINGS_PATH, JSON.stringify({ ...current, update: { ...current.update, ...patch } }));
+  });
 }

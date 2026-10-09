@@ -54,6 +54,19 @@ jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
 jest.mock('../../src/library/LibraryContext', () => ({
   LibraryProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
+let mockDecision: { kind: string; target?: object } = { kind: 'none' };
+jest.mock('../../src/update/useUpdateCheck', () => ({
+  useUpdateCheck: () => ({
+    decision: mockDecision,
+    busy: false,
+    startUpdate: jest.fn(),
+    snooze: jest.fn(),
+    checkNow: jest.fn(),
+  }),
+}));
+jest.mock('../../src/native/appBuild', () => ({
+  currentAppBuild: () => ({ version: '1.7.0', build: 7 }),
+}));
 jest.mock('../../src/native/sharedPayloads', () => ({ hasSharedFiles: jest.fn() }));
 const mockHasShared = hasSharedFiles as jest.Mock;
 
@@ -66,6 +79,7 @@ beforeEach(() => {
   for (const k of Object.keys(mockScreens)) delete mockScreens[k];
   mockLoad = () => Promise.resolve({ theme: 'system', language: 'system' });
   mockPathname = '/';
+  mockDecision = { kind: 'none' };
   mockColorScheme = 'light';
   mockLocales = [{ languageCode: 'vi', languageTag: 'vi-VN' }];
   mockHasShared.mockReturnValue(false);
@@ -182,4 +196,17 @@ test('flushes the log when the app goes to the background or becomes inactive', 
   expect(log.flush).toHaveBeenCalledTimes(1);
   await act(async () => appStateHandler!('inactive'));
   expect(log.flush).toHaveBeenCalledTimes(2);
+});
+
+test('a forced update overlays the navigator', async () => {
+  mockDecision = { kind: 'force', target: { minBuild: 8, latestBuild: 8, url: 'https://x.test/a.apk' } };
+  await render(<RootLayout />);
+  expect(mockScreens.index).toBeDefined();
+  expect(screen.getByText('Cần cập nhật iScanner')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Cập nhật' })).toBeTruthy();
+});
+
+test('no overlay when no update is required', async () => {
+  await render(<RootLayout />);
+  expect(screen.queryByText('Cần cập nhật iScanner')).toBeNull();
 });

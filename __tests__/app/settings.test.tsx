@@ -15,6 +15,13 @@ jest.mock('../../src/native/shareLogs', () => ({
   writeLogExport: jest.fn(),
   shareLogFile: jest.fn(),
 }));
+jest.mock('../../src/native/appBuild', () => ({
+  currentAppBuild: () => ({ version: '1.7.0', build: 7 }),
+}));
+let mockCheckNow = jest.fn();
+jest.mock('../../src/update/UpdateContext', () => ({
+  useUpdate: () => ({ checkNow: (...a: unknown[]) => mockCheckNow(...a) }),
+}));
 const mockExport = exportLogs as jest.Mock;
 const mockShare = shareLogFile as jest.Mock;
 
@@ -29,6 +36,7 @@ let setScheme: jest.SpyInstance;
 beforeEach(async () => {
   mockExport.mockReset();
   mockShare.mockReset().mockResolvedValue(undefined);
+  mockCheckNow = jest.fn().mockResolvedValue('none');
   (log.info as jest.Mock).mockClear();
   fs = createMemoryFs();
   setScheme = jest.spyOn(Appearance, 'setColorScheme').mockImplementation(() => {});
@@ -129,4 +137,40 @@ test('the row is disabled while working', async () => {
   await act(async () => { release(null); await pressed; });
   await settle();
   expect(screen.getByRole('button', { name: 'Gửi log lỗi' })).toBeEnabled();
+});
+
+test('shows the version line and the check for updates row', () => {
+  expect(screen.getByText('Phiên bản 1.7.0 (7)')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Kiểm tra cập nhật' })).toBeTruthy();
+});
+
+test('the version line and row are English under English', async () => {
+  await fireEvent.press(screen.getByText('English'));
+  await settle();
+  expect(screen.getByText('Version 1.7.0 (7)')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Check for updates' })).toBeTruthy();
+});
+
+test('checking with nothing newer says up to date', async () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  await fireEvent.press(screen.getByText('Kiểm tra cập nhật'));
+  await settle();
+  expect(mockCheckNow).toHaveBeenCalledTimes(1);
+  expect(alert).toHaveBeenCalledWith('Bạn đang dùng phiên bản mới nhất.');
+});
+
+test('a failed check says so', async () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  mockCheckNow.mockResolvedValue('failed');
+  await fireEvent.press(screen.getByText('Kiểm tra cập nhật'));
+  await settle();
+  expect(alert).toHaveBeenCalledWith('Không kiểm tra được cập nhật. Vui lòng thử lại khi có mạng.');
+});
+
+test.each(['optional', 'force'])('a %s update is left to the gate', async (kind) => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  mockCheckNow.mockResolvedValue(kind);
+  await fireEvent.press(screen.getByText('Kiểm tra cập nhật'));
+  await settle();
+  expect(alert).not.toHaveBeenCalled();
 });

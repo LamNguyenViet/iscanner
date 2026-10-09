@@ -3,6 +3,7 @@ import {
   loadSettings,
   parseSettings,
   saveSettings,
+  saveUpdateState,
   toNativeScheme,
 } from '../../src/settings/settings';
 
@@ -97,4 +98,40 @@ test.each([
 test('old settings files still parse without update', () => {
   expect(parseSettings('{"theme":"dark"}')).toEqual({ theme: 'dark', language: 'system' });
   expect(parseSettings('{"theme":"dark","language":"en"}')).toEqual({ theme: 'dark', language: 'en' });
+});
+
+describe('saveUpdateState', () => {
+
+
+  test('two concurrent patches both survive', async () => {
+    const fs = createMemoryFs();
+    await Promise.all([
+      saveUpdateState({ lastCheckedAt: 5 }, fs),
+      saveUpdateState({ forceMinBuild: 8 }, fs),
+      saveUpdateState({ snooze: { build: 9, until: 10 } }, fs),
+    ]);
+    expect((await loadSettings(fs)).update).toEqual({
+      lastCheckedAt: 5,
+      forceMinBuild: 8,
+      snooze: { build: 9, until: 10 },
+    });
+  });
+
+  test('a theme save keeps the update state', async () => {
+    const fs = createMemoryFs();
+    await saveUpdateState({ forceMinBuild: 8, lastBuild: 7 }, fs);
+    await saveSettings({ theme: 'dark' }, fs);
+    expect(await loadSettings(fs)).toEqual({
+      theme: 'dark',
+      language: 'system',
+      update: { forceMinBuild: 8, lastBuild: 7 },
+    });
+  });
+
+  test('a key set to undefined is cleared and the others stay', async () => {
+    const fs = createMemoryFs();
+    await saveUpdateState({ forceMinBuild: 8, lastBuild: 7 }, fs);
+    await saveUpdateState({ forceMinBuild: undefined }, fs);
+    expect((await loadSettings(fs)).update).toEqual({ lastBuild: 7 });
+  });
 });

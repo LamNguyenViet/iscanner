@@ -6,10 +6,12 @@ import { useLocale } from '../src/i18n/LocaleContext';
 import { expoFs } from '../src/library/expoFs';
 import { exportLogs } from '../src/logging/exportLogs';
 import { log } from '../src/logging/logger';
+import { currentAppBuild } from '../src/native/appBuild';
 import { shareLogFile, writeLogExport } from '../src/native/shareLogs';
 import type { LanguagePreference, ThemePreference } from '../src/settings/settings';
 import type { Palette } from '../src/theme/palette';
 import { useTheme } from '../src/theme/ThemeContext';
+import { useUpdate } from '../src/update/UpdateContext';
 
 type Option<T> = { value: T; label: string };
 
@@ -18,6 +20,9 @@ export default function SettingsScreen() {
   const { t, language: activeLanguage, preference: language, setPreference: setLanguage } = useLocale();
   const showError = useErrorAlert();
   const [working, setWorking] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const { checkNow } = useUpdate();
+  const { version, build } = currentAppBuild();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const themeOptions: Option<ThemePreference>[] = [
@@ -55,6 +60,18 @@ export default function SettingsScreen() {
       showError(e);
     } finally {
       setWorking(false);
+    }
+  }
+
+  async function checkForUpdate() {
+    if (checking) return;
+    setChecking(true);
+    try {
+      const result = await checkNow();
+      if (result === 'none') Alert.alert(t.update.upToDate);
+      else if (result === 'failed') Alert.alert(t.update.checkFailed);
+    } finally {
+      setChecking(false);
     }
   }
 
@@ -102,6 +119,16 @@ export default function SettingsScreen() {
         >
           <Text style={styles.rowText}>{t.settings.sendLogs}</Text>
         </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: checking }}
+          disabled={checking}
+          style={[styles.row, checking && styles.rowDisabled]}
+          onPress={checkForUpdate}
+        >
+          <Text style={styles.rowText}>{t.settings.checkUpdate}</Text>
+        </Pressable>
+        <Text style={styles.version}>{t.settings.version(version, build)}</Text>
       </View>
     </ScrollView>
   );
@@ -118,6 +145,7 @@ const makeStyles = (c: Palette) =>
     header: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', color: c.textMuted },
     row: { backgroundColor: c.surface, padding: 14, borderRadius: 8 },
     rowText: { fontSize: 16, color: c.text },
+    version: { fontSize: 13, color: c.textMuted, paddingHorizontal: 4 },
     rowDisabled: { opacity: 0.5 },
     rowSelected: { color: c.primary, fontWeight: '600' },
   });

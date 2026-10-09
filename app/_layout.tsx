@@ -11,12 +11,14 @@ import Constants from 'expo-constants';
 import { useEffect, useMemo, useRef } from 'react';
 import { AppState, Platform, Pressable, StyleSheet, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { UpdateGate } from '../src/components/UpdateGate';
 import { LocaleProvider, useLocale } from '../src/i18n/LocaleContext';
 import { LibraryProvider } from '../src/library/LibraryContext';
 import { installGlobalHandlers } from '../src/logging/globalHandlers';
 import { log } from '../src/logging/logger';
 import { hasSharedFiles } from '../src/native/sharedPayloads';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeContext';
+import { UpdateProvider } from '../src/update/UpdateContext';
 import { useForegroundCheck } from '../src/workflows/useForegroundCheck';
 
 /**
@@ -131,7 +133,11 @@ export default function RootLayout() {
       <ThemeProvider>
         <LocaleProvider>
           <LibraryProvider>
-            <ThemedStack />
+            <UpdateProvider>
+              <UpdateGate>
+                <ThemedStack />
+              </UpdateGate>
+            </UpdateProvider>
           </LibraryProvider>
         </LocaleProvider>
       </ThemeProvider>
