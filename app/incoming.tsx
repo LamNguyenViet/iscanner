@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { HeaderBackButton } from 'expo-router/react-navigation';
+import { usePasswordPrompt } from '../src/components/PasswordPrompt';
 import { useErrorAlert } from '../src/errors/useErrorAlert';
 import { useLocale } from '../src/i18n/LocaleContext';
 import { useLibrary } from '../src/library/LibraryContext';
@@ -10,7 +11,7 @@ import { deleteFiles } from '../src/native/deleteFiles';
 import { FileReadError, toAppError, type AppError } from '../src/errors/AppError';
 import { readBytes } from '../src/native/readBytes';
 import { clearSharedFiles, hasSharedFiles, readSharedFiles } from '../src/native/sharedPayloads';
-import { getPdfPageCount } from '../src/pdf/mergePdfs';
+import { unlockPdf } from '../src/pdf/mergePdfs';
 import { importIncoming } from '../src/share/importIncoming';
 import { clearPending, hasPendingImages, setPending } from '../src/share/incomingStore';
 import { planIncoming } from '../src/share/plan';
@@ -18,9 +19,10 @@ import { incomingUriParam } from '../src/share/redirect';
 import type { IncomingFile } from '../src/share/types';
 import type { Palette } from '../src/theme/palette';
 import { useTheme } from '../src/theme/ThemeContext';
+import { openPdfWithPassword } from '../src/workflows/mergeWorkflow';
 import { useForegroundCheck } from '../src/workflows/useForegroundCheck';
 
-type Confirm = { pdf: IncomingFile; images: IncomingFile[]; bytes: Uint8Array; pageCount: number };
+type Confirm = { pdf: IncomingFile; images: IncomingFile[]; bytes: Uint8Array; pageCount: number; password?: string };
 
 /**
  * Back to the library. On a warm share the stack is [index, incoming]: pop to it instead of stacking a
@@ -47,6 +49,7 @@ export default function Incoming() {
   const { colors } = useTheme();
   const themed = useMemo(() => makeStyles(colors), [colors]);
   const { store, refresh } = useLibrary();
+  const { ask, element: passwordPrompt } = usePasswordPrompt();
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [saving, setSaving] = useState(false);
   // One rule for the label and the saved name.
@@ -156,10 +159,19 @@ export default function Incoming() {
       } catch (e) {
         throw new FileReadError({ fileName: pdf.name, cause: e });
       }
-      const pageCount = await getPdfPageCount(bytes, pdf.name);
+      const opened = await openPdfWithPassword(bytes, pdf.name, ask, pdf.password);
       if (!mounted.current) return;
+      if (opened === null) {
+        // Password skipped: same as nothing usable.
+        undecided.current = null;
+        deleteFiles([pdf.uri]);
+        if (skipped.length > 0) showError(skipped);
+        if (!hasPendingImages()) Alert.alert(t.incoming.noFiles);
+        continueAfterPdf();
+        return;
+      }
       if (skipped.length > 0) showError(skipped);
-      setConfirm({ pdf, images, bytes, pageCount });
+      setConfirm({ pdf, images, bytes, pageCount: opened.pageCount, password: opened.password });
     } catch (e) {
       if (!mounted.current) return;
       undecided.current = null;
@@ -174,7 +186,10 @@ export default function Incoming() {
     setSaving(true);
     let id: string;
     try {
-      const meta = await store.add(confirm.bytes, {
+      // A password-protected PDF is stored unlocked so the viewer and later merges need no password.
+      const bytes =
+        confirm.password === undefined ? confirm.bytes : await unlockPdf(confirm.bytes, confirm.password, confirm.pdf.name);
+      const meta = await store.add(bytes, {
         name: pdfName,
         pageCount: confirm.pageCount,
         source: 'merge',
@@ -196,7 +211,10 @@ export default function Incoming() {
   const mergeWithOthers = () => {
     if (!confirm || saving) return;
     undecided.current = null;
-    setPending({ pdfs: [confirm.pdf], images: confirm.images });
+    setPending({
+      pdfs: [confirm.password === undefined ? confirm.pdf : { ...confirm.pdf, password: confirm.password }],
+      images: confirm.images,
+    });
     router.replace('/merge');
   };
 
@@ -225,6 +243,7 @@ export default function Incoming() {
       <View style={[styles.center, themed.screen]}>
         <ActivityIndicator color={colors.primary} />
         <Text style={[styles.status, themed.muted]}>{t.incoming.receiving}</Text>
+        {passwordPrompt}
       </View>
     );
   }
@@ -262,6 +281,7 @@ export default function Incoming() {
           <Text style={[styles.buttonText, themed.secondaryText]}>{t.incoming.mergeWithOthers}</Text>
         </Pressable>
       </View>
+      {passwordPrompt}
     </View>
   );
 }

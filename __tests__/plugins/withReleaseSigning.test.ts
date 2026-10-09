@@ -71,9 +71,9 @@ describe('app.json native config', () => {
   test('has updateConfigUrl extra', () => {
     expect(app.extra).toHaveProperty('updateConfigUrl');
   });
-  test('version 1.9.0 / 9 / "9"', () => {
-    expect(app.version).toBe('1.9.0');
-    expect(app.android.versionCode).toBe(9);
-    expect(app.ios.buildNumber).toBe('9');
+  test('version 1.10.0 / 10 / "10"', () => {
+    expect(app.version).toBe('1.10.0');
+    expect(app.android.versionCode).toBe(10);
+    expect(app.ios.buildNumber).toBe('10');
   });
 });

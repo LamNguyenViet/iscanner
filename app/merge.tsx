@@ -13,6 +13,7 @@ import { router } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NameInput } from '../src/components/NameInput';
+import { usePasswordPrompt } from '../src/components/PasswordPrompt';
 import { useErrorAlert } from '../src/errors/useErrorAlert';
 import { useLocale } from '../src/i18n/LocaleContext';
 import { useLibrary } from '../src/library/LibraryContext';
@@ -38,6 +39,7 @@ export default function Merge() {
   const { store, refresh } = useLibrary();
   const { items, append, remove, setOrder } = useOrderedList<LoadedPdf>();
   const busy = useBusy();
+  const { ask, element: passwordPrompt } = usePasswordPrompt();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const themed = useMemo(() => makeStyles(colors), [colors]);
@@ -50,11 +52,13 @@ export default function Merge() {
   const fileUris = useRef<string[]>([]);
   fileUris.current = items.map((i) => i.value.uri);
   const merged = useRef(false);
+  const mounted = useRef(true);
   // Set when the screen hands its pending images over to /scan itself.
   const handedOff = useRef(false);
 
   useEffect(
     () => () => {
+      mounted.current = false;
       if (!merged.current) {
         deleteFiles(fileUris.current);
         // Received images nobody consumed would otherwise leak and misroute a later merge.
@@ -74,18 +78,23 @@ export default function Merge() {
     }
   };
 
-  const loadFrom = async (getPicked: () => Promise<{ uri: string; name: string }[]>) => {
+  const loadFrom = async (getPicked: () => Promise<{ uri: string; name: string; password?: string }[]>) => {
     try {
       const result = await busy.run(async () => {
         const picked = await getPicked();
         if (picked.length === 0) return null;
-        const loaded = await loadPickedPdfs({ readBytes }, picked);
+        const loaded = await loadPickedPdfs({ readBytes, askPassword: ask }, picked);
         const loadedUris = new Set(loaded.loaded.map((f) => f.uri));
         const unusable = picked.filter((f) => !loadedUris.has(f.uri)).map((f) => f.uri);
         if (unusable.length > 0) deleteFiles(unusable);
         return loaded;
       });
       if (result === undefined) return;
+      // Left the screen while a password prompt was open: drop the copies, show and navigate nothing.
+      if (!mounted.current) {
+        if (result) deleteFiles(result.loaded.map((f) => f.uri));
+        return;
+      }
       if (result === null) {
         backIfEmpty();
         return;
@@ -108,7 +117,7 @@ export default function Merge() {
     started.current = true;
     const pending = takePdfs();
     if (pending.length > 0) {
-      loadFrom(async () => pending.map((f) => ({ uri: f.uri, name: f.name })));
+      loadFrom(async () => pending.map((f) => ({ uri: f.uri, name: f.name, password: f.password })));
     } else {
       pick();
     }
@@ -201,6 +210,7 @@ export default function Merge() {
           <Text style={[styles.buttonText, themed.buttonText]}>{t.merge.create}</Text>
         </Pressable>
       </View>
+      {passwordPrompt}
     </KeyboardAvoidingView>
   );
 }
