@@ -26,7 +26,7 @@ export async function decryptOffice(bytes: Uint8Array, password: string): Promis
     return new Uint8Array(out);
   } catch (e) {
     const msg = e instanceof Error ? e.message : '';
-    if (/password is incorrect/i.test(msg)) throw new WordPasswordError({ cause: e });
+    if (/password is incorrect/i.test(msg)) throw new WordPasswordError();
     throw new WordConvertError({ cause: e });
   }
 }
