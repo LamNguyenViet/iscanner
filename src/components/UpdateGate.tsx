@@ -51,7 +51,13 @@ export function UpdateGate({ children }: { children?: ReactNode }) {
 
   return (
     <>
-      {children}
+      <View
+        style={styles.content}
+        importantForAccessibility={force ? "no-hide-descendants" : "auto"}
+        accessibilityElementsHidden={force}
+      >
+        {children}
+      </View>
       {force ? (
         <View style={styles.overlay} accessibilityViewIsModal>
           <Text style={styles.title}>{t.update.forceTitle}</Text>
@@ -103,6 +109,7 @@ export function UpdateGate({ children }: { children?: ReactNode }) {
 
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
+    content: { flex: 1 },
     overlay: {
       position: "absolute",
       top: 0,

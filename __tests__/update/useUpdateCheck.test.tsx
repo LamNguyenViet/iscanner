@@ -113,7 +113,7 @@ test('an empty config url never fetches and means none', async () => {
   const { result } = await mount({ configUrl: '' });
   expect(fetchConfig).not.toHaveBeenCalled();
   expect(result.current.decision.kind).toBe('none');
-  await expect(result.current.checkNow()).resolves.toBe('none');
+  await expect(result.current.checkNow()).resolves.toBe('failed');
 });
 
 test('an invalid config is none plus a warning', async () => {
@@ -301,4 +301,39 @@ test('cancel during the from-memory re-check shows no alert and starts no downlo
   expect(alert).not.toHaveBeenCalled();
   expect(installApk).not.toHaveBeenCalled();
   expect(result.current.busy).toBe(false);
+});
+
+test('a config with no block for this platform keeps a remembered force', async () => {
+  await mount();
+  clock += 60 * 60_000;
+  fetchConfig.mockResolvedValue({ ios: { minBuild: 1, latestBuild: 1, url: 'https://example.com/ios' } });
+  const { result } = await mount();
+  expect(result.current.decision).toMatchObject({ kind: 'force', fromMemory: true });
+  expect((await stored())?.forceMinBuild).toBe(8);
+  expect(log.warn).toHaveBeenCalledWith('update.checkFailed', expect.anything());
+  await expect(result.current.checkNow()).resolves.toBe('force');
+});
+
+test('a config with no block for this platform and nothing remembered is a failed manual check', async () => {
+  fetchConfig.mockResolvedValue({ ios: { minBuild: 1, latestBuild: 1, url: 'https://example.com/ios' } });
+  const { result } = await mount();
+  await expect(result.current.checkNow()).resolves.toBe('failed');
+});
+
+test('a retry after a cancelled download that never settles starts after 15 s', async () => {
+  const installApk = jest.fn().mockImplementation(() => new Promise<void>(() => {}));
+  const { result } = await mount({ installApk });
+  jest.useFakeTimers();
+  try {
+    await act(async () => { void result.current.startUpdate(); });
+    expect(installApk).toHaveBeenCalledTimes(1);
+    await act(async () => result.current.cancel());
+    await act(async () => { void result.current.startUpdate(); });
+    await act(async () => { await jest.advanceTimersByTimeAsync(14_000); });
+    expect(installApk).toHaveBeenCalledTimes(1);
+    await act(async () => { await jest.advanceTimersByTimeAsync(1_500); });
+    expect(installApk).toHaveBeenCalledTimes(2);
+  } finally {
+    jest.useRealTimers();
+  }
 });

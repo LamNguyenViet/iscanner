@@ -208,3 +208,17 @@ test('an optional download shows a banner that does not block the app', async ()
   await fireEvent.press(screen.getByText('Huỷ'));
   expect(screen.queryByText(/Đang tải/)).toBeNull();
 });
+
+test('app content is hidden from accessibility services while forced', async () => {
+  await mount(android(8, 8));
+  const wrapper = screen.getByText('app content', { includeHiddenElements: true }).parent!;
+  expect(wrapper.props.importantForAccessibility).toBe('no-hide-descendants');
+  expect(wrapper.props.accessibilityElementsHidden).toBe(true);
+});
+
+test('app content stays accessible when nothing is forced', async () => {
+  await mount(android(7, 7));
+  const wrapper = screen.getByText('app content').parent!;
+  expect(wrapper.props.importantForAccessibility).toBe('auto');
+  expect(wrapper.props.accessibilityElementsHidden).toBe(false);
+});

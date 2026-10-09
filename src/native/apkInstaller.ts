@@ -7,12 +7,16 @@ import type { PlatformUpdate } from '../update/config';
 const GRANT_READ_URI = 0x1;
 const NEW_TASK = 0x10000000;
 
+let runCounter = 0;
+
 export async function downloadAndInstallApk(
   target: PlatformUpdate,
   deps: {
     downloadFile?: (url: string, dest: File) => Promise<File>;
     startActivity?: typeof IntentLauncher.startActivityAsync;
     cacheDir?: Directory;
+    /** Makes the file name unique to this run; defaults to a timestamp plus counter. */
+    runId?: string;
     /** Checked after download and verification; when true the installer is not opened. */
     isCancelled?: () => boolean;
   } = {},
@@ -21,11 +25,14 @@ export async function downloadAndInstallApk(
   const startActivity = deps.startActivity ?? IntentLauncher.startActivityAsync;
   const dir = new Directory(deps.cacheDir ?? Paths.cache, 'update');
 
+  const runId = deps.runId ?? `${Date.now()}-${runCounter++}`;
+  const mine = new File(dir, `iScanner-${target.latestBuild}-${runId}.apk`);
+
   let file: File;
   try {
-    if (dir.exists) dir.delete();
     dir.create({ intermediates: true, idempotent: true });
-    file = await downloadFile(target.url, new File(dir, `iScanner-${target.latestBuild}.apk`));
+    deleteStaleApks(dir, mine);
+    file = await downloadFile(target.url, mine);
   } catch (e) {
     throw new UpdateDownloadError({ cause: e });
   }
@@ -50,6 +57,22 @@ export async function downloadAndInstallApk(
     });
   } catch (e) {
     throw new UpdateInstallError({ cause: e });
+  }
+}
+
+/** Best effort: another run may be using the directory, so never remove it and never fail on a delete. */
+function deleteStaleApks(dir: Directory, keep: File): void {
+  try {
+    for (const entry of dir.list()) {
+      if (entry.uri === keep.uri || !entry.uri.endsWith('.apk')) continue;
+      try {
+        (entry as File).delete();
+      } catch {
+        // best effort
+      }
+    }
+  } catch {
+    // best effort
   }
 }
 

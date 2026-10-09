@@ -45,6 +45,7 @@ export type UpdateDeps = {
 };
 
 const SNOOZE_MS = 24 * 60 * 60_000;
+const PREVIOUS_RUN_WAIT_MS = 15_000;
 const NONE: UpdateDecision = { kind: 'none' };
 
 export function useUpdateCheck(deps: UpdateDeps = {}): UpdateCheck {
@@ -94,7 +95,8 @@ export function useUpdateCheck(deps: UpdateDeps = {}): UpdateCheck {
       if (inFlight.current) return inFlight.current;
       const run = async (): Promise<CheckResult> => {
         const e = env();
-        if (!e.configUrl) return 'none';
+        // Nothing was checked: automatic checks stay silent, a manual one must not claim "up to date".
+        if (!e.configUrl) return manual ? 'failed' : 'none';
         const { build } = e.getBuild();
         const stored = (await loadSettings(e.fs)).update;
         let fresh: Decision | 'failed';
@@ -102,6 +104,7 @@ export function useUpdateCheck(deps: UpdateDeps = {}): UpdateCheck {
         try {
           config = parseUpdateConfig(await e.fetchConfig(e.configUrl));
           if (!config) throw new Error('invalid update config');
+          if (!config[e.platform]) throw new Error('no update block for this platform');
           fresh = decideUpdate(config, e.platform, build);
         } catch (err) {
           log.warn('update.checkFailed', { cause: err });
@@ -180,11 +183,18 @@ export function useUpdateCheck(deps: UpdateDeps = {}): UpdateCheck {
     const mine = { cancelled: false };
     token.current = mine;
     setBusy(true);
-    // A cancelled run may still be downloading into the same file; let it finish first.
+    // Give a cancelled run a moment to finish, but never wait on it for long (it may be stalled).
     const previous = lastRun.current;
     const run = (async () => {
       try {
-        await previous?.catch(() => {});
+        if (previous) {
+          let timer: ReturnType<typeof setTimeout> | undefined;
+          const limit = new Promise<void>((resolve) => {
+            timer = setTimeout(resolve, PREVIOUS_RUN_WAIT_MS);
+          });
+          await Promise.race([previous.catch(() => {}), limit]);
+          clearTimeout(timer);
+        }
         if (mine.cancelled) return;
         if (decisionRef.current.fromMemory || !decisionRef.current.target) {
           await runCheck(true);
