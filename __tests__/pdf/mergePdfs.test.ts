@@ -6,8 +6,9 @@ import {
   PDFRawStream,
 } from '../../src/pdf/pdfLib';
 import { createPdfFromImages } from '../../src/pdf/createPdfFromImages';
-import { getPdfPageCount, mergePdfs } from '../../src/pdf/mergePdfs';
-import { PdfEncryptedError, PdfLoadError } from '../../src/errors/AppError';
+import { getPdfPageCount, mergePdfs, unlockPdf } from '../../src/pdf/mergePdfs';
+import { PdfEncryptedError, PdfLoadError, PdfPasswordError } from '../../src/errors/AppError';
+import { makePasswordPdf } from '../fixtures/pdfPassword';
 import { makePng } from '../fixtures/images';
 import { makePdfBomb } from '../fixtures/pdfBomb';
 import { makePdfEncrypted } from '../fixtures/pdfEncrypted';
@@ -67,6 +68,50 @@ describe('mergePdfs', () => {
     const err = await getPdfPageCount(new TextEncoder().encode('garbage'), 'g.pdf').catch((e) => e);
     expect(err).toBeInstanceOf(PdfLoadError);
     expect(err.fileName).toBe('g.pdf');
+  });
+});
+
+describe('password-protected pdfs', () => {
+  it('no password gives PdfEncryptedError', async () => {
+    const err = await getPdfPageCount(makePasswordPdf(), 'p.pdf').catch((e) => e);
+    expect(err).toBeInstanceOf(PdfEncryptedError);
+    expect(err.fileName).toBe('p.pdf');
+  });
+
+  it('wrong password gives PdfPasswordError without leaking it', async () => {
+    const err = await getPdfPageCount(makePasswordPdf(), 'p.pdf', 'nope').catch((e) => e);
+    expect(err).toBeInstanceOf(PdfPasswordError);
+    expect(err.fileName).toBe('p.pdf');
+    expect(err.message).not.toContain('nope');
+    expect(JSON.stringify({ ...err })).not.toContain('nope');
+  });
+
+  it('user and owner passwords open it', async () => {
+    expect(await getPdfPageCount(makePasswordPdf(), 'p.pdf', 'secret')).toBe(1);
+    expect(await getPdfPageCount(makePasswordPdf(), 'p.pdf', 'owner')).toBe(1);
+  });
+
+  it('an Encrypt dict without /Length is PdfLoadError', async () => {
+    const err = await getPdfPageCount(makePasswordPdf({ withLength: false }), 'p.pdf', 'secret').catch((e) => e);
+    expect(err).toBeInstanceOf(PdfLoadError);
+    expect(err.fileName).toBe('p.pdf');
+  });
+
+  it('unlockPdf returns a plain pdf', async () => {
+    const out = await unlockPdf(makePasswordPdf(), 'secret');
+    expect((await PDFDocument.load(out)).getPageCount()).toBe(1);
+    const text = Buffer.from(out).toString('latin1');
+    expect(text).not.toContain('/Encrypt');
+    expect(text).toContain('Secret page');
+  });
+
+  it('mergePdfs opens a protected pdf with its password', async () => {
+    const plain = await createPdfFromImages([img(10)]);
+    const out = await mergePdfs([plain, makePasswordPdf()], [undefined, 'secret']);
+    expect((await PDFDocument.load(out)).getPageCount()).toBe(2);
+    const text = Buffer.from(out).toString('latin1');
+    expect(text).not.toContain('/Encrypt');
+    expect(text).toContain('Secret page');
   });
 });
 

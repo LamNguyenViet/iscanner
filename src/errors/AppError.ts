@@ -1,5 +1,5 @@
 export type ErrorCode =
-  | 'PDF_LOAD' | 'PDF_ENCRYPTED' | 'FILE_TOO_LARGE' | 'FILE_UNSUPPORTED' | 'FILE_READ'
+  | 'PDF_LOAD' | 'PDF_ENCRYPTED' | 'PDF_PASSWORD' | 'FILE_TOO_LARGE' | 'FILE_UNSUPPORTED' | 'FILE_READ'
   | 'CAMERA_PERMISSION' | 'SCANNER_UNAVAILABLE' | 'IMAGE_PROCESS' | 'STORAGE' | 'SHARE' | 'UNKNOWN'
   | 'UPDATE_DOWNLOAD' | 'UPDATE_CORRUPT' | 'UPDATE_INSTALL';
 
@@ -44,6 +44,18 @@ export class PdfEncryptedError extends AppError {
     super('PDF_ENCRYPTED', opts);
     Object.setPrototypeOf(this, new.target.prototype);
     this.name = 'PdfEncryptedError';
+    this.index = opts?.index;
+  }
+}
+
+/** A wrong password for a protected PDF. Never carries the password itself. */
+export class PdfPasswordError extends AppError {
+  readonly index?: number;
+
+  constructor(opts?: { index?: number; fileName?: string; cause?: unknown }) {
+    super('PDF_PASSWORD', opts);
+    Object.setPrototypeOf(this, new.target.prototype);
+    this.name = 'PdfPasswordError';
     this.index = opts?.index;
   }
 }

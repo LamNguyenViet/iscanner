@@ -6,6 +6,7 @@ import { vi } from '../../src/i18n/vi';
 
 const make: Record<ErrorCode, () => AppError> = {
   PDF_LOAD: () => new E.PdfLoadError(), PDF_ENCRYPTED: () => new E.PdfEncryptedError(),
+  PDF_PASSWORD: () => new E.PdfPasswordError(),
   FILE_TOO_LARGE: () => new E.FileTooLargeError(), FILE_UNSUPPORTED: () => new E.UnsupportedFileError(),
   FILE_READ: () => new E.FileReadError(), CAMERA_PERMISSION: () => new E.CameraPermissionError(),
   SCANNER_UNAVAILABLE: () => new E.ScannerUnavailableError(), IMAGE_PROCESS: () => new E.ImageProcessError(),
@@ -17,6 +18,7 @@ const make: Record<ErrorCode, () => AppError> = {
 const viCopy: Record<ErrorCode, [string, string]> = {
   PDF_LOAD: ['Không load được file', 'Không load được file, vui lòng kiểm tra lại định dạng file PDF.'],
   PDF_ENCRYPTED: ['File PDF có mật khẩu', 'Không mở được file PDF được bảo vệ bằng mật khẩu. Hãy gỡ mật khẩu rồi thử lại.'],
+  PDF_PASSWORD: ['Mật khẩu không đúng', 'Mật khẩu của file PDF không đúng.'],
   FILE_TOO_LARGE: ['File quá lớn', 'File vượt quá 100 MB, iScanner không xử lý được.'],
   FILE_UNSUPPORTED: ['File không được hỗ trợ', 'iScanner chỉ nhận file PDF và ảnh JPEG/PNG.'],
   FILE_READ: ['Không đọc được file', 'Không đọc được file. Hãy mở lại file từ ứng dụng gốc rồi chia sẻ lại.'],
@@ -33,6 +35,7 @@ const viCopy: Record<ErrorCode, [string, string]> = {
 const enCopy: Record<ErrorCode, [string, string]> = {
   PDF_LOAD: ['Cannot load file', "Cannot load file, check your document's format file PDF."],
   PDF_ENCRYPTED: ['Password-protected PDF', 'This PDF is protected by a password. Remove the password and try again.'],
+  PDF_PASSWORD: ['Wrong password', 'The PDF password is incorrect.'],
   FILE_TOO_LARGE: ['File too large', "The file is larger than 100 MB and can't be processed."],
   FILE_UNSUPPORTED: ['Unsupported file', 'iScanner only accepts PDF files and JPEG/PNG images.'],
   FILE_READ: ['Cannot read file', "The file couldn't be read. Open it again in the original app and share it again."],

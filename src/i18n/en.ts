@@ -96,6 +96,7 @@ export const en: Strings = {
   errors: {
     PDF_LOAD: { title: 'Cannot load file', message: "Cannot load file, check your document's format file PDF." },
     PDF_ENCRYPTED: { title: 'Password-protected PDF', message: 'This PDF is protected by a password. Remove the password and try again.' },
+    PDF_PASSWORD: { title: 'Wrong password', message: 'The PDF password is incorrect.' },
     FILE_TOO_LARGE: { title: 'File too large', message: "The file is larger than 100 MB and can't be processed." },
     FILE_UNSUPPORTED: { title: 'Unsupported file', message: 'iScanner only accepts PDF files and JPEG/PNG images.' },
     FILE_READ: { title: 'Cannot read file', message: "The file couldn't be read. Open it again in the original app and share it again." },
@@ -111,6 +112,7 @@ export const en: Strings = {
     reason: {
       PDF_LOAD: 'invalid format',
       PDF_ENCRYPTED: 'password-protected',
+      PDF_PASSWORD: 'wrong password',
       FILE_TOO_LARGE: 'too large (> 100 MB)',
       FILE_UNSUPPORTED: 'unsupported',
       FILE_READ: 'unreadable',
