@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { Text } from 'react-native';
+import { Text, Platform } from 'react-native';
+import { IOS_DISMISS_FALLBACK_MS } from '../../src/components/BottomSheet';
 import { usePasswordPrompt } from '../../src/components/PasswordPrompt';
 import { LocaleProvider } from '../../src/i18n/LocaleContext';
 import { createMemoryFs } from '../../src/library/memoryFs';
@@ -48,6 +49,8 @@ async function start(file = 'a.pdf', wrong = false) {
 }
 
 beforeEach(() => {
+  // The Modal dismissal wait is iOS-only; screen and most prompt tests run the Android path.
+  Platform.OS = 'android';
   mockLocales = [{ languageCode: 'vi', languageTag: 'vi-VN' }];
 });
 
@@ -173,4 +176,71 @@ test('shows the en copy under an en LocaleProvider', async () => {
   expect(screen.getByText('Skip this file')).toBeTruthy();
   expect(screen.getByText('Open')).toBeTruthy();
   expect(screen.getByPlaceholderText('Password')).toBeTruthy();
+});
+
+describe('iOS dismissal', () => {
+  const modalOf = () => {
+    let node = screen.getByText('Nhập mật khẩu').parent;
+    while (node && !node.props.onDismiss) node = node.parent;
+    return node!;
+  };
+
+  beforeEach(() => {
+    Platform.OS = 'ios';
+  });
+
+  test('ask resolves only after Modal.onDismiss, with the Modal hidden meanwhile', async () => {
+    await mount();
+    const r = await start();
+    // The native dismissal callback, taken while the Modal is still mounted.
+    const onDismiss = modalOf().props.onDismiss;
+    expect(typeof onDismiss).toBe('function');
+    await fireEvent.changeText(screen.getByPlaceholderText('Mật khẩu'), 'pw');
+    await fireEvent.press(screen.getByText('Mở'));
+    await settle();
+    expect(r.done).toBe(false);
+    await act(async () => {
+      onDismiss();
+    });
+    await settle();
+    expect(r).toEqual({ done: true, value: 'pw' });
+    expect(screen.queryByText('Nhập mật khẩu')).toBeNull();
+  });
+
+  test('the fallback timer resolves it when onDismiss never comes', async () => {
+    try {
+      await mount();
+      const r = await start();
+      jest.useFakeTimers();
+      await fireEvent.press(screen.getByText('Bỏ qua file này'));
+      expect(r.done).toBe(false);
+      await act(async () => {
+        jest.advanceTimersByTime(IOS_DISMISS_FALLBACK_MS - 1);
+      });
+      expect(r.done).toBe(false);
+      await act(async () => {
+        jest.advanceTimersByTime(2);
+      });
+      expect(r).toEqual({ done: true, value: null });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('unmounting while pending still resolves null at once', async () => {
+    await mount();
+    const r = await start();
+    await screen.unmount();
+    await settle();
+    expect(r).toEqual({ done: true, value: null });
+  });
+
+  test('Android resolves immediately', async () => {
+    Platform.OS = 'android';
+    await mount();
+    const r = await start();
+    await fireEvent.press(screen.getByText('Bỏ qua file này'));
+    await settle();
+    expect(r).toEqual({ done: true, value: null });
+  });
 });

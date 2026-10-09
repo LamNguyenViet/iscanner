@@ -18,7 +18,11 @@ describe('password ask loop', () => {
   const readBytes = async (uri: string) => files[uri];
 
   beforeAll(async () => {
-    files = { enc: makePasswordPdf(), plain: await plainPdf() };
+    files = {
+      enc: makePasswordPdf(),
+      open: makePasswordPdf({ userPassword: '' }),
+      plain: await plainPdf(),
+    };
   });
   beforeEach(() => jest.clearAllMocks());
 
@@ -108,5 +112,44 @@ describe('password ask loop', () => {
     expect(Buffer.from(stored).toString('latin1')).not.toContain('/Encrypt');
     const doc = await PDFDocument.load(stored);
     expect(doc.getPageCount()).toBe(2);
+  });
+
+  it('opens an owner-restricted PDF (empty user password) without asking', async () => {
+    const askPassword = jest.fn();
+    const res = await loadPickedPdfs({ readBytes, askPassword }, [{ uri: 'open', name: 'o.pdf' }]);
+    expect(askPassword).not.toHaveBeenCalled();
+    expect(res.loaded).toEqual([{ uri: 'open', name: 'o.pdf', pageCount: 1, password: '' }]);
+    expect(mockLog.info).toHaveBeenCalledWith('pdf.unlocked', { file: 'o.pdf' });
+  });
+
+  it('merging an owner-restricted PDF gives a plain output', async () => {
+    const add = jest.fn().mockResolvedValue(meta);
+    await createMergedDocument(
+      { readBytes, library: { add } },
+      [
+        { uri: 'open', name: 'o.pdf', pageCount: 1, password: '' },
+        { uri: 'plain', name: 'p.pdf', pageCount: 1 },
+      ],
+      'M',
+    );
+    const stored = add.mock.calls[0][0] as Uint8Array;
+    expect(Buffer.from(stored).toString('latin1')).not.toContain('/Encrypt');
+    expect((await PDFDocument.load(stored)).getPageCount()).toBe(2);
+  });
+
+  it('a wrong empty attempt is silent: the first ask has wrongBefore false', async () => {
+    const askPassword = jest.fn().mockResolvedValue('secret');
+    await loadPickedPdfs({ readBytes, askPassword }, [{ uri: 'enc', name: 'e.pdf' }]);
+    expect(askPassword).toHaveBeenCalledTimes(1);
+    expect(askPassword).toHaveBeenCalledWith('e.pdf', false);
+  });
+
+  it('a wrong carried password tries empty, then asks with wrongBefore', async () => {
+    const askPassword = jest.fn().mockResolvedValue('secret');
+    const res = await loadPickedPdfs({ readBytes, askPassword }, [
+      { uri: 'open', name: 'o.pdf', password: 'bad' },
+    ]);
+    expect(askPassword).not.toHaveBeenCalled();
+    expect(res.loaded[0].password).toBe('');
   });
 });

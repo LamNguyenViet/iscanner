@@ -16,7 +16,7 @@ test('a plain Error from the load step becomes PdfLoadError with the file name',
 });
 
 test('an AppError without a file name gets the file name, keeping its class', async () => {
-  mockCount.mockRejectedValueOnce(new PdfEncryptedError({ index: 0 }));
+  mockCount.mockRejectedValue(new PdfEncryptedError({ index: 0 }));
   const { failed } = await loadPickedPdfs({ readBytes }, [{ uri: 'u', name: 'e.pdf' }]);
   expect(failed[0]).toBeInstanceOf(PdfEncryptedError);
   expect(failed[0].fileName).toBe('e.pdf');

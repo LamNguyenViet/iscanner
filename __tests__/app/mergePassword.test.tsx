@@ -1,4 +1,4 @@
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import Merge from '../../app/merge';
 import { LibraryProvider } from '../../src/library/LibraryContext';
@@ -84,6 +84,8 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
+  // The Modal dismissal wait is iOS-only; screen and most prompt tests run the Android path.
+  Platform.OS = 'android';
   jest.clearAllMocks();
   clearPending();
   mockRead.mockImplementation(async (uri: string) => files[uri]);

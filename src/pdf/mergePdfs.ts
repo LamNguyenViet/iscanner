@@ -15,7 +15,7 @@ async function loadPdf(
   } catch (cause) {
     if (cause instanceof EncryptedPDFError) throw new PdfEncryptedError({ index, fileName, cause });
     // The password is never put in the error: only the library's own error is kept as the cause.
-    if (password !== undefined && cause instanceof Error && /password incorrect/i.test(cause.message)) {
+    if (password !== undefined && cause instanceof Error && /password incorrect|needs password/i.test(cause.message)) {
       throw new PdfPasswordError({ index, fileName, cause });
     }
     throw new PdfLoadError({ index, fileName, cause });

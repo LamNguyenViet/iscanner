@@ -1,4 +1,4 @@
-import { Alert, AppState } from 'react-native';
+import { Alert, AppState, Platform } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import Incoming from '../../app/incoming';
 import { LibraryProvider } from '../../src/library/LibraryContext';
@@ -68,6 +68,8 @@ async function enter(password: string) {
 }
 
 beforeEach(() => {
+  // The Modal dismissal wait is iOS-only; screen and most prompt tests run the Android path.
+  Platform.OS = 'android';
   jest.clearAllMocks();
   clearPending();
   (hasSharedFiles as jest.Mock).mockReturnValue(false);
@@ -131,4 +133,17 @@ test('Skip with rejected files shows only the rejection popup, not the nothing-u
   expect(alertSpy).toHaveBeenCalledTimes(1);
   expect(alertSpy).not.toHaveBeenCalledWith('Không có file PDF hoặc ảnh hợp lệ');
   expect(mockDismissTo).toHaveBeenCalledWith('/');
+});
+
+test('an owner-restricted share (empty user password) skips the prompt and Save stores unlocked bytes', async () => {
+  (readBytes as jest.Mock).mockResolvedValue(makePasswordPdf({ userPassword: '' }));
+  const add = await renderIncoming();
+  expect(screen.queryByText('Nhập mật khẩu')).toBeNull();
+  expect(screen.getByText('1 trang')).toBeTruthy();
+  await fireEvent.press(screen.getByRole('button', { name: 'Lưu vào thư viện' }));
+  await settle();
+  await settle();
+  const stored = add.mock.calls[0][0] as Uint8Array;
+  expect(Buffer.from(stored).toString('latin1')).not.toContain('/Encrypt');
+  expect(await getPdfPageCount(stored, 'hs.pdf')).toBe(1);
 });

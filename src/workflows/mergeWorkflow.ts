@@ -26,6 +26,10 @@ export async function openPdfWithPassword(
   knownPassword?: string,
 ): Promise<{ pageCount: number; password?: string } | null> {
   let password = knownPassword;
+  let firstError: unknown;
+  let triedEmpty = knownPassword === '';
+  // True once a real (non-silent) password has failed: only then is the prompt a retry.
+  let userTried = knownPassword !== undefined && knownPassword !== '';
   for (;;) {
     try {
       const pageCount = await getPdfPageCount(bytes, fileName, password);
@@ -33,13 +37,23 @@ export async function openPdfWithPassword(
       return password === undefined ? { pageCount } : { pageCount, password };
     } catch (e) {
       const wrong = e instanceof PdfPasswordError;
-      if (!askPassword || !(wrong || e instanceof PdfEncryptedError)) throw e;
-      const answer = await askPassword(fileName, wrong);
-      if (answer === null) {
+      if (!wrong && !(e instanceof PdfEncryptedError)) throw e;
+      firstError ??= e;
+      // Owner-restricted PDFs open with an empty user password: try it silently before asking.
+      if (!triedEmpty) {
+        triedEmpty = true;
+        password = '';
+        continue;
+      }
+      if (!askPassword) throw firstError;
+      // A failed silent attempt is not a wrong answer from the user.
+      const answer = await askPassword(fileName, userTried);
+      if (typeof answer !== 'string') {
         log.info('pdf.unlockSkipped', { file: fileName });
         return null;
       }
       password = answer;
+      userTried = true;
     }
   }
 }
