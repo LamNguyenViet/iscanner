@@ -13,6 +13,8 @@ export async function downloadAndInstallApk(
     downloadFile?: (url: string, dest: File) => Promise<File>;
     startActivity?: typeof IntentLauncher.startActivityAsync;
     cacheDir?: Directory;
+    /** Checked after download and verification; when true the installer is not opened. */
+    isCancelled?: () => boolean;
   } = {},
 ): Promise<void> {
   const downloadFile = deps.downloadFile ?? ((url: string, dest: File) => File.downloadFileAsync(url, dest));
@@ -37,6 +39,8 @@ export async function downloadAndInstallApk(
     }
     throw new UpdateCorruptError();
   }
+
+  if (deps.isCancelled?.()) return;
 
   try {
     await startActivity('android.intent.action.VIEW', {

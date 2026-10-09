@@ -8,7 +8,7 @@ import { useTheme } from '../theme/ThemeContext';
 
 /** Renders the app, plus a blocking overlay for a forced update or a prompt for an optional one. */
 export function UpdateGate({ children }: { children?: ReactNode }) {
-  const { decision, busy, startUpdate, snooze } = useUpdate();
+  const { decision, busy, startUpdate, cancel, snooze } = useUpdate();
   const { t, language } = useLocale();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -43,10 +43,9 @@ export function UpdateGate({ children }: { children?: ReactNode }) {
   return (
     <>
       {children}
-      {force || busy ? (
+      {force ? (
         <View style={styles.overlay} accessibilityViewIsModal>
-          {force ? (
-            <>
+          <>
               <Text style={styles.title}>{t.update.forceTitle}</Text>
               <Text style={styles.body}>{decision.message?.[language] ?? t.update.forceBody}</Text>
               <Text style={styles.meta}>{t.update.current(version, build)}</Text>
@@ -63,13 +62,26 @@ export function UpdateGate({ children }: { children?: ReactNode }) {
                 <Text style={styles.buttonText}>{t.update.updateNow}</Text>
               </Pressable>
             </>
-          ) : null}
           {busy ? (
             <View style={styles.busy}>
               <ActivityIndicator color={colors.primary} />
               <Text style={styles.meta}>{t.update.downloading(mb)}</Text>
+              <Pressable accessibilityRole="button" onPress={cancel}>
+                <Text style={styles.link}>{t.common.cancel}</Text>
+              </Pressable>
             </View>
           ) : null}
+        </View>
+      ) : null}
+      {!force && busy ? (
+        <View style={styles.bannerHost} pointerEvents="box-none">
+          <View style={styles.banner}>
+            <ActivityIndicator color={colors.primary} />
+            <Text style={styles.bannerText}>{t.update.downloading(mb)}</Text>
+            <Pressable accessibilityRole="button" onPress={cancel} hitSlop={8}>
+              <Text style={styles.link}>{t.common.cancel}</Text>
+            </Pressable>
+          </View>
         </View>
       ) : null}
     </>
@@ -96,5 +108,18 @@ const makeStyles = (c: Palette) =>
     button: { backgroundColor: c.primary, paddingVertical: 14, paddingHorizontal: 32, borderRadius: 8 },
     buttonText: { color: c.onPrimary, fontSize: 16, fontWeight: '600' },
     disabled: { opacity: 0.5 },
+    link: { fontSize: 14, fontWeight: '600', color: c.primary },
+    bannerHost: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 16 },
+    banner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      padding: 12,
+      borderRadius: 8,
+      backgroundColor: c.surface,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    bannerText: { flex: 1, fontSize: 14, color: c.text },
     busy: { alignItems: 'center', gap: 8 },
   });

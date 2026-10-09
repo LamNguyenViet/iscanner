@@ -6,6 +6,7 @@ const UpdateContext = createContext<UpdateCheck>({
   decision: { kind: 'none' },
   busy: false,
   startUpdate: async () => {},
+  cancel: () => {},
   snooze: async () => {},
   checkNow: async () => 'none',
 });

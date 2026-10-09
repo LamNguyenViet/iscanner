@@ -27,6 +27,8 @@ export type UpdateCheck = {
   decision: UpdateDecision;
   busy: boolean;
   startUpdate(): Promise<void>;
+  /** Abandons the running install; its outcome is ignored and the installer is not opened. */
+  cancel(): void;
   snooze(): Promise<void>;
   checkNow(): Promise<CheckResult>;
 };
@@ -36,7 +38,7 @@ export type UpdateDeps = {
   platform?: 'android' | 'ios';
   now?: () => number;
   configUrl?: string;
-  installApk?: (target: PlatformUpdate) => Promise<void>;
+  installApk?: (target: PlatformUpdate, opts?: { isCancelled?: () => boolean }) => Promise<void>;
   openUrl?: (url: string) => Promise<void>;
   clearCache?: () => void;
   fs?: FsAdapter;
@@ -54,6 +56,7 @@ export function useUpdateCheck(deps: UpdateDeps = {}): UpdateCheck {
   depsRef.current = deps;
   const decisionRef = useRef<UpdateDecision>(NONE);
   const busyRef = useRef(false);
+  const token = useRef<{ cancelled: boolean } | null>(null);
   const inFlight = useRef<Promise<CheckResult> | null>(null);
   const mounted = useRef(true);
   const tRef = useRef(t);
@@ -173,6 +176,8 @@ export function useUpdateCheck(deps: UpdateDeps = {}): UpdateCheck {
   const startUpdate = useCallback(async () => {
     if (busyRef.current) return;
     busyRef.current = true;
+    const mine = { cancelled: false };
+    token.current = mine;
     setBusy(true);
     try {
       if (decisionRef.current.fromMemory || !decisionRef.current.target) {
@@ -188,15 +193,25 @@ export function useUpdateCheck(deps: UpdateDeps = {}): UpdateCheck {
       log.info('update.started');
       const d = depsRef.current;
       if (env().platform === 'ios') await (d.openUrl ?? openUpdatePage)(target.url);
-      else await (d.installApk ?? downloadAndInstallApk)(target);
+      else await (d.installApk ?? downloadAndInstallApk)(target, { isCancelled: () => mine.cancelled });
     } catch (err) {
+      if (mine.cancelled) return;
       log.warn('update.failed', { code: toAppError(err).code });
       showError(err);
     } finally {
-      busyRef.current = false;
-      if (mounted.current) setBusy(false);
+      if (!mine.cancelled) {
+        busyRef.current = false;
+        if (mounted.current) setBusy(false);
+      }
     }
   }, [runCheck, showError]);
 
-  return { decision, busy, startUpdate, snooze, checkNow };
+  const cancel = useCallback(() => {
+    if (token.current) token.current.cancelled = true;
+    token.current = null;
+    busyRef.current = false;
+    if (mounted.current) setBusy(false);
+  }, []);
+
+  return { decision, busy, startUpdate, cancel, snooze, checkNow };
 }

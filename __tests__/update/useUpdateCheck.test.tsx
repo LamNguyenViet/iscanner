@@ -30,8 +30,17 @@ const deps = (over: Partial<UpdateDeps> = {}): UpdateDeps => ({
   ...over,
 });
 const stored = async () => (await loadSettings(fs)).update;
+let current: { unmount(): unknown } | null = null;
+const unmountCurrent = async () => {
+  const c = current;
+  current = null;
+  if (c) await act(async () => { await c.unmount(); });
+};
+// Each mount replaces the previous hook, as a real remount would.
 const mount = async (over: Partial<UpdateDeps> = {}) => {
+  await unmountCurrent();
   const r = await renderHook(() => useUpdateCheck(deps(over)));
+  current = r;
   await settle();
   return r;
 };
@@ -48,7 +57,10 @@ beforeEach(() => {
     return { remove: jest.fn() } as unknown as ReturnType<typeof AppState.addEventListener>;
   });
 });
-afterEach(() => jest.restoreAllMocks());
+afterEach(async () => {
+  await unmountCurrent();
+  jest.restoreAllMocks();
+});
 
 test('mount with min 8 on build 7 forces and remembers it', async () => {
   const { result } = await mount();
@@ -158,7 +170,9 @@ test('checkNow ignores the throttle and the snooze', async () => {
   fetchConfig.mockResolvedValue(cfg(7, 8));
   const { result } = await mount();
   await act(async () => { await result.current.snooze(); });
-  await expect(result.current.checkNow()).resolves.toBe('optional');
+  let res: unknown;
+  await act(async () => { res = await result.current.checkNow(); });
+  expect(res).toBe('optional');
   expect(fetchConfig).toHaveBeenCalledTimes(2);
 });
 
@@ -166,7 +180,7 @@ test('startUpdate installs on Android', async () => {
   const installApk = jest.fn().mockResolvedValue(undefined);
   const { result } = await mount({ installApk });
   await act(async () => { await result.current.startUpdate(); });
-  expect(installApk).toHaveBeenCalledWith(expect.objectContaining({ latestBuild: 8 }));
+  expect(installApk).toHaveBeenCalledWith(expect.objectContaining({ latestBuild: 8 }), expect.anything());
   expect(log.info).toHaveBeenCalledWith('update.started');
 });
 
@@ -211,5 +225,35 @@ test('startUpdate from memory installs once the re-check succeeds', async () => 
   const { result } = await mount({ installApk });
   fetchConfig.mockResolvedValue(cfg(8, 9));
   await act(async () => { await result.current.startUpdate(); });
-  expect(installApk).toHaveBeenCalledWith(expect.objectContaining({ latestBuild: 9 }));
+  expect(installApk).toHaveBeenCalledWith(expect.objectContaining({ latestBuild: 9 }), expect.anything());
+});
+
+test('cancel ignores the running install: busy false, decision kept, nothing logged as failed', async () => {
+  let rejectInstall!: (e: unknown) => void;
+  const installApk = jest.fn().mockReturnValue(new Promise<void>((_r, rej) => (rejectInstall = rej)));
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  const { result } = await mount({ installApk });
+  let started!: Promise<void>;
+  await act(async () => { started = result.current.startUpdate(); });
+  expect(result.current.busy).toBe(true);
+  await act(async () => result.current.cancel());
+  expect(result.current.busy).toBe(false);
+  expect(result.current.decision.kind).toBe('force');
+  await act(async () => { rejectInstall(new UpdateCorruptError()); await started; });
+  expect(log.warn).not.toHaveBeenCalledWith('update.failed', expect.anything());
+  expect(alert).not.toHaveBeenCalled();
+  expect(result.current.busy).toBe(false);
+});
+
+test('the install flow sees the cancellation through isCancelled', async () => {
+  let seen: (() => boolean) | undefined;
+  const installApk = jest.fn().mockImplementation((_t, opts) => {
+    seen = opts.isCancelled;
+    return new Promise<void>(() => {});
+  });
+  const { result } = await mount({ installApk });
+  await act(async () => { void result.current.startUpdate(); });
+  expect(seen!()).toBe(false);
+  await act(async () => result.current.cancel());
+  expect(seen!()).toBe(true);
 });

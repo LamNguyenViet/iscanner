@@ -7,7 +7,7 @@ import { createMemoryFs } from '../../src/library/memoryFs';
 import { loadSettings } from '../../src/settings/settings';
 import { UpdateProvider } from '../../src/update/UpdateContext';
 import type { UpdateDeps } from '../../src/update/useUpdateCheck';
-import { Text } from 'react-native';
+import { Pressable, Text } from 'react-native';
 
 jest.mock('../../src/native/appBuild', () => ({
   currentAppBuild: () => ({ version: '1.7.0', build: 7 }),
@@ -106,7 +106,7 @@ test('Update installs the APK on Android and shows the download state', async ()
   installApk.mockReturnValue(new Promise<void>((r) => (release = r)));
   await mount(android(8, 8));
   await fireEvent.press(screen.getByText('Cập nhật'));
-  expect(installApk).toHaveBeenCalledWith(expect.objectContaining({ latestBuild: 8 }));
+  expect(installApk).toHaveBeenCalledWith(expect.objectContaining({ latestBuild: 8 }), expect.anything());
   expect(screen.getByText('Đang tải bản cập nhật… (≈ 12 MB)')).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Cập nhật' })).toBeDisabled();
   expect(screen.queryByText('Nếu Android hỏi, hãy cho phép iScanner cài ứng dụng rồi bấm Cập nhật lại.')).toBeNull();
@@ -155,5 +155,55 @@ test('the optional prompt Update button starts the install', async () => {
   await mount(android(7, 8));
   await act(async () => { alert.mock.calls[0][2]![1].onPress!(); });
   await settle();
-  expect(installApk).toHaveBeenCalledWith(expect.objectContaining({ latestBuild: 8 }));
+  expect(installApk).toHaveBeenCalledWith(expect.objectContaining({ latestBuild: 8 }), expect.anything());
+});
+
+test('Cancel while downloading keeps the force overlay with Update enabled', async () => {
+  let release!: () => void;
+  installApk.mockReturnValue(new Promise<void>((r) => (release = r)));
+  await mount(android(8, 8));
+  await fireEvent.press(screen.getByText('Cập nhật'));
+  expect(screen.getByRole('button', { name: 'Huỷ' })).toBeTruthy();
+  await fireEvent.press(screen.getByText('Huỷ'));
+  expect(screen.getByText('Cần cập nhật iScanner')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Cập nhật' })).toBeEnabled();
+  expect(screen.queryByText(/Đang tải/)).toBeNull();
+  await act(async () => release());
+});
+
+test('an optional download shows a banner that does not block the app', async () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  installApk.mockReturnValue(new Promise<void>(() => {}));
+  const onPress = jest.fn();
+  await render(
+    <LocaleProvider fs={fs}>
+      <UpdateProvider
+        deps={{
+          fs,
+          fetchConfig: async () => android(7, 8),
+          getBuild: () => ({ version: '1.7.0', build: 7 }),
+          configUrl: 'https://example.com/u.json',
+          now: () => 1_000_000,
+          installApk,
+          openUrl,
+          clearCache: jest.fn(),
+        }}
+      >
+        <UpdateGate>
+          <Pressable onPress={onPress}>
+            <Text>app button</Text>
+          </Pressable>
+        </UpdateGate>
+      </UpdateProvider>
+    </LocaleProvider>,
+  );
+  await settle();
+  await act(async () => { alert.mock.calls[0][2]![1].onPress!(); });
+  await settle();
+  expect(screen.getByText('Đang tải bản cập nhật… (≈ 12 MB)')).toBeTruthy();
+  expect(screen.queryByText('Cần cập nhật iScanner')).toBeNull();
+  await fireEvent.press(screen.getByText('app button'));
+  expect(onPress).toHaveBeenCalledTimes(1);
+  await fireEvent.press(screen.getByText('Huỷ'));
+  expect(screen.queryByText(/Đang tải/)).toBeNull();
 });

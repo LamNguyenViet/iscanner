@@ -92,3 +92,14 @@ test('startActivity failure throws UpdateInstallError with cause', async () => {
   expect(err).toBeInstanceOf(UpdateInstallError);
   expect(err.cause).toBe(cause);
 });
+
+test('a cancel seen after download and verification skips the installer', async () => {
+  const startActivity = jest.fn();
+  const { downloadFile } = (() => {
+    const file = { md5: target.md5, contentUri: 'content://x', delete: jest.fn() };
+    return { downloadFile: jest.fn().mockResolvedValue(file) };
+  })();
+  await downloadAndInstallApk(target, { downloadFile, startActivity, isCancelled: () => true });
+  expect(downloadFile).toHaveBeenCalled();
+  expect(startActivity).not.toHaveBeenCalled();
+});
