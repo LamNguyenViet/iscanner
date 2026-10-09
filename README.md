@@ -16,6 +16,7 @@
 - (1.5.0) **Thông báo lỗi rõ ràng**: mỗi loại lỗi có lớp riêng (`PdfLoadError`, `PdfEncryptedError`, `FileTooLargeError`…) và popup theo ngôn ngữ đang dùng, nói rõ chuyện gì xảy ra và nên làm gì, kèm `Mã lỗi: …` ở cuối. Nhiều file lỗi cùng lúc → một popup liệt kê từng file và lý do.
 - (1.6.0) **Log hệ thống**: lỗi, cảnh báo và các sự kiện chính được ghi vào file riêng theo ngày (`logs/YYYY-MM-DD.log`, JSON Lines, trong thư mục riêng của app), tự xoá sau 7 ngày, không bao giờ ghi dữ liệu file/ảnh (byte, base64, data URI). ⚙︎ Cài đặt → `Hỗ trợ` → `Gửi log lỗi` để gửi log khi báo lỗi.
 - (1.7.0) **Bắt buộc cập nhật (force update)**: app đọc cấu hình phiên bản từ một GitHub Gist công khai (`extra.updateConfigUrl` trong `app.json`). Dưới `minBuild` → màn chặn toàn app (Android: tự tải APK, kiểm MD5, mở trình cài đặt; iOS: mở trang hướng dẫn); dưới `latestBuild` → nhắc cập nhật, có `Để sau` (24 giờ). Mất mạng không bao giờ chặn người chưa bị yêu cầu cập nhật. ⚙︎ Cài đặt → `Hỗ trợ` hiện phiên bản và `Kiểm tra cập nhật`.
+- (1.10.0) **Gộp PDF có mật khẩu**: khi chọn hoặc nhận một PDF được bảo vệ bằng mật khẩu, app hỏi mật khẩu từng file (`Nhập mật khẩu` → `Mở` / `Bỏ qua file này`); sai mật khẩu thì báo ngay trong hộp thoại và cho nhập lại; bỏ qua thì file không được thêm, không có popup lỗi. Chấp nhận cả mật khẩu mở lẫn mật khẩu chủ (owner); PDF chỉ khoá quyền (không có mật khẩu mở) được mở thẳng không hỏi. Giải mã ngay trên máy (RC4 và AES); file gộp và bản lưu vào thư viện luôn **không** có mật khẩu. Mật khẩu chỉ nằm trong bộ nhớ khi đang thao tác, không bao giờ được lưu hay ghi log.
 
 ## Lưu ý quan trọng
 
@@ -162,7 +163,7 @@ Tạo một Gist **công khai** chứa `iscanner-version.json`, rồi đặt lin
 - [ ] (1.4.0) Tắt hẳn rồi mở lại app → giữ ngôn ngữ đã chọn; chia sẻ file vào app khi đang tắt → màn `Nhận file` mở đúng ngôn ngữ đã chọn.
 - [ ] (1.4.0) iPhone: câu xin quyền camera hiện đúng ngôn ngữ; iScanner có mục Ngôn ngữ riêng trong Cài đặt iOS.
 - [ ] (1.5.0) Gộp 1 file PDF hỏng → popup `Không load được file` / "Không load được file, vui lòng kiểm tra lại định dạng file PDF." kèm tên file và `Mã lỗi: PDF_LOAD` (English: "Cannot load file, check your document's format file PDF.").
-- [ ] (1.5.0) Gộp 1 PDF có mật khẩu + 1 PDF hỏng + 1 PDF tốt → file tốt vẫn vào danh sách; một popup liệt kê 2 file lỗi kèm lý do.
+- [ ] (1.5.0) Gộp 2 PDF hỏng + 1 PDF tốt → file tốt vẫn vào danh sách; một popup liệt kê 2 file lỗi kèm lý do.
 - [ ] (1.5.0) Chia sẻ vào iScanner một file không hỗ trợ (.txt/.zip) hoặc > 100 MB → một popup duy nhất nêu tên file và lý do, rồi về Thư viện.
 - [ ] (1.5.0) Từ chối quyền camera rồi bấm Scan → popup `Cần quyền camera` có nút `Mở Cài đặt`; máy không có Google Play → popup `Không thể scan tài liệu` giải thích cần Google Play services.
 - [ ] (1.6.0) Gây một lỗi (ví dụ gộp PDF hỏng) → ⚙︎ Cài đặt → `Gửi log lỗi` → bảng chia sẻ mở với `iScanner-logs-<ngày>.txt`; mở file: có dòng `app.start` và dòng `error` mã `PDF_LOAD` kèm tên file, không có chuỗi base64 dài hay `data:image`.
@@ -173,3 +174,8 @@ Tạo một Gist **công khai** chứa `iscanner-version.json`, rồi đặt lin
 - [ ] (1.7.0) Gist `latestBuild` > build hiện tại (nhưng ≥ `minBuild`) → popup `Đã có phiên bản mới`; `Để sau` không nhắc lại trong 24 giờ; đang tải bản không bắt buộc vẫn dùng app được, có nút `Huỷ`.
 - [ ] (1.7.0) Đã bị chặn rồi tắt mạng, mở lại app → vẫn bị chặn; mất mạng khi chưa từng bị chặn → app chạy bình thường.
 - [ ] (1.7.0) iPhone: bị chặn → `Cập nhật` mở trang hướng dẫn cài lại bằng Sideloadly.
+- [ ] (1.10.0) Gộp PDF → chọn một PDF có mật khẩu → hộp `Nhập mật khẩu` hiện đúng tên file, nút `Mở` mờ khi ô trống; nhập sai → dòng đỏ `Mật khẩu không đúng, vui lòng thử lại.`; nhập đúng → file vào danh sách với đúng số trang.
+- [ ] (1.10.0) Chọn 3 file: PDF mật khẩu RC4, PDF mật khẩu AES (nhập mật khẩu chủ), PDF chỉ khoá quyền (không hỏi) → `Gộp PDF` → tài liệu mở được, đủ nội dung các trang.
+- [ ] (1.10.0) `Bỏ qua file này` hoặc nút Back trong hộp mật khẩu → file không được thêm, không có popup lỗi, các file khác vẫn được xử lý.
+- [ ] (1.10.0) Chia sẻ một PDF có mật khẩu vào iScanner → hỏi mật khẩu → `Lưu vào thư viện` → tài liệu mở trong app không cần mật khẩu; `Gộp với file khác` → màn Gộp PDF không hỏi lại.
+- [ ] (1.10.0) iPhone: nhập sai mật khẩu rồi nhập lại, và bỏ qua file cuối cùng khi có file lỗi → hộp thoại/popup kế tiếp luôn hiện ra (không bị treo vòng xoay).
