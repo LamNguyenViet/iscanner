@@ -21,3 +21,13 @@ describe('planIncoming', () => {
       kind: 'merge', pdfs: [pdf('a'), pdf('b')], images: [img('i')],
     }));
 });
+
+describe('planIncoming Word', () => {
+  const word = (n: string): IncomingFile => ({ uri: `file:///${n}.docx`, name: `${n}.docx`, kind: 'word', size: 1 });
+  it('one word is single-pdf', () =>
+    expect(planIncoming([word('w')])).toEqual({ kind: 'single-pdf', pdf: word('w'), images: [] }));
+  it('word + pdf merge', () =>
+    expect(planIncoming([word('w'), pdf('a')])).toEqual({ kind: 'merge', pdfs: [word('w'), pdf('a')], images: [] }));
+  it('word + image is single-pdf with images', () =>
+    expect(planIncoming([word('w'), img('i')])).toEqual({ kind: 'single-pdf', pdf: word('w'), images: [img('i')] }));
+});

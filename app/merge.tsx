@@ -18,14 +18,15 @@ import { useErrorAlert } from '../src/errors/useErrorAlert';
 import { useLocale } from '../src/i18n/LocaleContext';
 import { useLibrary } from '../src/library/LibraryContext';
 import { log } from '../src/logging/logger';
-import { pickPdfs } from '../src/native/pickPdfs';
+import { pickDocuments, WORD_MIME_TYPES } from '../src/native/pickPdfs';
 import { deleteFiles } from '../src/native/deleteFiles';
 import { readBytes } from '../src/native/readBytes';
+import { wordNativeDeps } from '../src/native/wordDeps';
 import { clearPending, hasPendingImages, takePdfs } from '../src/share/incomingStore';
 import { defaultName, sanitizeName } from '../src/utils/format';
 import {
   createMergedDocument,
-  loadPickedPdfs,
+  loadPickedFiles,
   type LoadedPdf,
 } from '../src/workflows/mergeWorkflow';
 import type { Palette } from '../src/theme/palette';
@@ -83,7 +84,7 @@ export default function Merge() {
       const result = await busy.run(async () => {
         const picked = await getPicked();
         if (picked.length === 0) return null;
-        const loaded = await loadPickedPdfs({ readBytes, askPassword: ask }, picked);
+        const loaded = await loadPickedFiles({ readBytes, askPassword: ask, word: wordNativeDeps }, picked);
         const loadedUris = new Set(loaded.loaded.map((f) => f.uri));
         const unusable = picked.filter((f) => !loadedUris.has(f.uri)).map((f) => f.uri);
         if (unusable.length > 0) deleteFiles(unusable);
@@ -110,7 +111,7 @@ export default function Merge() {
     }
   };
 
-  const pick = () => loadFrom(pickPdfs);
+  const pick = () => loadFrom(() => pickDocuments(['application/pdf', ...WORD_MIME_TYPES]));
 
   useEffect(() => {
     if (started.current) return;

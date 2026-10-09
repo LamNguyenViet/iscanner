@@ -1,5 +1,5 @@
 /** `password` is kept in memory only (never persisted or logged). */
-export type IncomingFile = { uri: string; name: string; kind: 'pdf' | 'image'; size: number; password?: string };
+export type IncomingFile = { uri: string; name: string; kind: 'pdf' | 'image' | 'word'; size: number; password?: string };
 
 export type IncomingPlan =
   | { kind: 'none' }

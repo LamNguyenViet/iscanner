@@ -14,8 +14,9 @@ function displayName(source: { uri: string; name?: string }): string {
   return source.name || displayNameFromUri(source.uri);
 }
 
-function extensionFor(bytes: Uint8Array, kind: 'pdf' | 'image'): string {
+function extensionFor(bytes: Uint8Array, kind: 'pdf' | 'image' | 'word'): string {
   if (kind === 'pdf') return 'pdf';
+  if (kind === 'word') return bytes[0] === 0x50 ? 'docx' : 'doc';
   return bytes[0] === 0x89 ? 'png' : 'jpg';
 }
 

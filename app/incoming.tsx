@@ -10,6 +10,8 @@ import { log } from '../src/logging/logger';
 import { deleteFiles } from '../src/native/deleteFiles';
 import { FileReadError, toAppError, type AppError } from '../src/errors/AppError';
 import { readBytes } from '../src/native/readBytes';
+import { wordNativeDeps } from '../src/native/wordDeps';
+import { convertWordToPdf } from '../src/convert/convertWord';
 import { clearSharedFiles, hasSharedFiles, readSharedFiles } from '../src/native/sharedPayloads';
 import { unlockPdf } from '../src/pdf/mergePdfs';
 import { importIncoming } from '../src/share/importIncoming';
@@ -39,7 +41,7 @@ function continueAfterPdf() {
 }
 
 function stripPdfExtension(name: string): string {
-  return name.replace(/\.pdf$/i, '');
+  return name.replace(/\.(pdf|docx?)$/i, '');
 }
 
 export default function Incoming() {
@@ -52,6 +54,7 @@ export default function Incoming() {
   const { ask, element: passwordPrompt } = usePasswordPrompt();
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [saving, setSaving] = useState(false);
+  const [converting, setConverting] = useState(false);
   // One rule for the label and the saved name.
   const pdfName = confirm ? stripPdfExtension(confirm.pdf.name) || t.common.untitled : '';
   const started = useRef(false);
@@ -154,13 +157,43 @@ export default function Incoming() {
     undecided.current = pdf.uri;
     try {
       let bytes: Uint8Array;
-      try {
-        bytes = await readBytes(pdf.uri);
-      } catch (e) {
-        throw new FileReadError({ fileName: pdf.name, cause: e });
+      let opened: { pageCount: number; password?: string } | null;
+      if (pdf.kind === 'word') {
+        // Convert first; from here on the confirm view works on the converted PDF under the original name.
+        setConverting(true);
+        let res;
+        try {
+          res = await convertWordToPdf({ ...wordNativeDeps, readBytes, askPassword: ask }, pdf);
+        } finally {
+          setConverting(false);
+        }
+        deleteFiles([pdf.uri]);
+        if (res === null) {
+          opened = null;
+          bytes = new Uint8Array(0);
+        } else {
+          undecided.current = res.uri;
+          if (!mounted.current) {
+            deleteFiles([res.uri]);
+            return;
+          }
+          pdf = { uri: res.uri, name: pdf.name, kind: 'pdf', size: pdf.size };
+          try {
+            bytes = await readBytes(res.uri);
+          } catch (e) {
+            throw new FileReadError({ fileName: pdf.name, cause: e });
+          }
+          opened = { pageCount: res.pageCount };
+        }
+      } else {
+        try {
+          bytes = await readBytes(pdf.uri);
+        } catch (e) {
+          throw new FileReadError({ fileName: pdf.name, cause: e });
+        }
+        // A share arriving while the prompt is open waits for the next foreground check (receiving is true).
+        opened = await openPdfWithPassword(bytes, pdf.name, ask, pdf.password);
       }
-      // A share arriving while the prompt is open waits for the next foreground check (receiving is true).
-      const opened = await openPdfWithPassword(bytes, pdf.name, ask, pdf.password);
       if (!mounted.current) return;
       if (opened === null) {
         // Password skipped: same as nothing usable.
@@ -175,8 +208,8 @@ export default function Incoming() {
       setConfirm({ pdf, images, bytes, pageCount: opened.pageCount, password: opened.password });
     } catch (e) {
       if (!mounted.current) return;
+      deleteFiles([...new Set([pdf.uri, undecided.current ?? pdf.uri])]);
       undecided.current = null;
-      deleteFiles([pdf.uri]);
       showError([...skipped, toAppError(e)]);
       continueAfterPdf();
     }
@@ -243,7 +276,9 @@ export default function Incoming() {
     return (
       <View style={[styles.center, themed.screen]}>
         <ActivityIndicator color={colors.primary} />
-        <Text style={[styles.status, themed.muted]}>{t.incoming.receiving}</Text>
+        <Text style={[styles.status, themed.muted]}>
+          {converting ? t.common.convertingWord : t.incoming.receiving}
+        </Text>
         {passwordPrompt}
       </View>
     );

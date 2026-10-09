@@ -25,6 +25,15 @@
             "CFBundleTypeRole": "Viewer"
           },
           {
+            "CFBundleTypeName": "Word",
+            "LSItemContentTypes": [
+              "org.openxmlformats.wordprocessingml.document",
+              "com.microsoft.word.doc"
+            ],
+            "LSHandlerRank": "Alternate",
+            "CFBundleTypeRole": "Viewer"
+          },
+          {
             "CFBundleTypeName": "Image",
             "LSItemContentTypes": [
               "public.image"
@@ -65,6 +74,14 @@
             {
               "scheme": "content",
               "mimeType": "image/*"
+            },
+            {
+              "scheme": "content",
+              "mimeType": "application/msword"
+            },
+            {
+              "scheme": "content",
+              "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             }
           ]
         }
@@ -94,12 +111,16 @@
             "singleShareMimeTypes": [
               "application/pdf",
               "image/*",
-              "application/octet-stream"
+              "application/octet-stream",
+              "application/msword",
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             ],
             "multipleShareMimeTypes": [
               "application/pdf",
               "image/*",
-              "application/octet-stream"
+              "application/octet-stream",
+              "application/msword",
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             ]
           }
         }

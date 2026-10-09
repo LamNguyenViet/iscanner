@@ -8,9 +8,9 @@ import { createLibraryStore } from '../../src/library/libraryStore';
 import { createMemoryFs } from '../../src/library/memoryFs';
 import { deleteFiles } from '../../src/native/deleteFiles';
 import { clearPending, setPending } from '../../src/share/incomingStore';
-import { pickPdfs } from '../../src/native/pickPdfs';
+import { pickDocuments } from '../../src/native/pickPdfs';
 import { hasPendingImages } from '../../src/share/incomingStore';
-import { createMergedDocument, loadPickedPdfs } from '../../src/workflows/mergeWorkflow';
+import { createMergedDocument, loadPickedFiles } from '../../src/workflows/mergeWorkflow';
 import { settleTheme, styleOf, themed } from '../fixtures/theme';
 
 const mockBack = jest.fn();
@@ -25,13 +25,13 @@ jest.mock('expo-router', () => ({
     replace: (...args: unknown[]) => mockReplace(...args),
   },
 }));
-jest.mock('../../src/native/pickPdfs', () => ({ pickPdfs: jest.fn() }));
+jest.mock('../../src/native/pickPdfs', () => ({ pickDocuments: jest.fn(), WORD_MIME_TYPES: ['application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'] }));
 jest.mock('../../src/native/readBytes', () => ({ readBytes: jest.fn() }));
 jest.mock('../../src/native/deleteFiles', () => ({
   deleteFiles: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('../../src/workflows/mergeWorkflow', () => ({
-  loadPickedPdfs: jest.fn(),
+  loadPickedFiles: jest.fn(),
   createMergedDocument: jest.fn(),
 }));
 const mockDraggableProps = jest.fn();
@@ -50,8 +50,8 @@ jest.mock('react-native-draggable-flatlist', () => {
   };
 });
 
-const mockPick = pickPdfs as jest.Mock;
-const mockLoad = loadPickedPdfs as jest.Mock;
+const mockPick = pickDocuments as jest.Mock;
+const mockLoad = loadPickedFiles as jest.Mock;
 const mockMerge = createMergedDocument as jest.Mock;
 const mockDeleteFiles = deleteFiles as jest.Mock;
 const mockLog = jest.requireMock('../../src/logging/logger').log;

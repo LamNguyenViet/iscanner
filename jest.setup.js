@@ -15,3 +15,9 @@ jest.mock('./src/logging/logger', () => ({
     init: jest.fn().mockResolvedValue(undefined),
   },
 }));
+
+// The Expo native module behind the Word decryptor does not exist under Jest; tests that decrypt override this.
+jest.mock('./modules/office-crypto', () => ({
+  __esModule: true,
+  default: { iteratedHash: jest.fn() },
+}));
