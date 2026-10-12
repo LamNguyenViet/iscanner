@@ -145,7 +145,7 @@
     ],
     "scheme": "iscanner",
     "extra": {
-      "updateConfigUrl": ""
+      "updateConfigUrl": "https://gist.githubusercontent.com/LamNguyenViet/26ed4def11795543668e7ba03859658c/raw/iscanner.json"
     }
   }
 }
