@@ -1,3 +1,4 @@
+import { makeStandardEncryptedDocx } from '../fixtures/word';
 import { Document, Packer, Paragraph } from 'docx';
 import { encrypt } from 'officecrypto-tool';
 import { decryptOffice, isOfficeEncrypted } from '../../src/native/officeCrypto';
@@ -67,4 +68,16 @@ test('Agile input runs the spin loop natively, once, with spinCount 100000', asy
   expect(mockedHash).toHaveBeenCalledTimes(1);
   expect(mockedHash.mock.calls[0][0]).toBe('SHA512');
   expect(mockedHash.mock.calls[0][2]).toBe(100000);
+});
+
+test('an empty password on a non-Agile file rejects with WordPasswordError', async () => {
+  const std = await makeStandardEncryptedDocx('secret');
+  await expect(decryptOffice(std, '')).rejects.toBeInstanceOf(WordPasswordError);
+});
+
+test('Standard-encrypted docx decrypts with the right password', async () => {
+  const std = await makeStandardEncryptedDocx('secret');
+  const out = await decryptOffice(std, 'secret');
+  expect(Buffer.from(out).equals(Buffer.from(plain))).toBe(false); // different doc, but valid zip
+  expect(out[0]).toBe(0x50);
 });

@@ -13,6 +13,8 @@ export type WordDeps = {
   decryptOffice: (bytes: Uint8Array, password: string) => Promise<Uint8Array>;
   isOfficeEncrypted: (bytes: Uint8Array) => boolean;
   askPassword?: AskPassword;
+  /** Best-effort cleanup of the printed PDF when it cannot be used. */
+  deleteFiles?: (uris: string[]) => Promise<void>;
 };
 
 /** Private marker: an encrypted file was opened before any password was given. Never escapes. */
@@ -58,8 +60,14 @@ export async function convertWordToPdf(
 
     const { html, page } = kind === 'doc' ? await docToHtml(bytes) : await docxToHtml(bytes);
     const uri = await deps.printHtmlToPdf(html, page);
-    const pdf = await deps.readBytes(uri);
-    const pageCount = await getPdfPageCount(pdf, fileName);
+    let pageCount: number;
+    try {
+      const pdf = await deps.readBytes(uri);
+      pageCount = await getPdfPageCount(pdf, fileName);
+    } catch (e) {
+      await deps.deleteFiles?.([uri]).catch(() => {});
+      throw new WordConvertError({ fileName, cause: e });
+    }
     log.info('word.converted', { file: fileName, kind: logKind, ms: Date.now() - started });
     return { uri, pageCount };
   } catch (e) {

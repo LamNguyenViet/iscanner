@@ -80,3 +80,8 @@ export async function makeEncryptedDocx(password = 'secret'): Promise<Uint8Array
   const plain = await makeDocx();
   return new Uint8Array(await encrypt(Buffer.from(plain), { password }));
 }
+
+export async function makeStandardEncryptedDocx(password = 'secret'): Promise<Uint8Array> {
+  const plain = await makeDocx();
+  return new Uint8Array(await encrypt(Buffer.from(plain), { password, type: 'standard' }));
+}

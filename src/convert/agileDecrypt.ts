@@ -23,7 +23,7 @@ const BK_KEY_VALUE = new Uint8Array([0x14, 0x6e, 0x0b, 0xe7, 0xab, 0xac, 0xd0, 0
 
 const SEGMENT = 4096;
 const HASH_ALGS: readonly HashAlg[] = ['SHA1', 'SHA256', 'SHA384', 'SHA512'];
-const MAX_SPIN = 10_000_000;
+const MAX_SPIN = 1_000_000;
 
 type Streams = { info: Uint8Array; pkg: Uint8Array | null };
 

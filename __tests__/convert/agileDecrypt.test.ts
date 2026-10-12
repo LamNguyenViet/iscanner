@@ -68,3 +68,15 @@ test('garbage throws WordConvertError', () => {
 test('a plain docx throws WordConvertError', () => {
   expect(() => agileDecrypt(plain, 'x', deps)).toThrow(WordConvertError);
 });
+
+test('a spinCount above 1,000,000 throws WordConvertError', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const CFB = require('cfb');
+  const cfb = CFB.read(Buffer.from(enc), { type: 'buffer' });
+  const entry = CFB.find(cfb, '/EncryptionInfo');
+  const xml = Buffer.from(entry.content).toString('latin1').replace(/spinCount="\d+"/, 'spinCount="1000001"');
+  entry.content = Buffer.from(xml, 'latin1');
+  entry.size = entry.content.length;
+  const tampered = new Uint8Array(CFB.write(cfb, { type: 'buffer' }));
+  expect(() => agileDecrypt(tampered, 'secret', deps)).toThrow(WordConvertError);
+});

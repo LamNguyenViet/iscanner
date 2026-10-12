@@ -1,9 +1,15 @@
 import fs from 'fs';
 import { PDFDocument } from '../../src/pdf/pdfLib';
 import { convertWordToPdf, type WordDeps } from '../../src/convert/convertWord';
-import { WordConvertError } from '../../src/errors/AppError';
+import { WordConvertError, WordPasswordError } from '../../src/errors/AppError';
 import { decryptOffice, isOfficeEncrypted } from '../../src/native/officeCrypto';
-import { makeDocx, makeEncryptedDocx, SAMPLE_DOC_FIRST_LINE, SAMPLE_DOC_PATH, VI_TEXT } from '../fixtures/word';
+import {
+  makeDocx,
+  makeEncryptedDocx,
+  makeStandardEncryptedDocx,
+  SAMPLE_DOC_FIRST_LINE, SAMPLE_DOC_PATH,
+  VI_TEXT,
+} from '../fixtures/word';
 
 // The native spin-loop module, replaced by an equivalent Node implementation.
 jest.mock('../../src/native/officeCryptoNative', () => {
@@ -25,6 +31,7 @@ const mockLog = jest.requireMock('../../src/logging/logger').log;
 
 let files: Record<string, Uint8Array>;
 let printHtmlToPdf: jest.Mock;
+let deleteFiles: jest.Mock;
 
 function deps(askPassword?: WordDeps['askPassword']): WordDeps {
   return {
@@ -33,6 +40,7 @@ function deps(askPassword?: WordDeps['askPassword']): WordDeps {
     decryptOffice,
     isOfficeEncrypted,
     askPassword,
+    deleteFiles,
   };
 }
 
@@ -47,6 +55,7 @@ beforeAll(async () => {
   files = {
     plain: await makeDocx(),
     enc: await makeEncryptedDocx('secret'),
+    stdEnc: await makeStandardEncryptedDocx('secret'),
     junk: new Uint8Array([1, 2, 3, 4, 5]),
     doc: new Uint8Array(fs.readFileSync(SAMPLE_DOC_PATH)),
     'out.pdf': await d.save(),
@@ -55,6 +64,7 @@ beforeAll(async () => {
 beforeEach(() => {
   jest.clearAllMocks();
   printHtmlToPdf = jest.fn().mockResolvedValue('out.pdf');
+  deleteFiles = jest.fn().mockResolvedValue(undefined);
 });
 
 describe('convertWordToPdf', () => {
@@ -118,5 +128,37 @@ describe('convertWordToPdf', () => {
     const res = await convertWordToPdf(deps(), { uri: 'doc', name: 'old.doc' });
     expect(res?.pageCount).toBe(2);
     expect(printHtmlToPdf.mock.calls[0][0]).toContain(SAMPLE_DOC_FIRST_LINE);
+  });
+
+  it('prompts for and converts a Standard-encrypted DOCX (real decryptOffice)', async () => {
+    const ask = jest.fn().mockResolvedValue('secret');
+    const res = await convertWordToPdf(deps(ask), { uri: 'stdEnc', name: 's.docx' });
+    expect(ask).toHaveBeenCalledWith('s.docx', false);
+    expect(res).toEqual({ uri: 'out.pdf', pageCount: 2 });
+    expect(printHtmlToPdf.mock.calls[0][0]).toContain(VI_TEXT);
+  });
+
+  it('prompts for and converts an encrypted .doc', async () => {
+    const plainDoc = files.doc;
+    const d: WordDeps = {
+      ...deps(jest.fn().mockResolvedValue('secret')),
+      isOfficeEncrypted: (b) => b === plainDoc,
+      decryptOffice: jest.fn(async (_b, pw) => {
+        if (pw === 'secret') return plainDoc;
+        throw new WordPasswordError();
+      }),
+    };
+    const res = await convertWordToPdf(d, { uri: 'doc', name: 'old.doc' });
+    expect(d.askPassword).toHaveBeenCalledWith('old.doc', false);
+    expect(res?.pageCount).toBe(2);
+    expect(printHtmlToPdf.mock.calls[0][0]).toContain(SAMPLE_DOC_FIRST_LINE);
+  });
+
+  it('deletes the printed PDF when it cannot be read back as a PDF', async () => {
+    printHtmlToPdf.mockResolvedValue('bad.pdf');
+    const d = { ...deps(), readBytes: async (u: string) => (u === 'bad.pdf' ? new Uint8Array([1, 2, 3]) : files[u]) };
+    const err = await convertWordToPdf(d, { uri: 'plain', name: 'p.docx' }).catch((e) => e);
+    expect(err).toBeInstanceOf(WordConvertError);
+    expect(deleteFiles).toHaveBeenCalledWith(['bad.pdf']);
   });
 });

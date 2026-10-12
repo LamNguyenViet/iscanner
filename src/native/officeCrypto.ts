@@ -46,12 +46,14 @@ export function isOfficeEncrypted(bytes: Uint8Array): boolean {
  */
 export async function decryptOffice(bytes: Uint8Array, password: string): Promise<Uint8Array> {
   if (isAgileEncrypted(bytes)) return agileDecrypt(bytes, password, agileDeps);
+  // officecrypto-tool throws a generic error on an empty password; treat it as "needs a password".
+  if (password === '') throw new WordPasswordError();
   try {
     const out = await officeCrypto.decrypt(bytes as never, { password });
     return new Uint8Array(out);
   } catch (e) {
     const msg = e instanceof Error ? e.message : '';
-    if (/password is incorrect/i.test(msg)) throw new WordPasswordError();
+    if (/password is (incorrect|required)/i.test(msg)) throw new WordPasswordError();
     throw new WordConvertError({ cause: e });
   }
 }

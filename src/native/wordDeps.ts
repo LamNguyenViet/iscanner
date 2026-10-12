@@ -1,4 +1,5 @@
 import type { WordDeps } from '../convert/convertWord';
+import { deleteFiles } from './deleteFiles';
 import { decryptOffice, isOfficeEncrypted } from './officeCrypto';
 import { printHtmlToPdf } from './printPdf';
 
@@ -7,4 +8,5 @@ export const wordNativeDeps: Omit<WordDeps, 'readBytes' | 'askPassword'> = {
   printHtmlToPdf,
   decryptOffice,
   isOfficeEncrypted,
+  deleteFiles,
 };
