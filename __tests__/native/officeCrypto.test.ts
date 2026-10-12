@@ -81,3 +81,22 @@ test('Standard-encrypted docx decrypts with the right password', async () => {
   expect(Buffer.from(out).equals(Buffer.from(plain))).toBe(false); // different doc, but valid zip
   expect(out[0]).toBe(0x50);
 });
+
+test('Standard input uses our decryptor: native SHA1 spin of 50000, no officecrypto-tool decrypt', async () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const tool = require('officecrypto-tool');
+  const spy = jest.spyOn(tool, 'decrypt');
+  const std = await makeStandardEncryptedDocx('secret');
+  const out = await decryptOffice(std, 'secret');
+  expect(out[0]).toBe(0x50);
+  expect(mockedHash).toHaveBeenCalledTimes(1);
+  expect(mockedHash.mock.calls[0][0]).toBe('SHA1');
+  expect(mockedHash.mock.calls[0][2]).toBe(50000);
+  expect(spy).not.toHaveBeenCalled();
+  spy.mockRestore();
+});
+
+test('an empty password on Standard input rejects with WordPasswordError', async () => {
+  const std = await makeStandardEncryptedDocx('secret');
+  await expect(decryptOffice(std, '')).rejects.toBeInstanceOf(WordPasswordError);
+});

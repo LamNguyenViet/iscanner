@@ -25,9 +25,9 @@ const SEGMENT = 4096;
 const HASH_ALGS: readonly HashAlg[] = ['SHA1', 'SHA256', 'SHA384', 'SHA512'];
 const MAX_SPIN = 1_000_000;
 
-type Streams = { info: Uint8Array; pkg: Uint8Array | null };
+export type Streams = { info: Uint8Array; pkg: Uint8Array | null };
 
-function readStreams(bytes: Uint8Array): Streams | null {
+export function readStreams(bytes: Uint8Array): Streams | null {
   const cfb = CFB.read(bytes, { type: 'array' });
   const info = CFB.find(cfb, '/EncryptionInfo');
   if (!info || !info.content) return null;
@@ -170,31 +170,31 @@ function fit(data: Uint8Array, len: number): Uint8Array {
   return out;
 }
 
-function concat(a: Uint8Array, b: Uint8Array): Uint8Array {
+export function concat(a: Uint8Array, b: Uint8Array): Uint8Array {
   const out = new Uint8Array(a.length + b.length);
   out.set(a, 0);
   out.set(b, a.length);
   return out;
 }
 
-function equal(a: Uint8Array, b: Uint8Array): boolean {
+export function equal(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
   return diff === 0;
 }
 
-function le32(n: number): Uint8Array {
+export function le32(n: number): Uint8Array {
   return new Uint8Array([n & 0xff, (n >>> 8) & 0xff, (n >>> 16) & 0xff, (n >>> 24) & 0xff]);
 }
 
-function readUInt64LE(b: Uint8Array): number {
+export function readUInt64LE(b: Uint8Array): number {
   const lo = (b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24)) >>> 0;
   const hi = (b[4] | (b[5] << 8) | (b[6] << 16) | (b[7] << 24)) >>> 0;
   return hi * 0x1_0000_0000 + lo;
 }
 
-function utf16le(s: string): Uint8Array {
+export function utf16le(s: string): Uint8Array {
   const out = new Uint8Array(s.length * 2);
   for (let i = 0; i < s.length; i++) {
     const c = s.charCodeAt(i);

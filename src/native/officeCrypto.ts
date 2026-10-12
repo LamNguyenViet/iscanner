@@ -1,5 +1,6 @@
 import { createDecipheriv, createHash } from 'crypto';
 import { agileDecrypt, isAgileEncrypted, type AgileDeps, type HashAlg } from '../convert/agileDecrypt';
+import { isStandardEncrypted, standardDecrypt } from '../convert/standardDecrypt';
 import { WordConvertError, WordPasswordError } from '../errors/AppError';
 import { nativeIteratedHash } from './officeCryptoNative';
 
@@ -42,10 +43,11 @@ export function isOfficeEncrypted(bytes: Uint8Array): boolean {
 /**
  * Decrypts a protected Office file. The password is never put into an error.
  * ECMA-376 Agile (modern DOCX) goes through our decryptor with a native spin loop;
- * Standard encryption and .doc RC4 / RC4 CryptoAPI go through officecrypto-tool.
+ * Standard encryption goes through our own decryptor (AES-ECB via CBC); .doc RC4 / RC4 CryptoAPI go through officecrypto-tool.
  */
 export async function decryptOffice(bytes: Uint8Array, password: string): Promise<Uint8Array> {
   if (isAgileEncrypted(bytes)) return agileDecrypt(bytes, password, agileDeps);
+  if (isStandardEncrypted(bytes)) return standardDecrypt(bytes, password, agileDeps);
   // officecrypto-tool throws a generic error on an empty password; treat it as "needs a password".
   if (password === '') throw new WordPasswordError();
   try {
