@@ -93,7 +93,7 @@ test('lists documents with meta', async () => {
 
 test('navigates', async () => {
   await renderHome(true);
-  await fireEvent.press(screen.getByText('Scan tài liệu'));
+  await fireEvent.press(screen.getByText('Scan'));
   expect(mockPush).toHaveBeenCalledWith('/scan');
   await fireEvent.press(screen.getByText('Gộp PDF'));
   expect(mockPush).toHaveBeenCalledWith('/merge');
@@ -182,7 +182,7 @@ describe('English', () => {
     expect(
       await screen.findByText('No documents yet. Scan or merge PDFs to get started.'),
     ).toBeTruthy();
-    expect(screen.getByText('Scan document')).toBeTruthy();
+    expect(screen.getByText('Scan')).toBeTruthy();
     expect(screen.getByText('Merge PDF')).toBeTruthy();
   });
 
@@ -340,7 +340,7 @@ describe('multi-select delete', () => {
     expect(checkbox('A')).toMatchObject({ checked: true });
     expect(checkbox('B')).toMatchObject({ checked: false });
     expect(screen.getByText('Xoá (1)')).toBeTruthy();
-    expect(screen.queryByText('Scan tài liệu')).toBeNull();
+    expect(screen.queryByText('Scan')).toBeNull();
   });
 
   test('tapping rows toggles them instead of opening the viewer', async () => {
@@ -375,7 +375,7 @@ describe('multi-select delete', () => {
     await renderHomeMany(['A']);
     await fireEvent(screen.getByText('A'), 'longPress');
     await pressHeader('headerLeft', /Thoát chế độ chọn/);
-    expect(screen.getByText('Scan tài liệu')).toBeTruthy();
+    expect(screen.getByText('Scan')).toBeTruthy();
     // Options set by a screen persist after it unmounts, so the screen must restore the normal header.
     expect(mockScreenOptions.title).toBe('iScanner');
     expect(mockScreenOptions.headerLeft).toBeUndefined();
@@ -396,7 +396,7 @@ describe('multi-select delete', () => {
       consumed = handler!();
     });
     expect(consumed).toBe(true);
-    expect(screen.getByText('Scan tài liệu')).toBeTruthy();
+    expect(screen.getByText('Scan')).toBeTruthy();
   });
 
   test('deleting two documents asks with the count, deletes them and leaves selection mode', async () => {
@@ -412,7 +412,7 @@ describe('multi-select delete', () => {
     });
     expect((await store.list()).map((d) => d.name)).toEqual(['C']);
     expect(screen.queryByText('A')).toBeNull();
-    expect(screen.getByText('Scan tài liệu')).toBeTruthy();
+    expect(screen.getByText('Scan')).toBeTruthy();
     expect(mockLog.info).toHaveBeenCalledWith('document.deleted', { count: 2 });
   });
 

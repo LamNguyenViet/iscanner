@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { router, Stack, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { usePasswordPrompt } from '../src/components/PasswordPrompt';
 import { useErrorAlert } from '../src/errors/useErrorAlert';
 import { DocumentActions } from '../src/components/DocumentActions';
 import { DocumentRow } from '../src/components/DocumentRow';
@@ -22,10 +23,16 @@ import { useLocale } from '../src/i18n/LocaleContext';
 import { useLibrary } from '../src/library/LibraryContext';
 import type { DocumentMeta } from '../src/library/types';
 import { log } from '../src/logging/logger';
+import { deleteFiles } from '../src/native/deleteFiles';
+import { pickDocuments, WORD_MIME_TYPES } from '../src/native/pickPdfs';
+import { readBytes } from '../src/native/readBytes';
 import { shareDocument } from '../src/native/share';
+import { wordNativeDeps } from '../src/native/wordDeps';
 import type { Palette } from '../src/theme/palette';
 import { useTheme } from '../src/theme/ThemeContext';
 import { sanitizeName } from '../src/utils/format';
+import { useBusy } from '../src/workflows/useBusy';
+import { convertWordFilesToLibrary } from '../src/workflows/wordWorkflow';
 
 export default function Home() {
   const { documents, store, refresh, rename, remove, removeMany } = useLibrary();
@@ -38,6 +45,8 @@ export default function Home() {
   const { colors } = useTheme();
   const { t } = useLocale();
   const showError = useErrorAlert();
+  const busy = useBusy();
+  const { ask, element: passwordPrompt } = usePasswordPrompt();
   const themed = useMemo(() => makeStyles(colors), [colors]);
 
   useFocusEffect(
@@ -95,6 +104,9 @@ export default function Home() {
     setMenuDoc(null);
     if (doc) action(doc);
   };
+
+  // Three buttons share the bar: switch to the short label when the full one is too long, per language.
+  const scanLabel = t.library.scan.length > 12 ? t.library.scanShort : t.library.scan;
 
   const selecting = selected !== null;
   // Only ids still in the list count: a refresh can drop a selected document.
@@ -170,6 +182,27 @@ export default function Home() {
         ),
       };
 
+  const convertWord = async () => {
+    try {
+      const res = await busy.run(async () => {
+        const picked = await pickDocuments(WORD_MIME_TYPES);
+        if (picked.length === 0) return null;
+        return convertWordFilesToLibrary(
+          { ...wordNativeDeps, readBytes, askPassword: ask, library: store, deleteFiles, untitled: t.common.untitled },
+          picked,
+        );
+      });
+      if (!res) return;
+      if (res.saved.length > 0) {
+        await refresh().catch(() => {});
+      }
+      if (res.failed.length > 0) showError(res.failed);
+      if (res.saved.length === 1 && res.failed.length === 0) router.push(`/viewer/${res.saved[0].id}`);
+    } catch (e) {
+      showError(e);
+    }
+  };
+
   const saveRename = () => {
     const doc = renaming;
     if (!doc) return;
@@ -218,10 +251,17 @@ export default function Home() {
         ) : (
           <>
             <Pressable style={[styles.button, themed.button]} onPress={() => router.push('/scan')}>
-              <Text style={[styles.buttonText, themed.buttonText]}>{t.library.scan}</Text>
+              <Text style={[styles.buttonText, themed.buttonText]}>{scanLabel}</Text>
             </Pressable>
             <Pressable style={[styles.button, themed.button]} onPress={() => router.push('/merge')}>
               <Text style={[styles.buttonText, themed.buttonText]}>{t.library.merge}</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.button, themed.button, busy.busy && styles.disabled]}
+              disabled={busy.busy}
+              onPress={convertWord}
+            >
+              <Text style={[styles.buttonText, themed.buttonText]}>{t.library.wordToPdf}</Text>
             </Pressable>
           </>
         )}
@@ -254,6 +294,7 @@ export default function Home() {
           </View>
         </View>
       </Modal>
+      {passwordPrompt}
     </View>
   );
 }
@@ -269,7 +310,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
   },
-  buttonText: { fontSize: 16, fontWeight: '600' },
+  buttonText: { fontSize: 15, fontWeight: '600' },
   backdrop: {
     flex: 1,
     justifyContent: 'center',
