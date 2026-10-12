@@ -1,7 +1,7 @@
 # Progress — Word (DOC/DOCX) to PDF (09/10/2026 sequence 1, part 2 of 4)
 
 - **Spec:** `docs/superpowers/specs/2026-10-09-word-to-pdf-design.md`. It started with a feasibility spike; the user chose on-device conversion, all three entry points, and three library buttons.
-- **Plan:** `docs/superpowers/plans/2026-10-09-word-to-pdf.md`. It had 7 tasks plus a controller-inserted Task 2b, run subagent-driven. Sonnet implemented Tasks 1, 3, 4, 5 and 6, and Opus implemented Task 2b. Reviews ran on Sonnet, or on Opus for Tasks 4 and 5 and the whole branch.
+- **Plan:** `docs/superpowers/plans/2026-10-09-word-to-pdf.md`. It had 7 tasks plus controller-inserted Tasks 2b and 8, run subagent-driven. Sonnet implemented Tasks 1, 3, 4, 5 and 6, and Opus implemented Task 2b. Reviews ran on Sonnet, or on Opus for Tasks 4 and 5 and the whole branch.
 - **Branch:** `feat/word-to-pdf`, from master `ae79791`.
 - **Version:** 1.11.0, versionCode 11, iOS buildNumber "11".
 - **Requirement 09/10 seq 1:** all four parts are done:
@@ -36,7 +36,7 @@
     5. It logs `word.converted { file, kind, ms }`.
 - **`src/native/`:**
   - `printPdf.ts` (expo-print) returns a cache URI.
-  - `officeCrypto.ts`: Agile files go to our decryptor, which uses the native spin loop and quick-crypto AES. Everything else (Standard encryption, `.doc` RC4) goes to officecrypto-tool. A wrong password throws `WordPasswordError()` with no cause.
+  - `officeCrypto.ts`: Agile files go to `agileDecrypt`, Standard-encrypted files go to `standardDecrypt` (both use the native spin loop and quick-crypto AES-CBC), and `.doc` RC4 goes to officecrypto-tool. An empty password on a non-Agile file, or a wrong password, throws `WordPasswordError()` with no cause.
   - `officeCryptoNative.ts`, `wordDeps.ts`, and `pickDocuments(types)` with `WORD_MIME_TYPES`.
 - **`src/workflows/passwordLoop.ts`:** `withPasswordLoop` is the 1.10.0 PDF loop extracted unchanged.
   - Order: known password, then `''` silently, then ask. `wrongBefore` is set only after a typed password fails.
@@ -84,10 +84,10 @@
   - For an encrypted DOCX, the prompt shows the file name. A wrong password shows the inline error. The right password opens the viewer with the heading, bold, italic, list, table and image.
   - In merge, a DOCX plus a `.doc` gave a merged document whose `.doc` page includes emoji. An encrypted PDF that was skipped by Back was dropped silently.
   - Sharing a DOCX from Files reached the confirm view showing 2 pages, and Save opened the viewer.
+- **Final review fix wave + Task 8:** final Opus review found that the silent `''` attempt on non-Agile files (Standard DOCX, `.doc` RC4) raised a convert error so the prompt never showed — fixed in `decryptOffice` (`''` → `WordPasswordError`), spin cap lowered to 1,000,000, printed PDF deleted on post-print failure. On the emulator the Standard DOCX then prompted but failed to decrypt (officecrypto-tool uses `aes-128-ecb` with an empty IV, rejected by quick-crypto) → **Task 8**: our own Standard decryptor `src/convert/standardDecrypt.ts` (native SHA-1 spin 50,000, AES-ECB computed from one AES-CBC call + XOR). Verified on the emulator: Standard DOCX → prompt → converted. Tests 88 suites / 858.
 - **Not checked on device:**
   - iOS: the Swift module compiles only in the CI IPA build.
   - A real-world DOCX made by Word or Google Docs; the test files were generated.
-  - A Standard-encrypted DOCX, which still uses the JS spin loop in officecrypto-tool (50k SHA-1).
   - An encrypted `.doc`.
 
 ## Rulings and deferred items
