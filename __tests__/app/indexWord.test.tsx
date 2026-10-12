@@ -136,3 +136,22 @@ test('cancelling the picker does nothing', async () => {
   expect(mockConvert).not.toHaveBeenCalled();
   expect(alertSpy).not.toHaveBeenCalled();
 });
+
+test('while converting, Scan and Merge are disabled and a spinner shows', async () => {
+  let release!: (v: unknown) => void;
+  mockPick.mockResolvedValue([{ uri: 'u1', name: 'a.docx' }]);
+  mockConvert.mockReturnValue(new Promise((r) => (release = r)));
+  await renderHome();
+  expect(screen.queryByLabelText('Đang chuyển file Word…')).toBeNull();
+  void fireEvent.press(screen.getByText('Word → PDF'));
+  await settle();
+  expect(screen.getByLabelText('Đang chuyển file Word…')).toBeTruthy();
+  await fireEvent.press(screen.getByText('Scan'));
+  await fireEvent.press(screen.getByText('Gộp PDF'));
+  expect(mockPush).not.toHaveBeenCalled();
+  await act(async () => {
+    release({ uri: 'file:///c/1.pdf', pageCount: 1 });
+  });
+  await settle();
+  expect(screen.queryByLabelText('Đang chuyển file Word…')).toBeNull();
+});

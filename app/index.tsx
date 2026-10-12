@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActionSheetIOS,
+  ActivityIndicator,
   Alert,
   BackHandler,
   FlatList,
@@ -53,6 +54,17 @@ export default function Home() {
     useCallback(() => {
       refresh().catch(() => {});
     }, [refresh]),
+  );
+
+  // Home stays mounted under other screens: never navigate from it while it is not focused.
+  const focused = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      focused.current = true;
+      return () => {
+        focused.current = false;
+      };
+    }, []),
   );
 
   const confirmRemove = (doc: DocumentMeta) =>
@@ -197,7 +209,7 @@ export default function Home() {
         await refresh().catch(() => {});
       }
       if (res.failed.length > 0) showError(res.failed);
-      if (res.saved.length === 1 && res.failed.length === 0) router.push(`/viewer/${res.saved[0].id}`);
+      if (res.saved.length === 1 && res.failed.length === 0 && focused.current) router.push(`/viewer/${res.saved[0].id}`);
     } catch (e) {
       showError(e);
     }
@@ -235,6 +247,13 @@ export default function Home() {
           <Text style={[styles.empty, themed.empty]}>{t.library.empty}</Text>
         }
       />
+      {busy.busy && (
+        <ActivityIndicator
+          accessibilityLabel={t.common.convertingWord}
+          style={styles.spinner}
+          color={colors.primary}
+        />
+      )}
       <View testID="actions" style={[styles.actions, { paddingBottom: 16 + insets.bottom }]}>
         {selecting ? (
           <Pressable
@@ -250,10 +269,14 @@ export default function Home() {
           </Pressable>
         ) : (
           <>
-            <Pressable style={[styles.button, themed.button]} onPress={() => router.push('/scan')}>
+            <Pressable style={[styles.button, themed.button, busy.busy && styles.disabled]} disabled={busy.busy} onPress={() => router.push('/scan')}>
               <Text style={[styles.buttonText, themed.buttonText]}>{scanLabel}</Text>
             </Pressable>
-            <Pressable style={[styles.button, themed.button]} onPress={() => router.push('/merge')}>
+            <Pressable
+              style={[styles.button, themed.button, busy.busy && styles.disabled]}
+              disabled={busy.busy}
+              onPress={() => router.push('/merge')}
+            >
               <Text style={[styles.buttonText, themed.buttonText]}>{t.library.merge}</Text>
             </Pressable>
             <Pressable
@@ -320,6 +343,7 @@ const styles = StyleSheet.create({
   dialogActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 24, marginTop: 16 },
   dialogButton: { fontSize: 16, fontWeight: '600' },
   disabled: { opacity: 0.5 },
+  spinner: { margin: 8 },
   headerButton: { fontSize: 20, paddingHorizontal: 4 },
   headerText: { fontSize: 16, fontWeight: '600' },
 });
