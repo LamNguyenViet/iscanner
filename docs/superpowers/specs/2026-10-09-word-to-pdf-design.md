@@ -14,7 +14,7 @@ Users can turn Word documents into PDFs on the device: from the library, inside 
 
 | Topic | Decision |
 |---|---|
-| Conversion | **On device**. Nothing is uploaded. DOCX goes through `mammoth` to HTML, then `expo-print` turns the HTML into a PDF. The PDF keeps the structure: headings, bold/italic, lists, tables and embedded images. It does **not** keep the exact page layout: headers/footers, text boxes, columns, page breaks and fonts are lost. |
+| Conversion | **On device**. Nothing is uploaded. DOCX goes through `mammoth` to HTML, then `expo-print` turns the HTML into a PDF. The PDF keeps the structure: headings, bold/italic, lists, tables and embedded images. It does **not** keep the exact page layout: headers/footers, text boxes, columns, page breaks, fonts and image sizes are lost (images are scaled to the page width). |
 | `.doc` (Word 97–2003) | **Text only.** `word-extractor` produces the body text, each paragraph becomes a `<p>`, and the result is printed. |
 | Encrypted files | `officecrypto-tool` decrypts DOCX (ECMA-376 Agile/Standard, AES) and DOC (RC4 / RC4 CryptoAPI). Hashing must be native for speed: the spike measured 100 000 × SHA-512 at ≈24 s in pure JS, which is too slow. `react-native-quick-crypto` is the primary choice, and a small local Expo module is the fallback (see §5). |
 | Page size | Read from the DOCX (`w:sectPr/w:pgSz`, `w:pgMar`, in twips). Missing or invalid values fall back to A4 with 2 cm margins. `.doc` always uses A4. |
@@ -50,7 +50,7 @@ Out of scope:
   - Steps:
     1. Read the bytes and detect the kind. `null` → `WordConvertError`.
     2. If encrypted, run the **shared ask loop**:
-       - try `''` silently, then a carried password;
+       - try a carried password first, then `''` silently (same order as the 1.10.0 PDF loop — ruling during implementation);
        - then ask, with `wrongBefore` only after a typed password has failed;
        - a skip returns `null`.
     3. Convert to HTML.
